@@ -594,6 +594,7 @@ test("Sheets 응답을 Pocket 화면 뷰모델로 변환한다", () => {
         contract_linked: true,
         customer_status_text: "촬영 일정 확인 중",
         schedule_dates_json: '["2026-09-02","2026-09-04"]',
+        overdue_hold_resolved_at: "2026-09-06T16:00:00Z",
         progress_percent: 35,
         completion_url: "https://example.com/result",
         remarks: "9월 촬영",
@@ -621,6 +622,7 @@ test("Sheets 응답을 Pocket 화면 뷰모델로 변환한다", () => {
   assert.equal(trackedTask.contractLinked, true);
   assert.equal(trackedTask.customerStatus, "촬영 일정 확인 중");
   assert.deepEqual(trackedTask.scheduleDates, ["2026-09-02", "2026-09-04"]);
+  assert.equal(trackedTask.overdueHoldResolvedAt, "2026-09-06T16:00:00Z");
   assert.equal(trackedTask.progressPercent, 35);
   assert.equal(trackedTask.completionUrl, "https://example.com/result");
   assert.equal(trackedTask.remarks, "9월 촬영");

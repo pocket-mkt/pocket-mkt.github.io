@@ -369,13 +369,25 @@ await db.exec('reset role');
 assert(await scalar("select private.effective_task_status('SCHEDULE','NOT_STARTED','2099-01-01','2099-01-05','2098-12-31') as value", "value") === 'NOT_STARTED', 'future scheduled task was not NOT_STARTED');
 assert(await scalar("select private.effective_task_status('SCHEDULE','NOT_STARTED','2099-01-01','2099-01-05','2099-01-03') as value", "value") === 'IN_PROGRESS', 'active scheduled task was not IN_PROGRESS');
 assert(await scalar("select private.effective_task_status('MANUAL','ON_HOLD','2099-01-01','2099-01-05','2099-01-03') as value", "value") === 'ON_HOLD', 'manual status was not preserved in range');
-assert(await scalar("select private.effective_task_status('MANUAL','ON_HOLD','2099-01-01','2099-01-05','2099-01-06') as value", "value") === 'DONE', 'expired manual task was not completed');
-await db.exec(`insert into public.tasks(project_id,phase_code,workstream_code,title,status_code,progress_percent,planned_start_date,due_date,responsible_org_code,reviewer_org_code,visibility_code) values (1,'P0','MARKETING','만료 자동완료 QA','ON_HOLD',35,'2000-01-01','2000-01-02','NS','POCKET','PROJECT_TEAM')`);
+assert(await scalar("select private.effective_task_status('MANUAL','ON_HOLD','2099-01-01','2099-01-05','2099-01-06') as value", "value") === 'ON_HOLD', 'expired manual hold was overwritten');
+assert(await scalar("select private.effective_task_status('MANUAL','IN_PROGRESS','2099-01-01','2099-01-05','2099-01-06') as value", "value") === 'DONE', 'expired non-hold manual task bypassed completion');
+await db.exec(`insert into public.tasks(project_id,phase_code,workstream_code,title,status_code,progress_percent,planned_start_date,due_date,responsible_org_code,reviewer_org_code,visibility_code) values (1,'P0','MARKETING','만료 자동완료 QA','NOT_STARTED',35,'2000-01-01','2000-01-02','NS','POCKET','PROJECT_TEAM')`);
 assert(await scalar("select count(*)::int as count from public.tasks where title='만료 자동완료 QA' and status_code='DONE' and progress_percent=100") === 1, 'expired insert was not persisted as DONE/100');
+const expiredTaskId = await scalar("select id::int as value from public.tasks where title='만료 자동완료 QA'", "value");
+const expiredTaskVersion = await scalar(`select row_version::int as value from public.tasks where id=${expiredTaskId}`, "value");
+await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub', '${userIds.ns}', false);`);
+const heldOverdue = (await db.query(`select public.mutate_task('qa_expired_hold_01','UPDATE',1,${expiredTaskId},${expiredTaskVersion},'{"status_code":"ON_HOLD","progress_percent":0}'::jsonb) as response`)).rows[0].response;
+assert(heldOverdue.ok && heldOverdue.data.item.status_code === 'ON_HOLD' && heldOverdue.data.item.completed_at === null, 'expired task could not be put on hold');
+assert(heldOverdue.data.item.overdue_hold_resolved_at === null, 'live overdue hold was incorrectly frozen');
+const completedAfterHold = (await db.query(`select public.mutate_task('qa_expired_hold_done_01','UPDATE',1,${expiredTaskId},${heldOverdue.data.item.row_version},'{"status_code":"DONE","progress_percent":100}'::jsonb) as response`)).rows[0].response;
+assert(completedAfterHold.ok && completedAfterHold.data.item.status_code === 'DONE' && completedAfterHold.data.item.progress_percent === 100, 'held overdue task did not return to DONE/100');
+assert(Boolean(completedAfterHold.data.item.overdue_hold_resolved_at), 'resolved overdue hold did not freeze its Gantt endpoint');
+await db.exec('reset role');
 console.log(JSON.stringify({
   confirmationDeadlineAndAudit: "pass",
   persistentTaskActivityPagination: "pass",
   scheduledTaskAutomation: "pass",
+  overdueHoldTimeline: "pass",
   taskStatusProgressInvariant: "pass",
   nsAllProjectsAndFutureMemberships: "pass",
   migrations: readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).length,

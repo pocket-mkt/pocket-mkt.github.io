@@ -428,6 +428,7 @@ export function tasksViewModel(envelope) {
         scheduleDates: normalizeScheduleDates(row.schedule_dates_json),
         completedAt: row.completed_at || null,
         completedDate: row.completed_at ? String(row.completed_at).slice(0, 10) : null,
+        overdueHoldResolvedAt: row.overdue_hold_resolved_at || null,
         clientVisible: true,
         categoryCode: String(row.category_code || "").toUpperCase(),
         category: row.category_code ? codeLabel(row.category_code, {}) : "업무",

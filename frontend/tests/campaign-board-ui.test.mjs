@@ -162,6 +162,15 @@ test("간트 포인터는 업무 행과 날짜 열을 동시에 강조한다", (
   assert.match(styleSource, /\.g-c\.is-axis-hover-intersection/);
 });
 
+test("기한이 지난 보류 업무는 간트에 실시간·고정 지연 구간을 구분해 표시한다", () => {
+  assert.match(appSource, /overdueTaskHoldRange\(task, today\)/);
+  assert.match(appSource, /overdue-hold \$\{overdueHold\.live \? "is-live" : "is-frozen"\}/);
+  assert.match(appSource, /기한 초과 보류 \$\{day\.iso\}/);
+  assert.match(appSource, /className="g-overdue-hold-legend"/);
+  assert.match(styleSource, /\.g-c\.overdue-hold\.is-live::before[\s\S]*repeating-linear-gradient/);
+  assert.match(styleSource, /\.g-c\.overdue-hold\.is-frozen::before[\s\S]*background:\s*#687282/);
+});
+
 test("일정표 아래 이슈사항·추가요청 원장은 기준 HTML의 열과 직접 저장 동작을 유지한다", () => {
   assert.match(appSource, /function ProjectIssuePanel/);
   assert.match(appSource, /이슈사항 · 추가요청 기록/);

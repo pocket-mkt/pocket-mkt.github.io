@@ -70,7 +70,7 @@ import { buildTaskTimeline, filterTaskSchedule, groupTaskScheduleByMedia, reorde
 import { buildGanttAxis, ganttMonthClass, ganttTaskLabelWidth, groupGanttTasks, normalizeScheduleDates, paintGanttRectangle, scheduleDateBounds, scheduleDateRange, scheduleDatesEqual, serializeScheduleDates, taskScheduleDates } from "./taskGantt.js";
 import { filterTaskActivities, groupTaskActivitiesByDate, readableTaskActivities, taskActivityDateKey, taskActivitySentence } from "./taskActivity.js";
 import { isNewTask, unacknowledgedNewTasks } from "./taskFreshness.js";
-import { effectiveTaskScheduleState } from "./taskScheduleStatus.js";
+import { effectiveTaskScheduleState, overdueTaskHoldRange } from "./taskScheduleStatus.js";
 import { KPI_CHANNEL_OPTIONS, KPI_PERIOD_OPTIONS, KPI_UNIT_OPTIONS, kpiInitialFields, kpiSubmissionFields } from "./kpiForm.js";
 import { ACCESS_PAGE_OPTIONS, NAVIGATION_PAGE_OPTIONS, PROJECT_NAVIGATION_GROUP, accountSubmission, firstAllowedView, isViewAllowed, normalizeAllowedPages, removeAccessSubmission } from "./accessPermissions.js";
 import { dailyMetricSeries, trackingFunnel, trackingSignals, TRACKING_METRICS } from "./performanceTracking.js";
@@ -1595,18 +1595,23 @@ export function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, 
   }, [statusSummaryTasks]);
   const { done, inProgress, onHold, countable, completed, completionRate } = summary;
   const missingSchedule = useMemo(() => filteredTasks.filter((task) => !task.plannedStartDate || !task.dueDate).length, [filteredTasks]);
+  const today = localDateValue();
+  const overdueHoldRanges = useMemo(() => new Map(filteredTasks
+    .map((task) => [task.id, overdueTaskHoldRange(task, today)])
+    .filter(([, range]) => Boolean(range))), [filteredTasks, today]);
+  const timelineEnd = useMemo(() => [...overdueHoldRanges.values()]
+    .reduce((latest, range) => !latest || range.endDate > latest ? range.endDate : latest, timeline.end), [overdueHoldRanges, timeline.end]);
   const days = useMemo(() => buildGanttAxis(
     timeline.start,
-    timeline.end,
+    timelineEnd,
     Math.ceil(Math.max(0, ganttViewportWidth - ganttLabelWidth) / GANTT_DAY_WIDTH),
-  ), [timeline.start, timeline.end, ganttViewportWidth, ganttLabelWidth]);
+  ), [timeline.start, timelineEnd, ganttViewportWidth, ganttLabelWidth]);
   const months = useMemo(() => days.reduce((items, day) => {
     const last = items[items.length - 1];
     if (last?.key === day.monthKey) last.count += 1;
     else items.push({ key: day.monthKey, tone: day.monthTone, label: `${Number(day.monthKey.slice(0, 4))}년 ${Number(day.monthKey.slice(5, 7))}월`, count: 1 });
     return items;
   }, []), [days]);
-  const today = localDateValue();
   const ganttTrackWidth = days.length * GANTT_DAY_WIDTH;
   const todayIndex = days.findIndex((day) => day.iso === today);
   const ganttGroups = useMemo(() => groupGanttTasks(filteredTasks, taskScheduleMedia), [filteredTasks]);
@@ -2024,6 +2029,7 @@ export function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, 
     const scheduleSet = new Set(scheduleDates);
     const owner = taskResponsibleOrgLabel(task.responsibleOrgCode, project.clientName);
     const newTask = isNewTask(task, freshnessNow);
+    const overdueHold = overdueHoldRanges.get(task.id);
     return <div data-gantt-row-index={rowIndex} className={`g-row${seriesChild ? " is-series-child" : ""}${newTask ? " is-new-task" : ""}${selectedTaskIds.has(task.id) ? " is-selected" : ""}${draggingTaskIds.includes(task.id) ? " is-dragging" : ""}${taskDropIndicator?.taskId === task.id ? ` is-drop-${taskDropIndicator.position}` : ""}`} key={task.id} style={{ "--fill": ganttFillColor(task), "--rail": color }}>
       <div className="g-lbl" title={`${groupLabel} · ${task.title}`} onDragOver={(event) => handleTaskDragOver(event, task.id)} onDrop={(event) => { if (!reorderEnabled) return; event.preventDefault(); void dropTasksAt(task.id); }}>
         {canWrite && <input type="checkbox" checked={selectedTaskIds.has(task.id)} onChange={(event) => selectTask(task.id, event.target.checked, { shiftKey: event.nativeEvent?.shiftKey || event.shiftKey })} aria-label={`${task.title} 선택`} />}
@@ -2041,7 +2047,10 @@ export function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, 
           const active = scheduleSet.has(day.iso);
           const starts = active && !scheduleSet.has(days[dayIndex - 1]?.iso);
           const ends = active && !scheduleSet.has(days[dayIndex + 1]?.iso);
-          return <div key={`${task.id}-${day.iso}`} data-r={task.id} data-ri={rowIndex} data-o={dayIndex} data-gantt-task-id={task.id} data-gantt-task-title={task.title} data-gantt-row-index={rowIndex} data-gantt-day-index={dayIndex} className={`g-c${ganttMonthClass(day)}${day.weekend ? " we" : ""}${day.iso === today ? " ref" : ""}${active ? " on" : ""}${starts ? " rs" : ""}${ends ? " re" : ""}`} title={active ? `${task.title} · ${day.iso}` : day.iso} />;
+          const overdueHeld = Boolean(overdueHold && day.iso >= overdueHold.startDate && day.iso <= overdueHold.endDate);
+          const overdueStarts = overdueHeld && day.iso === overdueHold.startDate;
+          const overdueEnds = overdueHeld && day.iso === overdueHold.endDate;
+          return <div key={`${task.id}-${day.iso}`} data-r={task.id} data-ri={rowIndex} data-o={dayIndex} data-gantt-task-id={task.id} data-gantt-task-title={task.title} data-gantt-row-index={rowIndex} data-gantt-day-index={dayIndex} className={`g-c${ganttMonthClass(day)}${day.weekend ? " we" : ""}${day.iso === today ? " ref" : ""}${active ? " on" : ""}${starts ? " rs" : ""}${ends ? " re" : ""}${overdueHeld ? ` overdue-hold ${overdueHold.live ? "is-live" : "is-frozen"}` : ""}${overdueStarts ? " hold-start" : ""}${overdueEnds ? " hold-end" : ""}`} title={overdueHeld ? `${task.title} · 기한 초과 보류 ${day.iso}${overdueHold.live ? " (진행 중)" : " (종료)"}` : active ? `${task.title} · ${day.iso}` : day.iso} />;
         })}
         {todayIndex >= 0 && <div className="g-refline" style={{ left: `${todayIndex * GANTT_DAY_WIDTH}px` }} />}
       </div>
@@ -2079,7 +2088,7 @@ export function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, 
           </section>;
         })}
       </div></div>}
-      {displayMode === "gantt" && <div className="g-legend">{ganttGroups.map((group) => <span key={group.label}><i style={{ background: ganttCategoryColor(group.label) }} />{group.label}</span>)}<span><i style={{ background: "#8a93a3", opacity: .3 }} />예정 = 옅게</span><span><i className="g-weekend-legend" />주말</span><span><i className="g-today-legend" />기준일 {today}</span></div>}
+      {displayMode === "gantt" && <div className="g-legend">{ganttGroups.map((group) => <span key={group.label}><i style={{ background: ganttCategoryColor(group.label) }} />{group.label}</span>)}<span><i style={{ background: "#8a93a3", opacity: .3 }} />예정 = 옅게</span><span><i className="g-overdue-hold-legend" />기한 초과 보류</span><span><i className="g-weekend-legend" />주말</span><span><i className="g-today-legend" />기준일 {today}</span></div>}
       {editingTaskId && canWrite && <TaskEditModal key={editingTaskId} task={tasks.find((task) => task.id === editingTaskId)} clientName={project.clientName} onUpdate={onUpdate} onClose={() => setEditingTaskId(null)} />}
     </section>
     {!summaryOnly && !activityMode && <ProjectIssuePanel issues={issues} canWrite={canWriteIssues} onCreate={onIssueCreate} onUpdate={onIssueUpdate} onArchive={onIssueArchive} />}

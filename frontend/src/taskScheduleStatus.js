@@ -31,7 +31,9 @@ export function effectiveTaskScheduleState(task = {}, todayValue = new Date()) {
   const storedStatus = String(task.statusCode || task.status_code || "NOT_STARTED").toUpperCase();
   let statusCode = storedStatus === "COMPLETED" ? "DONE" : storedStatus;
 
-  if (dueDate && today > dueDate) statusCode = "DONE";
+  const manualOverdueHold = statusMode === "MANUAL" && ["ON_HOLD", "BLOCKED"].includes(statusCode);
+  if (manualOverdueHold) statusCode = "ON_HOLD";
+  else if (dueDate && today > dueDate) statusCode = "DONE";
   else if (statusMode !== "MANUAL" && startDate && today < startDate) statusCode = "NOT_STARTED";
   else if (statusMode !== "MANUAL" && startDate && today >= startDate && (!dueDate || today <= dueDate)) statusCode = "IN_PROGRESS";
 
@@ -52,6 +54,36 @@ export function effectiveTaskScheduleState(task = {}, todayValue = new Date()) {
     statusMode,
     statusCode,
     progressPercent,
-    automatic: statusMode !== "MANUAL" || Boolean(dueDate && today > dueDate),
+    automatic: statusMode !== "MANUAL",
   };
+}
+
+function addIsoDays(value, amount) {
+  const date = new Date(`${String(value || "").slice(0, 10)}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return "";
+  date.setUTCDate(date.getUTCDate() + amount);
+  return date.toISOString().slice(0, 10);
+}
+
+function koreaTimestampDate(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? "" : koreaDateValue(date);
+}
+
+export function overdueTaskHoldRange(task = {}, todayValue = new Date()) {
+  const today = koreaDateValue(todayValue);
+  const dueDate = String(task.dueDate || task.due_date || "").slice(0, 10);
+  if (!dueDate || today <= dueDate) return null;
+
+  const statusCode = String(task.statusCode || task.status_code || "").toUpperCase();
+  const held = ["ON_HOLD", "BLOCKED"].includes(statusCode);
+  const done = DONE_CODES.has(statusCode);
+  const resolvedAt = task.overdueHoldResolvedAt || task.overdue_hold_resolved_at;
+  const endDate = held ? today : done ? koreaTimestampDate(resolvedAt) : "";
+  const startDate = addIsoDays(dueDate, 1);
+  if (!startDate || !endDate || endDate < startDate) return null;
+  return { startDate, endDate, live: held };
 }
