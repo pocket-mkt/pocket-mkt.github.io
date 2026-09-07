@@ -6,6 +6,7 @@ const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8
 const dashboardSource = readFileSync(new URL("../src/OperationsDashboardView.jsx", import.meta.url), "utf8");
 
 test("통합 관리는 확인 요청 원장과 이동 가능한 평일 마감 업무를 프로젝트별로 보여준다", () => {
+  assert.match(dashboardSource, /import \{[^}]*ArrowRight[^}]*\} from "lucide-react"/);
   assert.match(dashboardSource, /확인 요청 상세/);
   assert.match(dashboardSource, /이슈사항 · 추가요청 기록/);
   assert.match(dashboardSource, /이전 주차/);

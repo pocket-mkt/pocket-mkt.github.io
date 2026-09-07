@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, CalendarDays, CheckCircle2, ChevronDown, CircleDot, Clock3, FolderKanban, Plus, X } from "lucide-react";
+import { AlertCircle, ArrowRight, CalendarDays, CheckCircle2, ChevronDown, CircleDot, Clock3, FolderKanban, Plus, X } from "lucide-react";
 import "./operationsDashboard.css";
 import "./operationsDashboardEnhancements.css";
 
