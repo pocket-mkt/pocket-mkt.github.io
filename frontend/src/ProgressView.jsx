@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, CalendarDays, Check, CheckCircle2, CircleAlert, CircleDot, MessageSquare, Plus, RefreshCw, X } from "lucide-react";
 import { dailyMeetingsViewModel } from "./api/viewModel.js";
 import { isViewAllowed } from "./accessPermissions.js";
@@ -17,6 +17,39 @@ function Empty({ children }) { return <p className="pb-empty">{children}</p>; }
 function Link({ value, children = "자료 열기" }) {
   const href = publicHttpLink(value);
   return href ? <a href={href} target="_blank" rel="noopener noreferrer">{children}<ArrowUpRight size={13} /></a> : null;
+}
+function SignalCard({ label, value, unit = "건", detail, tone = "default", progress }) {
+  const hasProgress = Number.isFinite(progress);
+  return <article className={`pb-signal-card is-${tone}`}>
+    <span className="pb-signal-label">{label}</span>
+    <div className="pb-signal-value"><strong>{value}</strong><em>{unit}</em></div>
+    <small>{detail}</small>
+    {hasProgress && <div className="pb-signal-progress" role="progressbar" aria-label={label} aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}><span style={{ width: `${Math.max(0, Math.min(100, progress))}%` }} /></div>}
+  </article>;
+}
+function DeferredSchedule({ children }) {
+  const hostRef = useRef(null);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (ready) return undefined;
+    const reveal = () => setReady(true);
+    const host = hostRef.current;
+    let observer;
+    let idleId;
+    let fallbackId;
+    if (host && "IntersectionObserver" in window) {
+      observer = new IntersectionObserver(entries => { if (entries.some(entry => entry.isIntersecting)) reveal(); }, { rootMargin: "700px 0px" });
+      observer.observe(host);
+    }
+    if ("requestIdleCallback" in window) idleId = window.requestIdleCallback(reveal, { timeout: 1400 });
+    else fallbackId = window.setTimeout(reveal, 250);
+    return () => {
+      observer?.disconnect();
+      if (idleId !== undefined) window.cancelIdleCallback?.(idleId);
+      if (fallbackId !== undefined) window.clearTimeout(fallbackId);
+    };
+  }, [ready]);
+  return <div ref={hostRef} className="pb-deferred-schedule" aria-busy={!ready}>{ready ? children : <div className="pb-schedule-skeleton"><span /><strong>전체 일정을 준비하고 있습니다.</strong><small>화면의 나머지 내용을 먼저 표시합니다.</small></div>}</div>;
 }
 function TaskColumn({ title, subtitle, items, planned, client, tone = "active" }) {
   const [expanded, setExpanded] = useState(false);
@@ -114,19 +147,21 @@ export function ProgressView({ project, role, taskPage, source, actorName, canWr
     return () => controller.abort();
   }, [source, project.id, canReadMeetings, meetingRetry, taskPage.generatedAt]);
   const latest = latestBriefMeeting(meetingState.items, { client, today: week.today });
-  const tasks = (taskPage.items || []).filter(task => task.statusCode !== "CANCELLED");
+  const { tasks, completedTasks, activeTasks, upcomingTasks, heldTasks, completionRate } = useMemo(() => {
+    const visibleTasks = (taskPage.items || []).filter(task => task.statusCode !== "CANCELLED");
+    const completed = progressed.filter(task => doneStatuses.has(task.statusCode));
+    const active = progressed.filter(task => activeStatuses.has(task.statusCode));
+    const upcoming = planned.filter(task => !doneStatuses.has(task.statusCode) && !activeStatuses.has(task.statusCode) && !["ON_HOLD", "BLOCKED"].includes(task.statusCode));
+    const held = visibleTasks.filter(task => ["ON_HOLD", "BLOCKED"].includes(task.statusCode));
+    return { tasks: visibleTasks, completedTasks: completed, activeTasks: active, upcomingTasks: upcoming, heldTasks: held, completionRate: visibleTasks.length ? Math.round(completed.length / visibleTasks.length * 100) : 0 };
+  }, [taskPage.items, progressed, planned]);
   const issues = taskPage.issues || [];
   const requests = issues.filter(issue => filter === "all" || (filter === "done" ? issue.statusCode === "DONE" : issue.statusCode !== "DONE"));
   const openIssues = issues.filter(issue => issue.statusCode !== "DONE");
-  const completedTasks = progressed.filter(task => doneStatuses.has(task.statusCode));
-  const activeTasks = progressed.filter(task => activeStatuses.has(task.statusCode));
-  const upcomingTasks = planned.filter(task => !doneStatuses.has(task.statusCode) && !activeStatuses.has(task.statusCode) && !["ON_HOLD", "BLOCKED"].includes(task.statusCode));
-  const heldTasks = tasks.filter(task => ["ON_HOLD", "BLOCKED"].includes(task.statusCode));
-  const completionRate = tasks.length ? Math.round(completedTasks.length / tasks.length * 100) : 0;
   const owners = [...new Set([project.clientName || "고객사", "포켓컴퍼니", "NS"])];
   return <div className="progress-brief">
     <div className="pb-heading"><div><small>프로젝트 / 진행상황</small><h1>{project.name}</h1><p>지난 결정부터 현재 이슈, 다음 업무까지 한 화면에서 판단합니다.</p></div><span><CalendarDays size={14} />{shortDate(week.start)} — {shortDate(week.end)} · 이번 주</span></div>
-    <section className="pb-signal-strip" aria-label="프로젝트 핵심 현황"><article className="is-progress"><span>전체 진척률</span><strong>{completionRate}<em>%</em></strong><small>완료 {completedTasks.length} / 전체 {tasks.length}</small><i><b style={{ width: `${completionRate}%` }} /></i></article><article><span>현재 진행</span><strong>{activeTasks.length}<em>건</em></strong><small>검토·수정·고객확인 포함</small></article><article><span>이번 주 예정</span><strong>{upcomingTasks.length}<em>건</em></strong><small>아직 시작하지 않은 업무</small></article><article className={openIssues.length || heldTasks.length ? "is-alert" : ""}><span>확인 필요</span><strong>{openIssues.length + heldTasks.length}<em>건</em></strong><small>이슈 {openIssues.length} · 보류 {heldTasks.length}</small></article></section>
+    <section className="pb-signal-strip" aria-label="프로젝트 핵심 현황"><SignalCard label="전체 진척률" value={completionRate} unit="%" detail={`완료 ${completedTasks.length} / 전체 ${tasks.length}`} tone="progress" progress={completionRate} /><SignalCard label="현재 진행" value={activeTasks.length} detail="검토·수정·고객확인 포함" /><SignalCard label="이번 주 예정" value={upcomingTasks.length} detail="아직 시작하지 않은 업무" /><SignalCard label="확인 필요" value={openIssues.length + heldTasks.length} detail={`이슈 ${openIssues.length} · 보류 ${heldTasks.length}`} tone={openIssues.length || heldTasks.length ? "alert" : "default"} /></section>
     <div className="pb-section-heading"><div><h2>지금 확인할 내용</h2><p>지난 회의의 결정과 아직 닫히지 않은 이슈를 먼저 확인합니다.</p></div></div>
     <div className="pb-priority-grid">
       <section className="pb-panel pb-meeting-panel"><header><div><h2>지난 회의 핵심</h2><small>{latest ? `${shortDate(latest.date)} 기록` : "최근 회의 기준"}</small></div>{canReadMeetings && <button onClick={() => onNavigate("daily")}>회의록 <ArrowUpRight size={13} /></button>}</header><MeetingFocus latest={latest} state={meetingState} client={client} canRead={canReadMeetings} onRetry={() => setMeetingRetry(value => value + 1)} onOpen={() => onNavigate("daily")} /></section>
@@ -139,6 +174,6 @@ export function ProgressView({ project, role, taskPage, source, actorName, canWr
       </section>
     </div>
     <section className="pb-flow-section"><div className="pb-section-heading"><div><h2>업무 흐름</h2><p>완료된 결과, 현재 실행 중인 일, 다음 순서를 분리해 봅니다.</p></div><button type="button" onClick={() => onNavigate("tasks")}>전체 업무 보기 <ArrowUpRight size={13} /></button></div><div className="pb-work-grid"><TaskColumn title="최근 완료" subtitle="결과와 완료 자료" items={completedTasks} tone="done" client={client} /><TaskColumn title="현재 진행" subtitle="실행·검토·보류" items={activeTasks} tone="active" client={client} /><TaskColumn title="이번 주 예정" subtitle={`${shortDate(week.start)}–${shortDate(week.end)}`} items={upcomingTasks} tone="planned" planned client={client} /></div></section>
-    {schedule && <section className="pb-schedule" aria-label="프로젝트 전체 간트 일정"><div className="pb-section-heading pb-schedule-heading"><div><h2>전체 일정 흐름</h2><p>업무별 기간과 겹치는 구간을 간트로 확인합니다.</p></div><button type="button" onClick={() => onNavigate("tasks")}>{canWrite ? "업무에서 수정" : "업무 보기"} <ArrowUpRight size={13} /></button></div>{schedule}</section>}
+    {schedule && <section className="pb-schedule" aria-label="프로젝트 전체 간트 일정"><div className="pb-section-heading pb-schedule-heading"><div><h2>전체 일정 흐름</h2><p>업무별 기간과 겹치는 구간을 간트로 확인합니다.</p></div><button type="button" onClick={() => onNavigate("tasks")}>{canWrite ? "업무에서 수정" : "업무 보기"} <ArrowUpRight size={13} /></button></div><DeferredSchedule>{schedule}</DeferredSchedule></section>}
   </div>;
 }

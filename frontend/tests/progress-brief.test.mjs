@@ -95,6 +95,9 @@ test("실서비스 진행상황은 시안 대신 실제 원장을 읽고 쓰기�
   assert.ok(view.indexOf('className="pb-priority-grid"') < view.indexOf('className="pb-work-grid"'));
   assert.ok(view.indexOf('className="pb-work-grid"') < view.indexOf('className="pb-schedule"'));
   assert.ok(view.includes('className="pb-signal-strip"'));
+  assert.ok(view.includes('className="pb-signal-progress"'));
+  assert.ok(view.includes('role="progressbar"'));
+  assert.ok(view.includes('<DeferredSchedule>{schedule}</DeferredSchedule>'));
   assert.ok(view.includes('title="최근 완료"'));
   assert.ok(view.includes('title="현재 진행"'));
   assert.ok(view.includes('title="이번 주 예정"'));

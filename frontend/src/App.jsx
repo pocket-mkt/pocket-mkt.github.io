@@ -57,7 +57,6 @@ import {
   tasksViewModel,
 } from "./api/index.js";
 import { getNavigationPresentation } from "./navigationState.js";
-import { ProgressView } from "./ProgressView.jsx";
 import {
   DEFAULT_PLAN_VARIANT,
   PLAN_VARIANTS,
@@ -66,7 +65,6 @@ import {
   viewResourceKey,
 } from "./planNavigation.js";
 import { canOperateProjectTasks, taskResponsibleOrgLabel, taskResponsibleOrgOptions, taskStatusMutationFields, taskUpdateInitialFields, taskUpdateSubmissionFields } from "./taskForm.js";
-import { TaskCreateModal } from "./TaskCreateModal.jsx";
 import { acquireBodyScrollLock } from "./bodyScrollLock.js";
 import { disclosureChevronDirection, disclosureChevronGlyph, expandSelectedTaskGroup, toggleCollapsedTaskGroup } from "./taskGroupState.js";
 import { buildTaskTimeline, filterTaskSchedule, groupTaskScheduleByMedia, reorderTaskSchedule, selectTaskRange, taskHiddenFromClient, taskScheduleCategory, taskScheduleMedia, taskScheduleMediaCode, taskScheduleStatusGroup, toggleScheduleStatusFilter, withDisplayDeadline } from "./taskTimeline.js";
@@ -98,6 +96,8 @@ const GANTT_DAY_WIDTH = 24;
 const CredentialLedgerView = lazy(() => import("./CredentialLedgerView.jsx").then((module) => ({ default: module.CredentialLedgerView })));
 const OperationsDashboardView = lazy(() => import("./OperationsDashboardView.jsx").then((module) => ({ default: module.OperationsDashboardView })));
 const WorkspaceDailyMeetingsView = lazy(() => import("./OperationsDashboardView.jsx").then((module) => ({ default: module.WorkspaceDailyMeetingsView })));
+const ProgressView = lazy(() => import("./ProgressView.jsx").then((module) => ({ default: module.ProgressView })));
+const TaskCreateModal = lazy(() => import("./TaskCreateModal.jsx").then((module) => ({ default: module.TaskCreateModal })));
 
 const navIcons = {
   overview: LayoutDashboard,
@@ -706,7 +706,7 @@ function DisclosureChevron({ expanded, className, size = 16 }) {
 
 function CreateRecordModal(props) {
   return ["task", "task-completed"].includes(props.entityType)
-    ? <TaskCreateModal {...props} completed={props.entityType === "task-completed"} />
+    ? <Suspense fallback={<div className="modal-backdrop"><section className="create-modal"><div className="state-panel is-loading"><LoaderCircle className="spin" size={18} /><strong>업무 입력 화면을 준비하고 있습니다.</strong></div></section></div>}><TaskCreateModal {...props} completed={props.entityType === "task-completed"} /></Suspense>
     : <ContentOrFileCreateModal {...props} />;
 }
 
@@ -2491,11 +2491,11 @@ function PlanView({ plan, project, planVariant }) {
 
 export function ProjectProgressView(props) {
   const scheduleProject = { ...props.project, ...(props.taskPage.project || {}) };
-  return <ProgressView {...props} schedule={<TaskScheduleTimeline
+  return <Suspense fallback={<LoadingState label="진행상황 화면을 준비하고 있습니다." />}><ProgressView {...props} schedule={<TaskScheduleTimeline
     key={scheduleProject.id} tasks={props.taskPage.items || []} issues={[]} project={scheduleProject}
     displayMode="gantt" summaryOnly canWrite={false} canWriteIssues={false} canEditProject={false}
     showOwners={props.role !== "client"}
-  />} />;
+  />} /></Suspense>;
 }
 
 function AppContent({ view, planVariant, project, role, search, setView, pageState, taskActivityState, onLoadTaskActivity, onRetry, onCreate, onTaskUpdate, onTaskArchive, onTaskBatchUpdate, onProjectUpdate, onIssueCreate, onIssueUpdate, onIssueArchive, onDailyMeetingSave, onCredentialSave, onCredentialArchive, onCredentialReveal, onKpiSave, onKpiArchive, onAccessSave, onOpenProject, canWrite, source, actorName }) {
