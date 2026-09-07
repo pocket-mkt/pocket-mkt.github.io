@@ -92,7 +92,13 @@ test("실서비스 진행상황은 시안 대신 실제 원장을 읽고 쓰기�
   assert.ok(app.includes('view === "progress") return <ProjectProgressView'));
   assert.ok(app.includes('displayMode="gantt" summaryOnly canWrite={false}'));
   assert.ok(app.includes('showOwners={props.role !== "client"}'));
+  assert.ok(view.indexOf('className="pb-priority-grid"') < view.indexOf('className="pb-work-grid"'));
   assert.ok(view.indexOf('className="pb-work-grid"') < view.indexOf('className="pb-schedule"'));
+  assert.ok(view.includes('className="pb-signal-strip"'));
+  assert.ok(view.includes('title="최근 완료"'));
+  assert.ok(view.includes('title="현재 진행"'));
+  assert.ok(view.includes('title="이번 주 예정"'));
+  assert.ok(view.includes('주요 이슈·확인 안건'));
   const navigation = app.slice(app.indexOf("const navigateToView ="), app.indexOf("const toggleNavigation ="));
   assert.ok(navigation.includes("setView(nextView)"));
   assert.ok(!navigation.includes("nextProject"));
