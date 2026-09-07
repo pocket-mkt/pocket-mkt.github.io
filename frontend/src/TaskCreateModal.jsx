@@ -3,12 +3,12 @@ import { AlertCircle, CalendarDays, Check, ChevronDown, ClipboardCheck, LoaderCi
 import { taskCreateInitialFields, taskCreateSubmissionFields, taskCreateValidationError, taskDateRangeDuration, taskDateRangePreset, taskResponsibleOrgOptions } from "./taskForm.js";
 import "./taskCreateModal.css";
 
-const streams = [["MKT","마케팅"],["DSN","디자인"],["VID","영상"]];
+const streams = [["MARKETING","마케팅"],["DESIGN","디자인"],["VIDEO","영상"]];
 const statuses = [["NOT_STARTED","미착수"],["IN_PROGRESS","진행"],["DONE","완료"],["ON_HOLD","보류"]];
 const presets = [["NEXT_7","오늘부터 7일"],["LAST_7","최근 7일"],["THIS_WEEK","이번주"],["NEXT_WEEK","다음주"],["UNSCHEDULED","일정 미정"]];
 
-function Choices({ label, options, value, onChange }) {
-  return <fieldset className="task-create-choices"><legend>{label}</legend><div>{options.map(([code,name]) => <button type="button" key={code} aria-pressed={value === code} onClick={() => onChange(code)}>{value === code && <Check size={12}/>} {name}</button>)}</div></fieldset>;
+function Choices({ label, options, value, onChange, required = false }) {
+  return <fieldset className={`task-create-choices${required ? " is-required" : ""}`} aria-required={required || undefined}><legend>{label}{required && <small className="task-create-required-badge">필수</small>}</legend><div>{options.map(([code,name]) => <button type="button" key={code} aria-pressed={value === code} onClick={() => onChange(code)}>{value === code && <Check size={12}/>} {name}</button>)}</div></fieldset>;
 }
 
 export function TaskCreateModal({ completed = false, role, clientName, onClose, onSubmit, todayValue }) {
@@ -55,12 +55,12 @@ export function TaskCreateModal({ completed = false, role, clientName, onClose, 
     <section ref={dialog} className="task-create-dialog" role="dialog" aria-modal="true" aria-labelledby="task-create-title" onKeyDown={keyboard}>
       <header><div className="task-create-heading"><span className="task-create-mark"><ClipboardCheck size={21}/></span><div><p>{clientName || "프로젝트"} · 업무 등록</p><h2 id="task-create-title">{title}</h2></div></div><button className="task-create-close" type="button" aria-label="닫기" disabled={saving} onClick={close}><X size={19}/></button></header>
       <form onSubmit={submit} noValidate>
-        <div className="task-create-body"><fieldset className="task-create-fields" disabled={saving}>
+        <div className="task-create-body"><div className="task-create-required-note"><span>필수</span> 표시 항목은 기본 선택값을 확인해 주세요.</div><fieldset className="task-create-fields" disabled={saving}>
           <label className="task-create-field task-create-title-field"><span>어떤 업무인가요? <small>선택</small></span><input name="title" maxLength={200} value={fields.title} onChange={event => setField("title",event.target.value)} placeholder="비워두면 ‘제목 없는 업무’로 등록됩니다"/></label>
           <label className="task-create-field"><span>세부내용 <small>선택</small></span><textarea name="description" rows={2} maxLength={10000} value={fields.description} onChange={event => setField("description",event.target.value)} placeholder="해야 할 일과 완료 기준을 간단히 적어 주세요."/></label>
           <div className="task-create-two-column">
-            <Choices label="업무 분야" options={streams} value={fields.workstream_code} onChange={value => setField("workstream_code",value)}/>
-            <Choices label="담당" options={owners} value={fields.responsible_org_code} onChange={value => setField("responsible_org_code",value)}/>
+            <Choices required label="업무 분야" options={streams} value={fields.workstream_code} onChange={value => setField("workstream_code",value)}/>
+            <Choices required label="담당" options={owners} value={fields.responsible_org_code} onChange={value => setField("responsible_org_code",value)}/>
           </div>
           <section className="task-create-schedule" aria-label="업무 일정 설정">
             <div className="task-create-section-heading"><strong><CalendarDays size={15}/> 업무 일정</strong><span>{duration ? `총 ${duration}일` : "일정 미정"}</span></div>
@@ -71,7 +71,7 @@ export function TaskCreateModal({ completed = false, role, clientName, onClose, 
             })}</div>
             <div className="task-create-two-column"><label className="task-create-field"><span>시작일</span><input name="planned_start_date" type="date" value={fields.planned_start_date} max={fields.due_date || undefined} onChange={event => setField("planned_start_date",event.target.value)}/></label><label className="task-create-field"><span>종료일</span><input name="due_date" type="date" value={fields.due_date} min={fields.planned_start_date || undefined} onChange={event => setField("due_date",event.target.value)}/></label></div>
           </section>
-          <div className="task-create-status-row">{completed ? <div className="task-create-done-note"><Check size={16}/><span>완료 상태로 등록됩니다</span></div> : <Choices label="현재 상태" options={statuses} value={fields.status_code} onChange={value => setFields(current => ({...current,status_code:value,...(value === "DONE" ? {progress_percent:100} : {})}))}/>}<label className="task-create-field task-create-progress"><span>진행률</span><div><input name="progress_percent" type="number" min={0} max={100} readOnly={done} value={fields.progress_percent} onChange={event => setField("progress_percent",event.target.value)}/><span>%</span></div></label></div>
+          <div className="task-create-status-row">{completed ? <div className="task-create-done-note"><Check size={16}/><span>완료 상태로 등록됩니다</span></div> : <Choices required label="현재 상태" options={statuses} value={fields.status_code} onChange={value => setFields(current => ({...current,status_code:value,...(value === "DONE" ? {progress_percent:100} : {})}))}/>}<label className="task-create-field task-create-progress is-required"><span>진행률 <small className="task-create-required-badge">필수</small></span><div><input required name="progress_percent" type="number" min={0} max={100} readOnly={done} value={fields.progress_percent} onChange={event => setField("progress_percent",event.target.value)}/><span>%</span></div></label></div>
           <details className="task-create-details" open={completed || undefined}><summary>추가 설정 <span>단계·우선순위·링크·비고</span><ChevronDown size={15}/></summary><div>
             <div className="task-create-two-column"><label className="task-create-field"><span>단계</span><select name="phase_code" value={fields.phase_code} onChange={event => setField("phase_code",event.target.value)}>{[["P0","구축"],["M1","운영 1개월차"],["M2","운영 2개월차"],["M3","운영 3개월차"]].map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="task-create-field"><span>우선순위</span><select name="priority_code" value={fields.priority_code} onChange={event => setField("priority_code",event.target.value)}>{[["NORMAL","보통"],["HIGH","높음"],["CRITICAL","긴급"]].map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label></div>
             <label className="task-create-field"><span>완료링크 <small>선택 · https://</small></span><input name="completion_url" type="url" value={fields.completion_url} onChange={event => setField("completion_url",event.target.value)} placeholder="결과물을 확인할 수 있는 주소"/></label>

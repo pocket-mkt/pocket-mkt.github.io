@@ -14,6 +14,13 @@ export function taskResponsibleOrgLabel(code, clientName = "고객사") {
 
 const TASK_STATUS_CYCLE = ["NOT_STARTED", "IN_PROGRESS", "DONE", "ON_HOLD"];
 const TASK_OWNER_CYCLE = ["POCKET", "NS", "CLIENT"];
+const TASK_WORKSTREAM_CODES = new Set(["MARKETING", "DESIGN", "VIDEO"]);
+const TASK_WORKSTREAM_ALIASES = Object.freeze({ MKT: "MARKETING", DSN: "DESIGN", VID: "VIDEO" });
+
+export function normalizeTaskWorkstreamCode(value) {
+  const code = String(value || "").trim().toUpperCase();
+  return TASK_WORKSTREAM_ALIASES[code] || code;
+}
 
 export function nextTaskStatusCode(value) {
   const status = String(value || "").toUpperCase();
@@ -82,6 +89,9 @@ export function taskDateRangeDuration(fields = {}) {
 }
 
 export function taskCreateValidationError(fields = {}) {
+  if (!TASK_WORKSTREAM_CODES.has(normalizeTaskWorkstreamCode(fields.workstream_code))) return "업무 분야를 선택해 주세요.";
+  if (!["POCKET", "NS", "CLIENT"].includes(String(fields.responsible_org_code || "").toUpperCase())) return "담당을 선택해 주세요.";
+  if (!TASK_STATUS_CYCLE.includes(String(fields.status_code || "").toUpperCase())) return "현재 상태를 선택해 주세요.";
   if (Boolean(fields.planned_start_date) !== Boolean(fields.due_date)) return "시작일과 종료일을 함께 선택하거나 일정 미정을 선택해 주세요.";
   if (fields.planned_start_date && taskDateRangeDuration(fields) === null) return "종료일은 시작일과 같거나 이후여야 합니다.";
   if (!Number.isFinite(Number(fields.progress_percent)) || Number(fields.progress_percent) < 0 || Number(fields.progress_percent) > 100) return "진행률은 0~100 사이로 입력해 주세요.";
@@ -97,7 +107,7 @@ export function taskCreateInitialFields(role, mode = "default", todayValue = new
   return {
     title: "",
     phase_code: "M1",
-    workstream_code: "MKT",
+    workstream_code: "MARKETING",
     responsible_org_code: responsibleOrgCode,
     status_code: mode === "completed" ? "DONE" : "NOT_STARTED",
     priority_code: "NORMAL",
@@ -113,6 +123,7 @@ export function taskCreateInitialFields(role, mode = "default", todayValue = new
 export function taskCreateSubmissionFields(fields) {
   const cleaned = Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== ""));
   cleaned.title = String(fields.title || "").trim() || "제목 없는 업무";
+  if (cleaned.workstream_code) cleaned.workstream_code = normalizeTaskWorkstreamCode(cleaned.workstream_code);
   if (Object.prototype.hasOwnProperty.call(cleaned, "progress_percent")) cleaned.progress_percent = Number(cleaned.progress_percent);
   if (cleaned.status_code === "DONE") cleaned.progress_percent = 100;
   if (cleaned.planned_start_date && cleaned.due_date) cleaned.schedule_dates_json = serializeScheduleDates(scheduleDateRange(cleaned.planned_start_date, cleaned.due_date));

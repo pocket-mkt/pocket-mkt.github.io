@@ -8,9 +8,17 @@ try {
 
 test("업무 생성 폼은 로그인 조직을 기본 담당으로 사용한다", () => {
   assert.equal(typeof taskForm.taskCreateInitialFields, "function", "업무 생성 폼 모델이 필요합니다");
+  assert.equal(taskForm.taskCreateInitialFields("pocket").workstream_code, "MARKETING");
   assert.equal(taskForm.taskCreateInitialFields("pocket").responsible_org_code, "POCKET");
   assert.equal(taskForm.taskCreateInitialFields("ns").responsible_org_code, "NS");
   assert.equal(taskForm.taskCreateInitialFields("client").responsible_org_code, "CLIENT");
+});
+
+test("업무 생성 분야는 Supabase 원장 표준 코드로 정규화한다", () => {
+  assert.equal(taskForm.taskCreateSubmissionFields({title:"업무",workstream_code:"MKT"}).workstream_code, "MARKETING");
+  assert.equal(taskForm.taskCreateSubmissionFields({title:"업무",workstream_code:"DSN"}).workstream_code, "DESIGN");
+  assert.equal(taskForm.taskCreateSubmissionFields({title:"업무",workstream_code:"VID"}).workstream_code, "VIDEO");
+  assert.match(taskForm.taskCreateValidationError({...taskForm.taskCreateInitialFields("pocket"),workstream_code:"UNKNOWN"}), /업무 분야/);
 });
 
 test("업무 생성 요청은 사용자가 고른 포켓 NS UND 담당을 덮어쓰지 않는다", () => {
