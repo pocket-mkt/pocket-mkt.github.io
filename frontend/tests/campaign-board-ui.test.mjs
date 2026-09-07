@@ -145,6 +145,9 @@ test("업무표와 간트는 다중 이동·Shift 범위 선택·일괄 소프�
   assert.match(appSource, /fields\.category_code = targetMediaCode/);
   assert.match(appSource, /operation: "ARCHIVE"/);
   assert.match(appSource, /className=\{`btn task-bulk-delete/);
+  assert.match(styleSource, /\.task-bulk-toolbar > button[\s\S]*font-family:\s*"Pretendard Variable"/);
+  assert.match(styleSource, /\.task-bulk-toolbar > button\.primary/);
+  assert.match(styleSource, /button:not\(\.primary\):not\(\.task-bulk-delete\)/);
   assert.match(styleSource, /\.task-schedule-row\.is-drop-before/);
   assert.match(styleSource, /\.g-row\.is-drop-after/);
   assert.match(styleSource, /content: "여기에 이동"/);

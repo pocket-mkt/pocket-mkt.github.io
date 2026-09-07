@@ -11434,12 +11434,64 @@ select.g-task-status,
 }
 
 .task-bulk-toolbar > small { color: #b42334; font-size: 10px; }
-.task-bulk-toolbar .task-bulk-delete { color: #b42334; }
-.task-bulk-toolbar .task-bulk-delete:hover,
+.task-bulk-toolbar > button {
+  display: inline-flex;
+  height: 32px;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 12px;
+  border: 1px solid #ccd6e8;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: none;
+  color: #344054;
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -.02em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color .16s ease, background-color .16s ease, color .16s ease;
+}
+
+.task-bulk-toolbar > button:hover:not(:disabled) {
+  border-color: #aebbd1;
+  background: #f8fafc;
+  transform: none;
+}
+
+.task-bulk-toolbar > button:disabled {
+  cursor: wait;
+  opacity: .58;
+}
+
+.task-bulk-toolbar > button.primary,
+.task-bulk-toolbar > button.primary:hover:not(:disabled) {
+  border-color: #17356f;
+  background: #17356f;
+  color: #fff;
+}
+
+.task-bulk-toolbar .task-bulk-delete {
+  border-color: #f1c1c8;
+  background: #fff7f8;
+  color: #b42334;
+}
+
+.task-bulk-toolbar .task-bulk-delete:hover:not(:disabled),
 .task-bulk-toolbar .task-bulk-delete.is-armed {
   border-color: #dc3548;
   background: #fff0f1;
   color: #a41126;
+}
+
+.task-bulk-toolbar > button:not(.primary):not(.task-bulk-delete) {
+  border-color: #d7deea;
+  background: #f8fafc;
+  color: #475467;
 }
 
 @media (max-width: 760px) {
