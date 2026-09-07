@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertCircle, CalendarDays, Check, ChevronDown, ClipboardCheck, LoaderCircle, Plus, X } from "lucide-react";
 import { taskCreateInitialFields, taskCreateSubmissionFields, taskCreateValidationError, taskDateRangeDuration, taskDateRangePreset, taskResponsibleOrgOptions } from "./taskForm.js";
+import { acquireBodyScrollLock } from "./bodyScrollLock.js";
 import "./taskCreateModal.css";
 
 const streams = [["MARKETING","마케팅"],["DESIGN","디자인"],["VIDEO","영상"]];
@@ -28,10 +29,9 @@ export function TaskCreateModal({ completed = false, role, clientName, onClose, 
   const close = () => { if (!saving && !submitLock.current) dirty ? setDiscard(true) : onClose(); };
   useEffect(() => {
     const previousFocus = document.activeElement;
-    const oldOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const releaseScrollLock = acquireBodyScrollLock();
     dialog.current?.querySelector("input")?.focus();
-    return () => { document.body.style.overflow = oldOverflow; if (previousFocus?.isConnected) previousFocus.focus(); };
+    return () => { releaseScrollLock(); if (previousFocus?.isConnected) previousFocus.focus(); };
   }, []);
   const keyboard = event => {
     if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); close(); }

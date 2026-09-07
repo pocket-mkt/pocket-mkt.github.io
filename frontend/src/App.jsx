@@ -64,6 +64,7 @@ import {
 } from "./planNavigation.js";
 import { canOperateProjectTasks, taskResponsibleOrgLabel, taskResponsibleOrgOptions, taskStatusMutationFields, taskUpdateInitialFields, taskUpdateSubmissionFields } from "./taskForm.js";
 import { TaskCreateModal } from "./TaskCreateModal.jsx";
+import { acquireBodyScrollLock } from "./bodyScrollLock.js";
 import { disclosureChevronDirection, disclosureChevronGlyph, expandSelectedTaskGroup, toggleCollapsedTaskGroup } from "./taskGroupState.js";
 import { buildTaskTimeline, filterTaskSchedule, groupTaskScheduleByMedia, reorderTaskSchedule, selectTaskRange, taskHiddenFromClient, taskScheduleCategory, taskScheduleMedia, taskScheduleMediaCode, taskScheduleStatusGroup, toggleScheduleStatusFilter, withDisplayDeadline } from "./taskTimeline.js";
 import { buildGanttAxis, ganttMonthClass, ganttTaskLabelWidth, groupGanttTasks, normalizeScheduleDates, paintGanttRectangle, scheduleDateBounds, scheduleDateRange, scheduleDatesEqual, serializeScheduleDates, taskScheduleDates } from "./taskGantt.js";
@@ -179,10 +180,9 @@ function LoadingState({ label = "프로젝트 데이터를 불러오는 중입�
 function GlobalSaveOverlay({ label }) {
   const overlayRef = useRef(null);
   useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const releaseScrollLock = acquireBodyScrollLock();
     overlayRef.current?.focus();
-    return () => { document.body.style.overflow = previousOverflow; };
+    return releaseScrollLock;
   }, []);
   return <div ref={overlayRef} className="global-save-overlay" role="dialog" aria-modal="true" aria-labelledby="global-save-title" aria-describedby="global-save-description" tabIndex={-1} onKeyDown={(event) => { event.preventDefault(); event.stopPropagation(); }}>
     <div className="global-save-dialog">
