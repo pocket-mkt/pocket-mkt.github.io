@@ -12,14 +12,14 @@ test("통합 관리는 확인 요청 상세와 주간 마감 업무를 프로젝
   assert.match(dashboardSource, /ProjectTabs projects=\{dashboard\.projects\}/);
 });
 
-test("내부 데일리 회의록은 전체 업체와 최근 7일 탐색 및 직접 저장을 제공한다", () => {
+test("내부 데일리 회의록은 전체 업체와 평일 5일 탐색 및 직접 저장을 제공한다", () => {
   assert.match(dashboardSource, /export function WorkspaceDailyMeetingsView/);
   assert.match(dashboardSource, /전체 업체/);
-  assert.match(dashboardSource, /이전 7일/);
+  assert.match(dashboardSource, /이전 5일/);
+  assert.match(dashboardSource, /moveWeekdays/);
   assert.match(dashboardSource, /날짜 선택/);
   assert.match(dashboardSource, /회의내용 추가/);
   assert.match(dashboardSource, /visibility_code: "PROJECT_TEAM"/);
   assert.match(appSource, /WorkspaceDailyMeetingsView dashboard=\{data\}/);
   assert.match(appSource, /projectIdOverride/);
 });
-
