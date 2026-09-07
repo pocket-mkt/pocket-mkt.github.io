@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, ChevronDown, CircleDot, Clock3, FolderKanban, Plus, X } from "lucide-react";
+import { AlertCircle, CalendarDays, CheckCircle2, ChevronDown, CircleDot, Clock3, FolderKanban, Plus, X } from "lucide-react";
 import "./operationsDashboard.css";
 import "./operationsDashboardEnhancements.css";
 
@@ -9,16 +9,42 @@ function localDate(value = new Date()) { const offset = value.getTimezoneOffset(
 function parseDate(value) { const [year, month, day] = String(value || "").split("-").map(Number); return year && month && day ? new Date(year, month - 1, day) : new Date(); }
 function moveDate(value, days) { const next = parseDate(value); next.setDate(next.getDate() + days); return localDate(next); }
 function weekdayDate(value) { let next = String(value || localDate()); while ([0, 6].includes(parseDate(next).getDay())) next = moveDate(next, -1); return next; }
-function moveWeekdays(value, days) { let next = weekdayDate(value); const direction = days < 0 ? -1 : 1; let remaining = Math.abs(days); while (remaining > 0) { next = moveDate(next, direction); if (![0, 6].includes(parseDate(next).getDay())) remaining -= 1; } return next; }
 function shortDate(value) { if (!value) return "일정 없음"; const [, month, day] = String(value).split("-"); return `${Number(month)}.${Number(day)}`; }
 function workWeek(value = localDate()) { const date = parseDate(value); const mondayOffset = (date.getDay() + 6) % 7; const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate() - mondayOffset); return { from: localDate(monday), to: moveDate(localDate(monday), 4) }; }
 function weekLabel(from) { const reference = parseDate(moveDate(from, 3)); const first = new Date(reference.getFullYear(), reference.getMonth(), 1); const firstOffset = (first.getDay() + 6) % 7; const week = Math.floor((reference.getDate() + firstOffset - 1) / 7) + 1; return `${String(reference.getFullYear()).slice(2)}.${String(reference.getMonth() + 1).padStart(2, "0")}월 ${week}주차`; }
-function splitLines(value) { return String(value || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean); }
+function splitLines(value) { return String(value || "").split(/\r?\n/).map((line) => line.trim().replace(/^[•·-]\s*/, "")).filter(Boolean); }
+
+const MISC_PREFIX = "[기타]";
+function isMiscMeeting(meeting) { return String(meeting?.title || "").trim().startsWith(MISC_PREFIX); }
+function visibleMeetingTitle(meeting) { return String(meeting?.title || "회의록").replace(/^\[기타\]\s*/, "") || "회의록"; }
+function meetingWeekItems(meetings, field) {
+  return [...meetings]
+    .sort((left, right) => String(right.date || "").localeCompare(String(left.date || "")))
+    .flatMap((meeting) => splitLines(meeting[field]).map((text, index) => ({
+      id: `${meeting.id}-${field}-${index}`,
+      text,
+      date: meeting.date,
+      clientName: isMiscMeeting(meeting) ? "기타" : meeting.clientName,
+    })));
+}
 
 function StatusBadge({ code }) { const [label, tone] = STATUS[code] || [code || "미착수", "muted"]; return <span className={`ops-status is-${tone}`}>{label}</span>; }
 
 function MeetingBody({ meeting }) {
   return <div className="ops-meeting-body">{[["회의내용", meeting.discussion], ["결정사항", meeting.decisions], ["후속업무", meeting.actionItems]].map(([title, value]) => <section key={title}><h3>{title}</h3>{splitLines(value).length ? <ul>{splitLines(value).map((line, index) => <li key={index}>{line}</li>)}</ul> : <p>기록된 내용이 없습니다.</p>}</section>)}</div>;
+}
+
+function FocusColumn({ title, items, tone, empty }) {
+  const visible = items.slice(0, 5);
+  return <section className={`is-${tone}`}><h3>{title}</h3>{visible.length ? <><ul>{visible.map((item) => <li key={item.id}><span>{item.clientName}</span><strong>{item.text}</strong><time>{item.date ? shortDate(item.date) : "기한 미정"}</time></li>)}</ul>{items.length > visible.length && <p className="ops-focus-more">외 {items.length - visible.length}건 · 아래 상세 기록에서 확인</p>}</> : <p>{empty}</p>}</section>;
+}
+
+function WeeklyMeetingFocus({ meetings, issues, week }) {
+  const decisions = meetingWeekItems(meetings, "decisions");
+  const actions = meetingWeekItems(meetings, "actionItems");
+  const unresolved = [...issues].filter((issue) => !["DONE", "CLOSED", "COMPLETED", "CANCELLED"].includes(issue.statusCode)).sort((left, right) => String(left.dueDate || "9999-12-31").localeCompare(String(right.dueDate || "9999-12-31"))).map((issue) => ({ id: `issue-${issue.id}`, text: issue.body || issue.relatedTask || "내용 미등록", date: issue.dueDate, clientName: issue.clientName }));
+  const columns = [["결정사항", decisions, "decision", "선택한 주에 등록된 결정사항이 없습니다."], ["후속업무", actions, "action", "선택한 주에 등록된 후속업무가 없습니다."], ["계속 확인할 요청", unresolved, "issue", "현재 미해결 확인 요청이 없습니다."]];
+  return <section className="ops-panel ops-meeting-focus" aria-label="주간 핵심 사안"><header><div><span className="ops-panel-icon"><CircleDot size={17} /></span><div><h2>놓치면 안 되는 주간 사안</h2><p>{shortDate(week.from)}–{shortDate(week.to)} 결정·후속업무와 미해결 확인 요청</p></div></div><span className="ops-focus-count">결정 {decisions.length} · 후속 {actions.length} · 확인 {unresolved.length}</span></header><div className="ops-focus-columns">{columns.map(([title, items, tone, empty]) => <FocusColumn title={title} items={items} tone={tone} empty={empty} key={title} />)}</div></section>;
 }
 
 function ProjectTabs({ projects, value, onChange }) {
@@ -35,22 +61,45 @@ function MeetingComposeModal({ projects, initialDate, onClose, onSave }) {
   const [fields, setFields] = useState({ date: initialDate || localDate(), title: "데일리 운영 회의", attendees: "", discussion: "", decisions: "", actionItems: "" });
   const [error, setError] = useState(""); const [saving, setSaving] = useState(false);
   const update = (key) => (event) => setFields((current) => ({ ...current, [key]: event.target.value }));
-  const submit = async (event) => { event.preventDefault(); if (!projectId || !fields.date || !fields.title.trim()) return setError("프로젝트, 날짜, 제목을 확인해 주세요."); setSaving(true); setError(""); try { await onSave(null, { meeting_date: fields.date, title: fields.title.trim(), attendees_text: fields.attendees.trim(), discussion_text: fields.discussion.trim(), decisions_text: fields.decisions.trim(), action_items_text: fields.actionItems.trim(), visibility_code: "PROJECT_TEAM" }, projectId); onClose(); } catch (saveError) { setError(saveError?.message || "회의록을 저장하지 못했습니다."); setSaving(false); } };
+  const submit = async (event) => { event.preventDefault(); if (!projectId || !fields.date || !fields.title.trim()) return setError("프로젝트, 날짜, 제목을 확인해 주세요."); const selectedProject = projects.find((project) => project.id === projectId); const targetProjectId = selectedProject?.saveProjectId || projectId; const savedTitle = selectedProject?.isMisc ? `${MISC_PREFIX} ${fields.title.trim().replace(/^\[기타\]\s*/, "")}` : fields.title.trim(); setSaving(true); setError(""); try { await onSave(null, { meeting_date: fields.date, title: savedTitle, attendees_text: fields.attendees.trim(), discussion_text: fields.discussion.trim(), decisions_text: fields.decisions.trim(), action_items_text: fields.actionItems.trim(), visibility_code: "PROJECT_TEAM" }, targetProjectId); onClose(); } catch (saveError) { setError(saveError?.message || "회의록을 저장하지 못했습니다."); setSaving(false); } };
   return <div className="ops-modal-backdrop" role="presentation" onMouseDown={onClose}><form className="ops-modal ops-compose-modal" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}><header><div><span className="ops-panel-icon"><Clock3 size={17} /></span><div><small>전체 업체 회의 기록</small><h2>회의내용 추가</h2></div></div><button type="button" aria-label="닫기" onClick={onClose}><X size={19} /></button></header><div className="ops-modal-content ops-compose-grid"><label><span>프로젝트</span><select value={projectId} onChange={(event) => setProjectId(event.target.value)}>{projects.map((project) => <option key={project.id} value={project.id}>{project.clientName} · {project.name}</option>)}</select></label><label><span>회의 날짜</span><input type="date" value={fields.date} onChange={update("date")} /></label><label className="is-wide"><span>회의 제목</span><input value={fields.title} onChange={update("title")} /></label><label className="is-wide"><span>참석자</span><input value={fields.attendees} onChange={update("attendees")} placeholder="쉼표로 구분" /></label><label className="is-wide"><span>회의내용</span><textarea rows="4" value={fields.discussion} onChange={update("discussion")} placeholder="논의한 내용을 항목별로 입력" /></label><label><span>결정사항</span><textarea rows="4" value={fields.decisions} onChange={update("decisions")} /></label><label><span>후속업무</span><textarea rows="4" value={fields.actionItems} onChange={update("actionItems")} /></label>{error && <p className="ops-form-error">{error}</p>}</div><footer><button className="ops-secondary" type="button" onClick={onClose}>취소</button><button className="ops-primary" type="submit" disabled={saving}>{saving ? "저장 중" : "회의록 저장"}</button></footer></form></div>;
 }
 
-function DateNavigator({ selectedDate, onChange }) {
+function DateNavigator({ selectedDate, onChange, loading = false }) {
   const activeDate = weekdayDate(selectedDate);
-  const dates = Array.from({ length: 5 }, (_, index) => moveWeekdays(activeDate, index - 4));
+  const week = workWeek(activeDate);
+  const dates = Array.from({ length: 5 }, (_, index) => moveDate(week.from, index));
   const selectDate = (date) => onChange(weekdayDate(date));
-  return <div className="ops-meeting-date-nav"><div className="ops-date-nav-actions"><button type="button" onClick={() => selectDate(moveWeekdays(activeDate, -5))}><ArrowLeft size={14} /> 이전 5일</button><button type="button" onClick={() => selectDate(localDate())}>오늘</button><button type="button" onClick={() => selectDate(moveWeekdays(activeDate, 5))}>다음 5일 <ArrowRight size={14} /></button></div><div className="ops-recent-dates">{dates.map((date) => <button type="button" className={date === activeDate ? "is-active" : ""} key={date} onClick={() => selectDate(date)}><small>{parseDate(date).toLocaleDateString("ko-KR", { weekday: "short" })}</small><strong>{shortDate(date)}</strong></button>)}<label className="ops-calendar-jump"><CalendarDays size={16} /><span>날짜 선택</span><input type="date" value={activeDate} onChange={(event) => event.target.value && selectDate(event.target.value)} /></label></div></div>;
+  return <div className="ops-meeting-date-nav"><div className="ops-date-nav-actions"><div className="ops-week-switcher ops-meeting-week-switcher"><button type="button" aria-label="이전 주차" disabled={loading} onClick={() => selectDate(moveDate(week.from, -7))}>«</button><span><strong>{weekLabel(week.from)}</strong><small>{shortDate(week.from)} – {shortDate(week.to)}</small></span><button type="button" aria-label="다음 주차" disabled={loading} onClick={() => selectDate(moveDate(week.from, 7))}>»</button></div><div className="ops-date-quick-actions"><button type="button" disabled={loading} onClick={() => selectDate(localDate())}>이번 주</button><label className="ops-calendar-jump"><CalendarDays size={17} /><span>날짜 선택</span><input type="date" value={activeDate} disabled={loading} onChange={(event) => event.target.value && selectDate(event.target.value)} /></label></div></div><div className="ops-recent-dates">{dates.map((date) => <button type="button" className={date === activeDate ? "is-active" : ""} aria-pressed={date === activeDate} disabled={loading} key={date} onClick={() => selectDate(date)}><small>{parseDate(date).toLocaleDateString("ko-KR", { weekday: "long" })}</small><strong>{shortDate(date)}</strong></button>)}</div></div>;
 }
 
-export function WorkspaceDailyMeetingsView({ dashboard, canWrite, onSave }) {
+export function WorkspaceDailyMeetingsView({ dashboard, canWrite, onSave, onLoadWeek }) {
   const [selectedDate, setSelectedDate] = useState(() => weekdayDate(localDate())); const [composeOpen, setComposeOpen] = useState(false);
-  const meetings = dashboard.meetings.filter((meeting) => meeting.date === selectedDate);
-  const grouped = dashboard.projects.map((project) => ({ project, meetings: meetings.filter((meeting) => meeting.projectId === project.id) }));
-  return <div className="operations-dashboard ops-workspace-daily"><header className="ops-daily-hero"><div><span className="ops-eyebrow">전체 업체</span><h1>데일리 회의록</h1><p>지난 회의 내용을 날짜별·회사별로 확인하고 오늘 액션을 놓치지 않게 기록합니다.</p></div>{canWrite && <button className="ops-primary" type="button" onClick={() => setComposeOpen(true)}><Plus size={16} /> 회의내용 추가</button>}</header><DateNavigator selectedDate={selectedDate} onChange={setSelectedDate} /><section className="ops-daily-company-list">{grouped.map(({ project, meetings: projectMeetings }) => <article className="ops-panel ops-daily-company" key={project.id}><header><div><span className="ops-company-mark">{project.clientName.slice(0, 1)}</span><div><h2>{project.clientName}</h2><p>{project.name}</p></div></div><b>{projectMeetings.length}건</b></header>{projectMeetings.length ? <div className="ops-meeting-list">{projectMeetings.map((meeting) => <details className="ops-daily-record" key={meeting.id} open><summary><span>{shortDate(meeting.date)}</span><strong>{meeting.title}</strong><small>{meeting.authorName}</small><ChevronDown size={15} /></summary><MeetingBody meeting={meeting} /></details>)}</div> : <div className="ops-inline-empty">선택한 날짜에 등록된 회의가 없습니다.</div>}</article>)}</section>{composeOpen && <MeetingComposeModal projects={dashboard.projects} initialDate={selectedDate} onSave={onSave} onClose={() => setComposeOpen(false)} />}</div>;
+  const [loadedWeek, setLoadedWeek] = useState(null); const [weekLoading, setWeekLoading] = useState(false); const [weekError, setWeekError] = useState("");
+  const selectedWeek = workWeek(selectedDate);
+  const withinInitialRange = selectedWeek.from >= dashboard.range.from && selectedWeek.to <= dashboard.range.to;
+  const meetingSource = withinInitialRange ? dashboard.meetings : loadedWeek?.from === selectedWeek.from ? loadedWeek.meetings : [];
+  const meetings = meetingSource.filter((meeting) => meeting.date === selectedDate);
+  const pocketProject = dashboard.projects.find((project) => project.clientName === "포켓컴퍼니" || project.name.includes("포켓컴퍼니"));
+  const miscProject = pocketProject ? { id: "misc", saveProjectId: pocketProject.id, clientName: "기타", name: "프로젝트 외 공통·별도 안건", isMisc: true } : null;
+  const displayProjects = dashboard.projects.flatMap((project) => project.id === pocketProject?.id && miscProject ? [project, miscProject] : [project]);
+  const composeProjects = miscProject ? displayProjects : dashboard.projects;
+  const grouped = displayProjects.map((project) => ({
+    project,
+    meetings: meetings.filter((meeting) => project.isMisc
+      ? meeting.projectId === project.saveProjectId && isMiscMeeting(meeting)
+      : meeting.projectId === project.id && !(project.id === pocketProject?.id && isMiscMeeting(meeting))),
+  }));
+  const selectDate = async (date) => {
+    const nextDate = weekdayDate(date); const nextWeek = workWeek(nextDate); setSelectedDate(nextDate); setWeekError("");
+    if (nextWeek.from >= dashboard.range.from && nextWeek.to <= dashboard.range.to) return;
+    if (loadedWeek?.from === nextWeek.from) return;
+    setWeekLoading(true);
+    try { const result = await onLoadWeek(nextWeek.from, nextWeek.to); setLoadedWeek({ from: nextWeek.from, meetings: result.meetings || [] }); }
+    catch (error) { setLoadedWeek({ from: nextWeek.from, meetings: [] }); setWeekError(error?.message || "회의록을 불러오지 못했습니다."); }
+    finally { setWeekLoading(false); }
+  };
+  return <div className="operations-dashboard ops-workspace-daily"><header className="ops-daily-hero"><div><span className="ops-eyebrow">전체 업체</span><h1>데일리 회의록</h1><p>기록을 쌓는 데서 끝내지 않고, 이번 주 결정과 후속업무를 계속 확인합니다.</p></div>{canWrite && <button className="ops-primary" type="button" onClick={() => setComposeOpen(true)}><Plus size={16} /> 회의내용 추가</button>}</header><DateNavigator selectedDate={selectedDate} loading={weekLoading} onChange={(date) => void selectDate(date)} />{weekError && <p className="ops-week-error" role="alert">{weekError}</p>}<WeeklyMeetingFocus meetings={meetingSource.filter((meeting) => meeting.date >= selectedWeek.from && meeting.date <= selectedWeek.to)} issues={dashboard.issues || []} week={selectedWeek} />{weekLoading ? <div className="ops-panel ops-inline-empty">선택한 주차의 회의록을 불러오는 중입니다.</div> : <section className="ops-daily-company-list">{grouped.map(({ project, meetings: projectMeetings }) => <article className={`ops-panel ops-daily-company${project.isMisc ? " is-misc" : ""}`} key={project.id}><header><div><span className="ops-company-mark">{project.isMisc ? "+" : project.clientName.slice(0, 1)}</span><div><h2>{project.clientName}</h2><p>{project.name}</p></div></div><b>{projectMeetings.length}건</b></header>{projectMeetings.length ? <div className="ops-meeting-list">{projectMeetings.map((meeting) => <details className="ops-daily-record" key={meeting.id} open><summary><span>{shortDate(meeting.date)}</span><strong>{visibleMeetingTitle(meeting)}</strong><small>{meeting.authorName}</small><ChevronDown size={17} /></summary><MeetingBody meeting={meeting} /></details>)}</div> : <div className="ops-inline-empty">선택한 날짜에 등록된 회의가 없습니다.</div>}</article>)}</section>}{composeOpen && <MeetingComposeModal projects={composeProjects} initialDate={selectedDate} onSave={onSave} onClose={() => setComposeOpen(false)} />}</div>;
 }
 
 export function OperationsDashboardView({ dashboard, onOpenProject, onLoadWeek }) {
