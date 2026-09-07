@@ -245,16 +245,20 @@ export function ProjectSidebar({ project, role, activeView, activePlanVariant, o
     if (role !== "client") return true;
     return isViewAllowed(item.permissionId || item.id, project.allowedPages);
   });
-  const projectNavChildren = visibleNavItems.filter(item => PROJECT_NAVIGATION_GROUP.pageIds.includes(item.id));
+  const workspaceNavItem = visibleNavItems.find((item) => item.id === "portfolio");
+  const projectNavItems = visibleNavItems.filter((item) => item.id !== "portfolio");
+  const projectNavChildren = projectNavItems.filter(item => PROJECT_NAVIGATION_GROUP.pageIds.includes(item.id));
+  const projectContextActive = activeView !== "portfolio";
 
   return (
     <aside id="project-navigation" className={`project-sidebar ${open ? "is-open" : ""}`} aria-label="프로젝트 탐색">
       <div className="sidebar-menu-header">{visible && <strong>프로젝트 · 메뉴</strong>}<button className="sidebar-toggle" type="button" onClick={onToggleNavigation} aria-label={navigation.actionLabel} title={navigation.actionLabel} aria-expanded={visible} aria-controls={navigation.controlledIds}>{visible ? <ChevronLeft size={20} strokeWidth={2.5} /> : <ChevronRight size={20} strokeWidth={2.5} />}</button></div>
       <div id="project-navigation-content" className="sidebar-workspace-content" hidden={!visible}>
       <div className="sidebar-workspace-scroll">
-      <section className="sidebar-projects"><span className="sidebar-section-label">프로젝트</span><nav className="sidebar-company-list" aria-label="프로젝트 회사 선택">{clients.map(client => <button key={client.id} type="button" className={client.id === activeClient ? "is-active" : ""} aria-current={client.id === activeClient ? "true" : undefined} onClick={() => { onSelectClient(client.id); onClose(); }}><span>{client.name}</span>{client.id === activeClient && <Check size={15} strokeWidth={2.5} />}</button>)}</nav><p className="sidebar-current-project" title={project.name}>{project.name}</p></section>
+      {workspaceNavItem && <nav className="sidebar-global-nav" aria-label="전체 프로젝트"><button type="button" className={activeView === "portfolio" ? "is-active" : ""} aria-current={activeView === "portfolio" ? "page" : undefined} onClick={() => { onView("portfolio"); onClose(); }}><FolderOpen size={18} strokeWidth={1.9} /><span><strong>통합 관리</strong><small>전체 프로젝트 운영 현황</small></span><ChevronRight size={15} /></button></nav>}
+      <section className="sidebar-projects"><span className="sidebar-section-label">프로젝트</span><nav className="sidebar-company-list" aria-label="프로젝트 회사 선택">{clients.map(client => { const selected = projectContextActive && client.id === activeClient; return <button key={client.id} type="button" className={selected ? "is-active" : ""} aria-current={selected ? "true" : undefined} onClick={() => { onSelectClient(client.id); onClose(); }}><span>{client.name}</span>{selected && <Check size={15} strokeWidth={2.5} />}</button>; })}</nav>{projectContextActive && <p className="sidebar-current-project" title={project.name}>{project.name}</p>}</section>
       <span className="sidebar-section-label sidebar-pages-label">메뉴</span>
-      <nav className="project-nav">{visibleNavItems.map((item) => {
+      <nav className="project-nav">{projectNavItems.map((item) => {
         const Icon = item.icon;
         if (PROJECT_NAVIGATION_GROUP.pageIds.includes(item.id)) {
           if (item.id !== projectNavChildren[0]?.id) return null;
@@ -388,8 +392,9 @@ function TaskNotificationCenter({ projectId, tasks, loaded, onSelect }) {
   </div>;
 }
 
-export function Topbar({ project, actor, onLogout, live, search, setSearch, notificationTasks, notificationsLoaded, onNotificationSelect }) {
-  return <header className="topbar"><div className="topbar-leading"><div className="topbar-project-context"><small>{project.clientName}</small><strong title={project.name}>{project.name}</strong></div></div><div className="topbar-actions"><label className="global-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="업무 검색" /></label><TaskNotificationCenter projectId={project.id} tasks={notificationTasks} loaded={notificationsLoaded} onSelect={onNotificationSelect} /><ActorBadge actor={actor} onLogout={onLogout} live={live} /></div></header>;
+export function Topbar({ project, activeView, actor, onLogout, live, search, setSearch, notificationTasks, notificationsLoaded, onNotificationSelect }) {
+  const workspaceMode = activeView === "portfolio";
+  return <header className="topbar"><div className="topbar-leading"><div className={`topbar-project-context${workspaceMode ? " is-workspace" : ""}`}><small>{workspaceMode ? "전체 프로젝트" : project.clientName}</small><strong title={workspaceMode ? "통합 관리" : project.name}>{workspaceMode ? "통합 관리" : project.name}</strong></div></div><div className="topbar-actions">{!workspaceMode && <><label className="global-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="업무 검색" /></label><TaskNotificationCenter projectId={project.id} tasks={notificationTasks} loaded={notificationsLoaded} onSelect={onNotificationSelect} /></>}<ActorBadge actor={actor} onLogout={onLogout} live={live} /></div></header>;
 }
 
 function ProjectCreateModal({ onClose, onSubmit }) {
@@ -3676,9 +3681,7 @@ export function App() {
     taskActivityRequestRef.current = null;
     const nextProject = bootstrapState.data.projects[client.projectId];
     const nextView = role !== "client" || isViewAllowed("schedule", nextProject?.allowedPages || []) ? "schedule" : firstAllowedView(nextProject?.allowedPages || []);
-    setView(view === "portfolio" && role !== "client"
-      ? "portfolio"
-      : view === "progress" && (role !== "client" || isViewAllowed("progress", nextProject?.allowedPages || [])) ? "progress" : nextView);
+    setView(view === "progress" && (role !== "client" || isViewAllowed("progress", nextProject?.allowedPages || [])) ? "progress" : nextView);
     setSearch("");
   };
 
@@ -3717,7 +3720,7 @@ export function App() {
     <div className={`app-shell has-sidebar-workspace ${navigation.projectSidebarCollapsed ? "is-sidebar-collapsed" : ""} ${navigation.isDrawerOpen ? "is-navigation-drawer-open" : ""} ${role === "client" ? "is-client-view" : ""} ${sheetSaveLock.visible ? "is-sheet-saving" : ""}`} aria-busy={sheetSaveLock.visible}>
       <ProjectSidebar project={project} clients={bootstrapState.data.clients} activeClient={selectedClient.id} onSelectClient={selectClient} onCreateProject={() => setProjectCreateOpen(true)} onImportQuote={() => setQuoteImportOpen(true)} canCreateProject={live && ["pocket", "ns"].includes(role) && typeof source.createProject === "function"} navigation={navigation} onToggleNavigation={toggleNavigation} role={role} activeView={view} activePlanVariant={authorizedPlanVariant} onView={navigateToView} open={navigation.isDrawerOpen} onClose={() => setSidebarOpen(false)} taskCount={taskCount} visible={navigation.projectSidebarVisible} />
       {navigation.isDrawerOpen && <button className="mobile-overlay" type="button" onClick={() => setSidebarOpen(false)} aria-label="메뉴 닫기" />}
-      <div className="app-main"><Topbar project={project} actor={actor} onLogout={logout} live={live && source.config.loginEnabled} search={search} setSearch={setSearch} notificationTasks={notificationTasks} notificationsLoaded={notificationsLoaded} onNotificationSelect={openNotificationTask} /><main className="content-canvas"><AppContent source={source} actorName={actor?.displayName || actor?.name || (role === "ns" ? "NS" : "포켓컴퍼니")} view={view} planVariant={authorizedPlanVariant} project={project} role={role} search={search} setView={navigateToView} pageState={currentPage} taskActivityState={taskActivityState} onLoadTaskActivity={loadTaskActivity} onRetry={refreshCurrentPage} onCreate={setCreateEntity} onTaskUpdate={updateTask} onTaskArchive={archiveTask} onTaskBatchUpdate={updateTasksBatch} onProjectUpdate={updateProjectStartDate} onIssueCreate={createProjectIssue} onIssueUpdate={updateProjectIssue} onIssueArchive={archiveProjectIssue} onDailyMeetingSave={saveDailyMeeting} onCredentialSave={saveProjectCredential} onCredentialArchive={archiveProjectCredential} onCredentialReveal={revealProjectCredential} onKpiSave={saveKpiDefinition} onKpiArchive={archiveKpiDefinition} onAccessSave={saveAccessAccount} onOpenProject={openDashboardProject} canWrite={(view === "tasks" || view === "schedule" || view === "progress" || view === "daily" || view === "credentials") ? canWriteTasks : canWrite} /></main><footer className="app-footer"><span>{connectionReady ? "데이터 연결됨" : "연결 확인 중"}</span><span>마지막 동기화 {formatSyncTime(sourceState.lastSuccessfulAt)}</span></footer></div>
+      <div className="app-main"><Topbar project={project} activeView={view} actor={actor} onLogout={logout} live={live && source.config.loginEnabled} search={search} setSearch={setSearch} notificationTasks={notificationTasks} notificationsLoaded={notificationsLoaded} onNotificationSelect={openNotificationTask} /><main className="content-canvas"><AppContent source={source} actorName={actor?.displayName || actor?.name || (role === "ns" ? "NS" : "포켓컴퍼니")} view={view} planVariant={authorizedPlanVariant} project={project} role={role} search={search} setView={navigateToView} pageState={currentPage} taskActivityState={taskActivityState} onLoadTaskActivity={loadTaskActivity} onRetry={refreshCurrentPage} onCreate={setCreateEntity} onTaskUpdate={updateTask} onTaskArchive={archiveTask} onTaskBatchUpdate={updateTasksBatch} onProjectUpdate={updateProjectStartDate} onIssueCreate={createProjectIssue} onIssueUpdate={updateProjectIssue} onIssueArchive={archiveProjectIssue} onDailyMeetingSave={saveDailyMeeting} onCredentialSave={saveProjectCredential} onCredentialArchive={archiveProjectCredential} onCredentialReveal={revealProjectCredential} onKpiSave={saveKpiDefinition} onKpiArchive={archiveKpiDefinition} onAccessSave={saveAccessAccount} onOpenProject={openDashboardProject} canWrite={(view === "tasks" || view === "schedule" || view === "progress" || view === "daily" || view === "credentials") ? canWriteTasks : canWrite} /></main><footer className="app-footer"><span>{connectionReady ? "데이터 연결됨" : "연결 확인 중"}</span><span>마지막 동기화 {formatSyncTime(sourceState.lastSuccessfulAt)}</span></footer></div>
       {createEntity && <CreateRecordModal entityType={createEntity} role={role} clientName={project.clientName} onClose={() => setCreateEntity(null)} onSubmit={createRecord} />}
       {projectCreateOpen && <ProjectCreateModal onClose={() => setProjectCreateOpen(false)} onSubmit={createProject} />}
       {quoteImportOpen && <QuoteImportModal currentProject={project} onClose={() => setQuoteImportOpen(false)} onCreateProject={createProject} onAppendProject={appendQuoteToProject} />}

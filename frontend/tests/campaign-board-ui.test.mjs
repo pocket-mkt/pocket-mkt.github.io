@@ -200,6 +200,14 @@ test("프로젝트 선택과 기존 총괄 진입은 일정 권한이 있으면 
   assert.match(appSource, /NAVIGATION_PAGE_OPTIONS\.filter\(\(page\) => page\.id !== "overview"\)/);
 });
 
+test("통합 관리는 프로젝트 선택보다 위의 독립 탐색 항목이며 프로젝트 컨텍스트를 비활성화한다", () => {
+  assert.match(appSource, /className="sidebar-global-nav"/);
+  assert.match(appSource, /const projectNavItems = visibleNavItems\.filter\(\(item\) => item\.id !== "portfolio"\)/);
+  assert.match(appSource, /const projectContextActive = activeView !== "portfolio"/);
+  assert.match(appSource, /workspaceMode \? "전체 프로젝트" : project\.clientName/);
+  assert.doesNotMatch(appSource, /view === "portfolio" && role !== "client"/);
+});
+
 test("일정표 URL로 새로고침해도 서버 초기 업무 코드로 정규화한다", () => {
   assert.match(appSource, /return view === "schedule" \? "tasks" : view/);
   assert.match(appSource, /source\.bootstrap\(\{ initialView: serverInitialView\(view\) \}\)/);

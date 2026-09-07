@@ -51,7 +51,31 @@
 .sidebar-workspace-content { display: flex; flex: 1; flex-direction: column; min-height: 0; }
 .sidebar-workspace-content[hidden] { display: none; }
 .sidebar-workspace-scroll { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
-.sidebar-projects { margin: 0 14px; padding: 20px 0 16px; border-bottom: 1px solid #dde4ef; }
+.sidebar-global-nav { margin: 14px 14px 0; padding-bottom: 14px; border-bottom: 1px solid #d7dfeb; }
+.sidebar-global-nav button {
+  display: grid;
+  width: 100%;
+  min-height: 54px;
+  grid-template-columns: 20px minmax(0, 1fr) 15px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #d7dfeb;
+  border-radius: 11px;
+  background: #fff;
+  color: #43516a;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 5px 14px rgba(23, 47, 104, .05);
+}
+.sidebar-global-nav button > span { display: grid; min-width: 0; gap: 3px; }
+.sidebar-global-nav button strong { font-size: 12px; font-weight: 850; }
+.sidebar-global-nav button small { overflow: hidden; color: #7a879a; font-size: 9px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-global-nav button > svg:last-child { color: #94a0b2; }
+.sidebar-global-nav button:hover { border-color: #aebddb; background: #f4f7fd; color: #172f68; }
+.sidebar-global-nav button.is-active { border-color: #172f68; background: #172f68; color: #fff; box-shadow: 0 8px 18px rgba(23, 47, 104, .18); }
+.sidebar-global-nav button.is-active small, .sidebar-global-nav button.is-active > svg:last-child { color: #cbd7f2; }
+.sidebar-projects { margin: 0 14px; padding: 16px 0; border-bottom: 1px solid #dde4ef; }
 .sidebar-section-label { display: block; padding: 0 8px; color: #738096; font-size: 10px; font-weight: 750; }
 .sidebar-company-list { display: grid; gap: 5px; margin-top: 10px; }
 .sidebar-company-list button {
@@ -91,6 +115,8 @@
 .topbar-project-context { display: grid; min-width: 0; gap: 4px; }
 .topbar-project-context small { color: #7a879a; font-size: 10px; }
 .topbar-project-context strong { overflow: hidden; color: #182b4c; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.topbar-project-context.is-workspace small { color: #315ca8; }
+.topbar-project-context.is-workspace strong { color: #172f68; }
 @media (max-width: 900px) {
   .app-shell.has-sidebar-workspace { grid-template-columns: 56px minmax(0, 1fr); }
   .app-shell.has-sidebar-workspace.is-navigation-drawer-open > .project-sidebar { position: fixed; inset: 0 auto 0 0; z-index: 82; width: min(280px, calc(100vw - 56px)); }
