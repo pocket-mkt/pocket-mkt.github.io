@@ -97,6 +97,7 @@ const SAVE_OVERLAY_COALESCE_MS = 250;
 const GANTT_DAY_WIDTH = 24;
 const CredentialLedgerView = lazy(() => import("./CredentialLedgerView.jsx").then((module) => ({ default: module.CredentialLedgerView })));
 const OperationsDashboardView = lazy(() => import("./OperationsDashboardView.jsx").then((module) => ({ default: module.OperationsDashboardView })));
+const WorkspaceDailyMeetingsView = lazy(() => import("./OperationsDashboardView.jsx").then((module) => ({ default: module.WorkspaceDailyMeetingsView })));
 
 const navIcons = {
   overview: LayoutDashboard,
@@ -2127,6 +2128,15 @@ function localDateValue() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
+function operationsDashboardRange() {
+  const today = new Date();
+  const mondayOffset = (today.getDay() + 6) % 7;
+  const previousMonday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - mondayOffset - 7);
+  const currentSunday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - mondayOffset + 6);
+  const value = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  return { startDate: value(previousMonday), endDate: value(currentSunday) };
+}
+
 function DailyMeetingModal({ meeting, role, onClose, onSave }) {
   const [fields, setFields] = useState(() => ({
     meeting_date: meeting?.date || localDateValue(),
@@ -2491,7 +2501,9 @@ function AppContent({ view, planVariant, project, role, search, setView, pageSta
   if (view === "progress") return <ProjectProgressView key={project.id} project={project} role={role} taskPage={data} source={source} actorName={actorName} canWrite={canWrite} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onNavigate={setView} />;
   if (view === "plan") return <PlanView plan={data} project={project} planVariant={planVariant} />;
   if (view === "tasks" || view === "schedule") return <TasksView role={role} query={search} taskPage={{ ...data, project: { id: project.id, clientId: project.clientId, clientName: project.clientName, name: project.name, permissionCode: project.permissionCode, allowedPages: project.allowedPages, phaseCode: project.phaseCode, phase: project.phase, startDate: project.startDate, endDate: project.endDate, rowVersion: project.rowVersion, ...(data.project || {}) } }} activityState={taskActivityState} onLoadActivity={onLoadTaskActivity} onCreate={onCreate} onUpdate={onTaskUpdate} onArchive={onTaskArchive} onBatchUpdate={onTaskBatchUpdate} onProjectUpdate={onProjectUpdate} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} canWrite={canWrite} initialSection="schedule" />;
-  if (view === "daily") return <DailyMeetingsView role={role} meetings={data.items || []} canWrite={canWrite && role !== "client"} onSave={onDailyMeetingSave} />;
+  if (view === "daily") return role !== "client" && Array.isArray(data.projects)
+    ? <Suspense fallback={<LoadingState label="전체 업체 회의록을 준비하고 있습니다." />}><WorkspaceDailyMeetingsView dashboard={data} canWrite={canWrite} onSave={onDailyMeetingSave} /></Suspense>
+    : <DailyMeetingsView role={role} meetings={data.items || []} canWrite={canWrite && role !== "client"} onSave={onDailyMeetingSave} />;
   if (view === "credentials") return role !== "client" ? <Suspense fallback={<LoadingState label="아이디 관리대장 화면을 준비하고 있습니다." />}><CredentialLedgerView key={project.id} project={project} credentials={data.items || []} query={search} canWrite={canWrite} onSave={onCredentialSave} onArchive={onCredentialArchive} onReveal={onCredentialReveal} /></Suspense> : <ErrorState error={new Error("내부 운영 계정만 접근할 수 있습니다.")} />;
   if (view === "content") return <ContentView role={role} query={search} contents={data.items || []} onCreate={onCreate} canWrite={canWrite} />;
   if (view === "tracking") return <TrackingView tracking={data} />;
@@ -2606,7 +2618,7 @@ export function App() {
   });
   const authorizedPlanVariant = planVariant;
   const activeResource = viewResourceKey(view, authorizedPlanVariant);
-  const resourceProjectId = view === "portfolio" ? "workspace" : activeProjectId;
+  const resourceProjectId = view === "portfolio" || (view === "daily" && actorRole !== "client") ? "workspace" : activeProjectId;
   pageRefreshKeyRef.current = pageRefreshKey;
 
   const runSheetWrite = useCallback(async (label, operation) => {
@@ -2844,7 +2856,7 @@ export function App() {
     let request = resourceRequestRef.current.get(requestKey);
     if (!request) {
       const fallback = () => {
-        if (view === "portfolio") return source.operationsDashboard(params).then(operationsDashboardViewModel);
+        if (view === "portfolio" || (view === "daily" && actorRole !== "client")) return source.operationsDashboard({ ...params, ...operationsDashboardRange() }).then(operationsDashboardViewModel);
         if (view === "plan") return source.plan({ ...params, planType: PLAN_VARIANTS[authorizedPlanVariant].apiValue }).then(planViewModel);
         if (view === "tasks" || view === "schedule" || view === "progress") return source.tasks(params).then(tasksViewModel);
         if (view === "daily") return source.dailyMeetings({ ...params, limit: 100 }).then(dailyMeetingsViewModel);
@@ -2880,7 +2892,7 @@ export function App() {
       if (!cachedState && !visibleState) setResourceState({ status: "error", data: null, error, resource: activeResource, projectId: resourceProjectId, refreshKey: pageRefreshKey });
     });
     return () => { active = false; };
-  }, [source, activeProjectId, resourceProjectId, view, authorizedPlanVariant, activeResource, bootstrapState.status, bootstrapState.data, pageRefreshKey]);
+  }, [source, activeProjectId, resourceProjectId, view, actorRole, authorizedPlanVariant, activeResource, bootstrapState.status, bootstrapState.data, pageRefreshKey]);
 
   useEffect(() => {
     const nextHash = viewLocationHash(view, planVariant);
@@ -3431,7 +3443,7 @@ export function App() {
     invalidateResource(activeProjectId, "tasks");
   };
 
-  const saveDailyMeeting = async (meeting, fields) => {
+  const saveDailyMeeting = async (meeting, fields, projectIdOverride = null) => {
     if (!canWriteTasks || role === "client") {
       const readOnlyError = new Error("이 계정은 회의록을 저장할 권한이 없습니다.");
       readOnlyError.code = "forbidden";
@@ -3448,14 +3460,16 @@ export function App() {
       operation: "CREATE",
       fields,
     };
+    const meetingProjectId = projectIdOverride || activeProjectId;
+    const dailyResourceProjectId = view === "daily" && role !== "client" ? "workspace" : meetingProjectId;
     try {
-      await mutateWithSaveLock("회의록을 원장에 기록하고 있습니다.", { projectId: activeProjectId, mutation });
+      await mutateWithSaveLock("회의록을 원장에 기록하고 있습니다.", { projectId: meetingProjectId, mutation });
     } catch (error) {
-      if (error.code === "conflict") invalidateResource(activeProjectId, "daily");
+      if (error.code === "conflict") invalidateResource(dailyResourceProjectId, "daily");
       throw error;
     }
     setSaveNotice(meeting ? "회의록을 수정했습니다." : "회의록을 저장했습니다.");
-    invalidateResource(activeProjectId, "daily");
+    invalidateResource(dailyResourceProjectId, "daily");
   };
 
   const saveProjectCredential = async (credential, fields) => {
