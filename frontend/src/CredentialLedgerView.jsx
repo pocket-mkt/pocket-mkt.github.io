@@ -126,7 +126,6 @@ export function CredentialLedgerView({ project, credentials = [], query = "", ca
     setError(null);
   }, [project.id]);
 
-  useEffect(() => () => setRevealed({}), []);
   useEffect(() => {
     if (!notice) return undefined;
     const timer = window.setTimeout(() => setNotice(""), 2500);
