@@ -361,6 +361,7 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
     previewBootstrap: sheets.previewBootstrap,
     previewOverview: sheets.previewOverview,
     bootstrap,
+    operationsDashboard: (params = {}) => core.operationsDashboard(params),
     workspace: legacyRead("workspace"),
     overview,
     plan,

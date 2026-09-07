@@ -4,6 +4,7 @@ import { createSessionStore } from "./session.js";
 
 export const READ_ACTIONS = Object.freeze({
   bootstrap: "bootstrap",
+  operationsDashboard: "operations_dashboard",
   workspace: "project_snapshot",
   overview: "project_overview",
   plan: "project_plan",
@@ -269,6 +270,7 @@ export function createHubApi(config, options = {}) {
     logout: () => sessionStore.clear(),
     getSession: () => sessionStore.read(),
     bootstrap: (params) => read("bootstrap", params),
+    operationsDashboard: (params) => read("operationsDashboard", params),
     workspace: (params) => read("workspace", params),
     overview: (params) => read("overview", params),
     plan: (params) => read("plan", params),

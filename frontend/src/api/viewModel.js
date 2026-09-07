@@ -519,6 +519,52 @@ export function dailyMeetingsViewModel(envelope) {
   };
 }
 
+export function operationsDashboardViewModel(envelope) {
+  const data = envelope?.data || {};
+  return {
+    range: {
+      from: data.range?.from ? String(data.range.from).slice(0, 10) : null,
+      to: data.range?.to ? String(data.range.to).slice(0, 10) : null,
+    },
+    projects: (data.projects || []).map((row) => ({
+      id: String(row.project_id),
+      clientId: String(row.client_id),
+      clientName: row.client_name || "고객사",
+      name: row.project_name || "프로젝트",
+      statusCode: String(row.status_code || "ACTIVE").toUpperCase(),
+      phaseCode: String(row.phase_code || "").toUpperCase(),
+      startDate: row.start_date ? String(row.start_date).slice(0, 10) : null,
+      endDate: row.end_date ? String(row.end_date).slice(0, 10) : null,
+      totalTasks: Number(row.total_tasks || 0),
+      doneTasks: Number(row.done_tasks || 0),
+      inProgressTasks: Number(row.in_progress_tasks || 0),
+      onHoldTasks: Number(row.on_hold_tasks || 0),
+      overdueTasks: Number(row.overdue_tasks || 0),
+      nextDueDate: row.next_due_date ? String(row.next_due_date).slice(0, 10) : null,
+    })),
+    weeklyTasks: (data.weekly_tasks || []).map((row) => ({
+      id: String(row.task_id), projectId: String(row.project_id), clientName: row.client_name || "고객사", projectName: row.project_name || "프로젝트",
+      title: row.title || "제목 없는 업무", description: row.description || "", workstreamCode: String(row.workstream_code || "").toUpperCase(),
+      responsibleOrgCode: String(row.responsible_org_code || "").toUpperCase(), statusCode: String(row.status_code || "NOT_STARTED").toUpperCase(),
+      progressPercent: Number(row.progress_percent || 0), plannedStartDate: row.planned_start_date ? String(row.planned_start_date).slice(0, 10) : null,
+      dueDate: row.due_date ? String(row.due_date).slice(0, 10) : null, updatedAt: row.updated_at || null,
+    })),
+    issues: (data.issues || []).map((row) => ({
+      id: String(row.issue_id), projectId: String(row.project_id), clientName: row.client_name || "고객사", projectName: row.project_name || "프로젝트",
+      date: row.issue_date ? String(row.issue_date).slice(0, 10) : null, dueDate: row.due_date ? String(row.due_date).slice(0, 10) : null,
+      kind: row.kind_text || "확인 요청", relatedTask: row.related_task_text || "", body: row.body_text || "", owner: row.owner_text || "미지정",
+      statusCode: String(row.status_code || "IN_PROGRESS").toUpperCase(), updatedAt: row.updated_at || null,
+    })),
+    meetings: (data.meetings || []).map((row) => ({
+      id: String(row.meeting_id), projectId: String(row.project_id), clientName: row.client_name || "고객사", projectName: row.project_name || "프로젝트",
+      date: row.meeting_date ? String(row.meeting_date).slice(0, 10) : null, title: row.title || "회의록", attendees: row.attendees_text || "",
+      discussion: row.discussion_text || "", decisions: row.decisions_text || "", actionItems: row.action_items_text || "", authorName: row.author_name || "확인되지 않은 사용자",
+      updatedAt: row.updated_at || null,
+    })),
+    generatedAt: data.generated_at || envelope?.generatedAt || null,
+  };
+}
+
 export function credentialsViewModel(envelope) {
   const data = envelope?.data || {};
   return {

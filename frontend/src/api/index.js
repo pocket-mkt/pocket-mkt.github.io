@@ -13,6 +13,7 @@ export {
   dailyMeetingsViewModel,
   filesViewModel,
   overviewViewModel,
+  operationsDashboardViewModel,
   planViewModel,
   performanceTrackingViewModel,
   performanceViewModel,

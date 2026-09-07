@@ -24,7 +24,7 @@ async function expectDenied(sql, label) {
     await db.exec(sql);
   } catch (error) {
     const message = String(error?.message || error);
-    assert(/permission denied|row-level security|immutable_column|forbidden_project|project_create_forbidden|quote_import_forbidden/i.test(message), `${label}: unexpected error ${message}`);
+    assert(/permission denied|row-level security|immutable_column|\bforbidden\b|forbidden_project|project_create_forbidden|quote_import_forbidden/i.test(message), `${label}: unexpected error ${message}`);
     return;
   }
   throw new Error(`${label}: operation unexpectedly succeeded`);
@@ -125,7 +125,14 @@ assert(await scalar("select count(*)::int as count from information_schema.role_
 assert(await scalar("select count(*)::int as count from information_schema.routine_privileges where grantee='PUBLIC' and specific_schema in ('public','private')") === 0, "PUBLIC function execute grants found");
 assert(await scalar("select count(*)::int as count from pg_constraint c join pg_class t on t.oid=c.conrelid join pg_namespace n on n.oid=t.relnamespace where n.nspname='public' and c.contype='f' and not exists (select 1 from pg_index i where i.indrelid=c.conrelid and c.conkey[1]=any(i.indkey))") === 0, "unindexed foreign key found");
 
+await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub', '${userIds.manager}', false);`);
+const { rows: [operationsDashboard] } = await db.query("select public.read_operations_dashboard(null, null) as response");
+assert(Array.isArray(operationsDashboard.response?.projects) && operationsDashboard.response.projects.length === 2, "operations dashboard project aggregation mismatch");
+assert(Array.isArray(operationsDashboard.response?.weekly_tasks), "operations dashboard weekly task contract mismatch");
+await db.exec("reset role");
+
 await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub', '${userIds.client}', false);`);
+await expectDenied("select public.read_operations_dashboard(null, null)", "client operations dashboard read");
 await expectDenied("select public.read_tasks(1, false)", "client tasks page permission");
 await expectDenied("select public.read_project_credentials(1)", "client credential ledger read");
 await expectDenied("select public.reveal_project_credential(1, 1)", "client credential reveal");
@@ -471,6 +478,7 @@ console.log(JSON.stringify({
   projectCredentialVault: "pass",
   taskStatusProgressInvariant: "pass",
   nsAllProjectsAndFutureMemberships: "pass",
+  operationsDashboardBoundary: "pass",
   migrations: readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).length,
   tables: 24,
   rlsTables: 24,

@@ -48,6 +48,7 @@ import {
   dailyMeetingsViewModel,
   createHubDataSource,
   overviewViewModel,
+  operationsDashboardViewModel,
   planViewModel,
   performanceTrackingViewModel,
   performanceViewModel,
@@ -95,9 +96,11 @@ const SAVE_OVERLAY_MIN_MS = 500;
 const SAVE_OVERLAY_COALESCE_MS = 250;
 const GANTT_DAY_WIDTH = 24;
 const CredentialLedgerView = lazy(() => import("./CredentialLedgerView.jsx").then((module) => ({ default: module.CredentialLedgerView })));
+const OperationsDashboardView = lazy(() => import("./OperationsDashboardView.jsx").then((module) => ({ default: module.OperationsDashboardView })));
 
 const navIcons = {
   overview: LayoutDashboard,
+  portfolio: FolderOpen,
   plan: BookOpenText,
   tasks: ClipboardCheck,
   schedule: CalendarDays,
@@ -2480,10 +2483,11 @@ export function ProjectProgressView(props) {
   />} />;
 }
 
-function AppContent({ view, planVariant, project, role, search, setView, pageState, taskActivityState, onLoadTaskActivity, onRetry, onCreate, onTaskUpdate, onTaskArchive, onTaskBatchUpdate, onProjectUpdate, onIssueCreate, onIssueUpdate, onIssueArchive, onDailyMeetingSave, onCredentialSave, onCredentialArchive, onCredentialReveal, onKpiSave, onKpiArchive, onAccessSave, canWrite, source, actorName }) {
+function AppContent({ view, planVariant, project, role, search, setView, pageState, taskActivityState, onLoadTaskActivity, onRetry, onCreate, onTaskUpdate, onTaskArchive, onTaskBatchUpdate, onProjectUpdate, onIssueCreate, onIssueUpdate, onIssueArchive, onDailyMeetingSave, onCredentialSave, onCredentialArchive, onCredentialReveal, onKpiSave, onKpiArchive, onAccessSave, onOpenProject, canWrite, source, actorName }) {
   if (pageState.status === "loading" && !pageState.data) return <LoadingState />;
   if (pageState.status === "error" && !pageState.data) return <ErrorState error={pageState.error} onRetry={onRetry} />;
   const data = pageState.data || {};
+  if (view === "portfolio") return role !== "client" ? <Suspense fallback={<LoadingState label="통합 관리 화면을 준비하고 있습니다." />}><OperationsDashboardView dashboard={data} onOpenProject={onOpenProject} /></Suspense> : <ErrorState error={new Error("내부 운영 계정만 접근할 수 있습니다.")} />;
   if (view === "progress") return <ProjectProgressView key={project.id} project={project} role={role} taskPage={data} source={source} actorName={actorName} canWrite={canWrite} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onNavigate={setView} />;
   if (view === "plan") return <PlanView plan={data} project={project} planVariant={planVariant} />;
   if (view === "tasks" || view === "schedule") return <TasksView role={role} query={search} taskPage={{ ...data, project: { id: project.id, clientId: project.clientId, clientName: project.clientName, name: project.name, permissionCode: project.permissionCode, allowedPages: project.allowedPages, phaseCode: project.phaseCode, phase: project.phase, startDate: project.startDate, endDate: project.endDate, rowVersion: project.rowVersion, ...(data.project || {}) } }} activityState={taskActivityState} onLoadActivity={onLoadTaskActivity} onCreate={onCreate} onUpdate={onTaskUpdate} onArchive={onTaskArchive} onBatchUpdate={onTaskBatchUpdate} onProjectUpdate={onProjectUpdate} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} canWrite={canWrite} initialSection="schedule" />;
@@ -2602,6 +2606,7 @@ export function App() {
   });
   const authorizedPlanVariant = planVariant;
   const activeResource = viewResourceKey(view, authorizedPlanVariant);
+  const resourceProjectId = view === "portfolio" ? "workspace" : activeProjectId;
   pageRefreshKeyRef.current = pageRefreshKey;
 
   const runSheetWrite = useCallback(async (label, operation) => {
@@ -2816,14 +2821,14 @@ export function App() {
 
   useEffect(() => {
     if (!source || !activeProjectId || view === "overview" || bootstrapState.status !== "ready") return undefined;
-    const cacheKey = `${activeProjectId}:${activeResource}`;
+    const cacheKey = `${resourceProjectId}:${activeResource}`;
     let cached = resourceCacheRef.current.get(cacheKey) || null;
     if (!cached && PERSISTED_RESOURCES.has(activeResource)) {
       cached = readResourceSessionCache(source.getSession(), cacheKey);
       if (cached) resourceCacheRef.current.set(cacheKey, cached);
     }
     const cachedState = cached?.state || null;
-    const visibleState = resourceState.resource === activeResource && resourceState.projectId === activeProjectId && resourceState.data
+    const visibleState = resourceState.resource === activeResource && resourceState.projectId === resourceProjectId && resourceState.data
       ? resourceState
       : null;
     const cacheIsFresh = Boolean(
@@ -2832,13 +2837,14 @@ export function App() {
     );
     if (cachedState) setResourceState(cachedState);
     if (cacheIsFresh) return undefined;
-    if (!cachedState && !visibleState) setResourceState({ status: "loading", data: null, error: null, resource: activeResource, projectId: activeProjectId, refreshKey: pageRefreshKey });
+    if (!cachedState && !visibleState) setResourceState({ status: "loading", data: null, error: null, resource: activeResource, projectId: resourceProjectId, refreshKey: pageRefreshKey });
     const params = { projectId: activeProjectId, limit: 200, ...(view === "progress" ? { permissionPage: "progress" } : {}) };
     const requestKey = `${cacheKey}:${pageRefreshKey}`;
     const requestEpoch = resourceCacheEpochRef.current;
     let request = resourceRequestRef.current.get(requestKey);
     if (!request) {
       const fallback = () => {
+        if (view === "portfolio") return source.operationsDashboard(params).then(operationsDashboardViewModel);
         if (view === "plan") return source.plan({ ...params, planType: PLAN_VARIANTS[authorizedPlanVariant].apiValue }).then(planViewModel);
         if (view === "tasks" || view === "schedule" || view === "progress") return source.tasks(params).then(tasksViewModel);
         if (view === "daily") return source.dailyMeetings({ ...params, limit: 100 }).then(dailyMeetingsViewModel);
@@ -2861,7 +2867,7 @@ export function App() {
     let active = true;
     request.then((data) => {
       if (resourceCacheEpochRef.current !== requestEpoch) return;
-      const nextState = { status: "ready", data, error: null, resource: activeResource, projectId: activeProjectId, refreshKey: pageRefreshKey };
+      const nextState = { status: "ready", data, error: null, resource: activeResource, projectId: resourceProjectId, refreshKey: pageRefreshKey };
       const nextCache = { state: nextState, cachedAt: Date.now() };
       resourceCacheRef.current.set(cacheKey, nextCache);
       if (PERSISTED_RESOURCES.has(activeResource)) {
@@ -2871,10 +2877,10 @@ export function App() {
     }).catch((error) => {
       if (!active) return;
       if (error.code === "unauthorized") setSession(null);
-      if (!cachedState && !visibleState) setResourceState({ status: "error", data: null, error, resource: activeResource, projectId: activeProjectId, refreshKey: pageRefreshKey });
+      if (!cachedState && !visibleState) setResourceState({ status: "error", data: null, error, resource: activeResource, projectId: resourceProjectId, refreshKey: pageRefreshKey });
     });
     return () => { active = false; };
-  }, [source, activeProjectId, view, authorizedPlanVariant, activeResource, bootstrapState.status, bootstrapState.data, pageRefreshKey]);
+  }, [source, activeProjectId, resourceProjectId, view, authorizedPlanVariant, activeResource, bootstrapState.status, bootstrapState.data, pageRefreshKey]);
 
   useEffect(() => {
     const nextHash = viewLocationHash(view, planVariant);
@@ -2935,12 +2941,12 @@ export function App() {
   const role = actor?.role || "client";
   const cachedPageForView = view === "overview"
     ? null
-    : resourceCacheRef.current.get(`${activeProjectId}:${activeResource}`)?.state || null;
+    : resourceCacheRef.current.get(`${resourceProjectId}:${activeResource}`)?.state || null;
   const currentPage = view === "overview"
     ? overviewState.projectId === activeProjectId ? overviewState : { ...blankPage, status: "loading", resource: "overview", projectId: activeProjectId }
-    : resourceState.resource === activeResource && resourceState.projectId === activeProjectId
+    : resourceState.resource === activeResource && resourceState.projectId === resourceProjectId
       ? resourceState
-      : cachedPageForView || { ...blankPage, status: "loading", resource: activeResource, projectId: activeProjectId };
+      : cachedPageForView || { ...blankPage, status: "loading", resource: activeResource, projectId: resourceProjectId };
   const notificationTaskState = resourceState.resource === "tasks" && resourceState.projectId === activeProjectId
     ? resourceState
     : resourceCacheRef.current.get(`${activeProjectId}:tasks`)?.state || null;
@@ -2955,11 +2961,17 @@ export function App() {
     const cacheKey = `${projectId}:${resource}`;
     resourceCacheEpochRef.current += 1;
     resourceCacheRef.current.delete(cacheKey);
+    if (["tasks", "daily"].includes(resource)) {
+      resourceCacheRef.current.delete("workspace:portfolio");
+      for (const requestKey of resourceRequestRef.current.keys()) {
+        if (requestKey.startsWith("workspace:portfolio:")) resourceRequestRef.current.delete(requestKey);
+      }
+    }
     if (PERSISTED_RESOURCES.has(resource)) removeResourceSessionCache(source?.getSession(), cacheKey);
     for (const requestKey of resourceRequestRef.current.keys()) {
       if (requestKey.startsWith(`${cacheKey}:`)) resourceRequestRef.current.delete(requestKey);
     }
-    if (projectId === activeProjectId && resource === activeResource) setPageRefreshKey((value) => value + 1);
+    if (String(projectId) === String(resourceProjectId) && resource === activeResource) setPageRefreshKey((value) => value + 1);
   };
 
   const refreshCurrentPage = () => {
@@ -2970,7 +2982,7 @@ export function App() {
       setPageRefreshKey((value) => value + 1);
       return;
     }
-    invalidateResource(activeProjectId, activeResource);
+    invalidateResource(resourceProjectId, activeResource);
   };
 
   const loadTaskActivity = async (options = {}) => {
@@ -3650,7 +3662,23 @@ export function App() {
     taskActivityRequestRef.current = null;
     const nextProject = bootstrapState.data.projects[client.projectId];
     const nextView = role !== "client" || isViewAllowed("schedule", nextProject?.allowedPages || []) ? "schedule" : firstAllowedView(nextProject?.allowedPages || []);
-    setView(view === "progress" && (role !== "client" || isViewAllowed("progress", nextProject?.allowedPages || [])) ? "progress" : nextView);
+    setView(view === "portfolio" && role !== "client"
+      ? "portfolio"
+      : view === "progress" && (role !== "client" || isViewAllowed("progress", nextProject?.allowedPages || [])) ? "progress" : nextView);
+    setSearch("");
+  };
+
+  const openDashboardProject = (projectId, targetView = "schedule") => {
+    const client = bootstrapState.data.clients.find((item) => String(item.projectId) === String(projectId));
+    if (!client) return;
+    setActiveClient(client.id);
+    setActiveProjectId(client.projectId);
+    activeProjectIdRef.current = client.projectId;
+    setOverviewState(blankPage);
+    setResourceState(blankPage);
+    setTaskActivityState({ ...blankTaskActivity, projectId: client.projectId });
+    taskActivityRequestRef.current = null;
+    setView(targetView);
     setSearch("");
   };
 
@@ -3675,7 +3703,7 @@ export function App() {
     <div className={`app-shell has-sidebar-workspace ${navigation.projectSidebarCollapsed ? "is-sidebar-collapsed" : ""} ${navigation.isDrawerOpen ? "is-navigation-drawer-open" : ""} ${role === "client" ? "is-client-view" : ""} ${sheetSaveLock.visible ? "is-sheet-saving" : ""}`} aria-busy={sheetSaveLock.visible}>
       <ProjectSidebar project={project} clients={bootstrapState.data.clients} activeClient={selectedClient.id} onSelectClient={selectClient} onCreateProject={() => setProjectCreateOpen(true)} onImportQuote={() => setQuoteImportOpen(true)} canCreateProject={live && ["pocket", "ns"].includes(role) && typeof source.createProject === "function"} navigation={navigation} onToggleNavigation={toggleNavigation} role={role} activeView={view} activePlanVariant={authorizedPlanVariant} onView={navigateToView} open={navigation.isDrawerOpen} onClose={() => setSidebarOpen(false)} taskCount={taskCount} visible={navigation.projectSidebarVisible} />
       {navigation.isDrawerOpen && <button className="mobile-overlay" type="button" onClick={() => setSidebarOpen(false)} aria-label="메뉴 닫기" />}
-      <div className="app-main"><Topbar project={project} actor={actor} onLogout={logout} live={live && source.config.loginEnabled} search={search} setSearch={setSearch} notificationTasks={notificationTasks} notificationsLoaded={notificationsLoaded} onNotificationSelect={openNotificationTask} /><main className="content-canvas"><AppContent source={source} actorName={actor?.displayName || actor?.name || (role === "ns" ? "NS" : "포켓컴퍼니")} view={view} planVariant={authorizedPlanVariant} project={project} role={role} search={search} setView={navigateToView} pageState={currentPage} taskActivityState={taskActivityState} onLoadTaskActivity={loadTaskActivity} onRetry={refreshCurrentPage} onCreate={setCreateEntity} onTaskUpdate={updateTask} onTaskArchive={archiveTask} onTaskBatchUpdate={updateTasksBatch} onProjectUpdate={updateProjectStartDate} onIssueCreate={createProjectIssue} onIssueUpdate={updateProjectIssue} onIssueArchive={archiveProjectIssue} onDailyMeetingSave={saveDailyMeeting} onCredentialSave={saveProjectCredential} onCredentialArchive={archiveProjectCredential} onCredentialReveal={revealProjectCredential} onKpiSave={saveKpiDefinition} onKpiArchive={archiveKpiDefinition} onAccessSave={saveAccessAccount} canWrite={(view === "tasks" || view === "schedule" || view === "progress" || view === "daily" || view === "credentials") ? canWriteTasks : canWrite} /></main><footer className="app-footer"><span>{connectionReady ? "데이터 연결됨" : "연결 확인 중"}</span><span>마지막 동기화 {formatSyncTime(sourceState.lastSuccessfulAt)}</span></footer></div>
+      <div className="app-main"><Topbar project={project} actor={actor} onLogout={logout} live={live && source.config.loginEnabled} search={search} setSearch={setSearch} notificationTasks={notificationTasks} notificationsLoaded={notificationsLoaded} onNotificationSelect={openNotificationTask} /><main className="content-canvas"><AppContent source={source} actorName={actor?.displayName || actor?.name || (role === "ns" ? "NS" : "포켓컴퍼니")} view={view} planVariant={authorizedPlanVariant} project={project} role={role} search={search} setView={navigateToView} pageState={currentPage} taskActivityState={taskActivityState} onLoadTaskActivity={loadTaskActivity} onRetry={refreshCurrentPage} onCreate={setCreateEntity} onTaskUpdate={updateTask} onTaskArchive={archiveTask} onTaskBatchUpdate={updateTasksBatch} onProjectUpdate={updateProjectStartDate} onIssueCreate={createProjectIssue} onIssueUpdate={updateProjectIssue} onIssueArchive={archiveProjectIssue} onDailyMeetingSave={saveDailyMeeting} onCredentialSave={saveProjectCredential} onCredentialArchive={archiveProjectCredential} onCredentialReveal={revealProjectCredential} onKpiSave={saveKpiDefinition} onKpiArchive={archiveKpiDefinition} onAccessSave={saveAccessAccount} onOpenProject={openDashboardProject} canWrite={(view === "tasks" || view === "schedule" || view === "progress" || view === "daily" || view === "credentials") ? canWriteTasks : canWrite} /></main><footer className="app-footer"><span>{connectionReady ? "데이터 연결됨" : "연결 확인 중"}</span><span>마지막 동기화 {formatSyncTime(sourceState.lastSuccessfulAt)}</span></footer></div>
       {createEntity && <CreateRecordModal entityType={createEntity} role={role} clientName={project.clientName} onClose={() => setCreateEntity(null)} onSubmit={createRecord} />}
       {projectCreateOpen && <ProjectCreateModal onClose={() => setProjectCreateOpen(false)} onSubmit={createProject} />}
       {quoteImportOpen && <QuoteImportModal currentProject={project} onClose={() => setQuoteImportOpen(false)} onCreateProject={createProject} onAppendProject={appendQuoteToProject} />}

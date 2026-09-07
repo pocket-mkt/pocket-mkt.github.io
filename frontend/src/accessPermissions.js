@@ -1,5 +1,6 @@
 export const PAGE_CATALOG = Object.freeze([
   Object.freeze({ id: "overview", label: "총괄 현황", description: "프로젝트 요약과 최근 업데이트", navigation: true, customerSelectable: true }),
+  Object.freeze({ id: "portfolio", label: "통합 관리", description: "전체 프로젝트의 회의·확인요청·주간 업무", navigation: true, customerSelectable: false }),
   Object.freeze({ id: "plan", label: "실행계획", description: "클라이언트 공유용 실행계획", navigation: true, customerSelectable: true }),
   Object.freeze({ id: "tasks", label: "업무", description: "업무 일정·간트·업무 로그", navigation: true, customerSelectable: true, nested: true }),
   Object.freeze({ id: "progress", label: "진행상황", description: "완료·예정 업무와 확인 요청 요약", navigation: true, customerSelectable: true, nested: true }),
@@ -33,6 +34,7 @@ export function firstAllowedView(value) {
 export function isViewAllowed(view, allowedPages) {
   const normalized = String(view || "overview").toLowerCase();
   if (normalized === "permissions") return false;
+  if (normalized === "portfolio") return false;
   if (normalized === "credentials") return false;
   if (normalized === "content" || normalized === "tracking") return false;
   if (normalized === "schedule") return normalizeAllowedPages(allowedPages).includes("tasks");

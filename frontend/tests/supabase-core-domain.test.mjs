@@ -15,19 +15,22 @@ function clientReturning(responses) {
   };
 }
 
-test("Supabase bootstrap, 회의록, KPI는 화면별 RPC 계약을 사용한다", async () => {
+test("Supabase bootstrap, 통합 관리, 회의록, KPI는 화면별 RPC 계약을 사용한다", async () => {
   const client = clientReturning({
     read_bootstrap: { data: { clients: [], projects: [], channels: [], currentUser: { userId: "USR-1" } }, error: null },
+    read_operations_dashboard: { data: { projects: [], weekly_tasks: [], issues: [], meetings: [], range: { from: "2026-09-07", to: "2026-09-13" } }, error: null },
     read_daily_meetings: { data: { items: [], totalMatching: 0 }, error: null },
     read_performance: { data: { definitions: [], actuals: [], daily: [], channels: [] }, error: null },
   });
   const api = createSupabaseCoreDomainApi(client);
   await api.bootstrap();
+  await api.operationsDashboard({ startDate: "2026-09-07", endDate: "2026-09-13" });
   await api.dailyMeetings({ projectId: "12", limit: 500 });
   await api.performance({ projectId: 12, startDate: "2026-09-01", endDate: "2026-09-03" });
-  assert.deepEqual(client.calls.map((call) => call.name), ["read_bootstrap", "read_daily_meetings", "read_performance"]);
-  assert.equal(client.calls[1].args.p_limit, 200);
-  assert.equal(client.calls[2].args.p_start_date, "2026-09-01");
+  assert.deepEqual(client.calls.map((call) => call.name), ["read_bootstrap", "read_operations_dashboard", "read_daily_meetings", "read_performance"]);
+  assert.deepEqual(client.calls[1].args, { p_from: "2026-09-07", p_to: "2026-09-13" });
+  assert.equal(client.calls[2].args.p_limit, 200);
+  assert.equal(client.calls[3].args.p_start_date, "2026-09-01");
 });
 test("회의록, KPI, 이슈 저장은 mutation id, row version, 프로젝트를 RPC에 고정한다", async () => {
   const client = clientReturning({

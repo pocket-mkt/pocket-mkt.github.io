@@ -92,6 +92,17 @@ export function createSupabaseCoreDomainApi(client) {
       });
       return { ok: true, generatedAt: new Date().toISOString(), data };
     },
+    async operationsDashboard(params = {}) {
+      const data = await rpc(client, "read_operations_dashboard", {
+        p_from: params.startDate || null,
+        p_to: params.endDate || null,
+      }, {
+        signal: params.signal,
+        fallback: "통합 관리 데이터를 불러오지 못했습니다.",
+        validate: (value) => value && Array.isArray(value.projects) && Array.isArray(value.weekly_tasks) && Array.isArray(value.issues) && Array.isArray(value.meetings),
+      });
+      return { ok: true, generatedAt: data.generated_at || new Date().toISOString(), data };
+    },
     async performance(params = {}) {
       const data = await rpc(client, "read_performance", {
         p_project_id: positiveId(params.projectId, "프로젝트"),
