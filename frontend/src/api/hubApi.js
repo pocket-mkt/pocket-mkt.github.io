@@ -15,6 +15,7 @@ export const READ_ACTIONS = Object.freeze({
   files: "files",
   activity: "activity",
   permissions: "access_admin",
+  credentials: "project_credentials",
 });
 
 function scopeQuery(params = {}) {
@@ -279,6 +280,7 @@ export function createHubApi(config, options = {}) {
     files: (params) => read("files", params),
     activity: (params) => read("activity", params),
     permissions: (params) => read("permissions", params),
+    credentials: (params) => read("credentials", params),
     accessAdminMutate,
     mutate,
     mutateBatch,

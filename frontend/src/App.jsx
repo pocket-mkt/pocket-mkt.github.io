@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   AlertCircle,
@@ -18,6 +18,7 @@ import {
   History,
   FileUp,
   LayoutDashboard,
+  KeyRound,
   ListFilter,
   LoaderCircle,
   LockKeyhole,
@@ -43,6 +44,7 @@ import {
   accessAdminViewModel,
   bootstrapViewModel,
   contentsViewModel,
+  credentialsViewModel,
   dailyMeetingsViewModel,
   createHubDataSource,
   overviewViewModel,
@@ -92,6 +94,7 @@ import {
 const SAVE_OVERLAY_MIN_MS = 500;
 const SAVE_OVERLAY_COALESCE_MS = 250;
 const GANTT_DAY_WIDTH = 24;
+const CredentialLedgerView = lazy(() => import("./CredentialLedgerView.jsx").then((module) => ({ default: module.CredentialLedgerView })));
 
 const navIcons = {
   overview: LayoutDashboard,
@@ -100,6 +103,7 @@ const navIcons = {
   schedule: CalendarDays,
   progress: CircleDot,
   daily: NotebookPen,
+  credentials: KeyRound,
   performance: BarChart3,
   files: Activity,
 };
@@ -2476,7 +2480,7 @@ export function ProjectProgressView(props) {
   />} />;
 }
 
-function AppContent({ view, planVariant, project, role, search, setView, pageState, taskActivityState, onLoadTaskActivity, onRetry, onCreate, onTaskUpdate, onTaskArchive, onTaskBatchUpdate, onProjectUpdate, onIssueCreate, onIssueUpdate, onIssueArchive, onDailyMeetingSave, onKpiSave, onKpiArchive, onAccessSave, canWrite, source, actorName }) {
+function AppContent({ view, planVariant, project, role, search, setView, pageState, taskActivityState, onLoadTaskActivity, onRetry, onCreate, onTaskUpdate, onTaskArchive, onTaskBatchUpdate, onProjectUpdate, onIssueCreate, onIssueUpdate, onIssueArchive, onDailyMeetingSave, onCredentialSave, onCredentialArchive, onCredentialReveal, onKpiSave, onKpiArchive, onAccessSave, canWrite, source, actorName }) {
   if (pageState.status === "loading" && !pageState.data) return <LoadingState />;
   if (pageState.status === "error" && !pageState.data) return <ErrorState error={pageState.error} onRetry={onRetry} />;
   const data = pageState.data || {};
@@ -2484,6 +2488,7 @@ function AppContent({ view, planVariant, project, role, search, setView, pageSta
   if (view === "plan") return <PlanView plan={data} project={project} planVariant={planVariant} />;
   if (view === "tasks" || view === "schedule") return <TasksView role={role} query={search} taskPage={{ ...data, project: { id: project.id, clientId: project.clientId, clientName: project.clientName, name: project.name, permissionCode: project.permissionCode, allowedPages: project.allowedPages, phaseCode: project.phaseCode, phase: project.phase, startDate: project.startDate, endDate: project.endDate, rowVersion: project.rowVersion, ...(data.project || {}) } }} activityState={taskActivityState} onLoadActivity={onLoadTaskActivity} onCreate={onCreate} onUpdate={onTaskUpdate} onArchive={onTaskArchive} onBatchUpdate={onTaskBatchUpdate} onProjectUpdate={onProjectUpdate} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} canWrite={canWrite} initialSection="schedule" />;
   if (view === "daily") return <DailyMeetingsView role={role} meetings={data.items || []} canWrite={canWrite && role !== "client"} onSave={onDailyMeetingSave} />;
+  if (view === "credentials") return role !== "client" ? <Suspense fallback={<LoadingState label="아이디 관리대장 화면을 준비하고 있습니다." />}><CredentialLedgerView key={project.id} project={project} credentials={data.items || []} query={search} canWrite={canWrite} onSave={onCredentialSave} onArchive={onCredentialArchive} onReveal={onCredentialReveal} /></Suspense> : <ErrorState error={new Error("내부 운영 계정만 접근할 수 있습니다.")} />;
   if (view === "content") return <ContentView role={role} query={search} contents={data.items || []} onCreate={onCreate} canWrite={canWrite} />;
   if (view === "tracking") return <TrackingView tracking={data} />;
   if (view === "performance") return <PerformanceView performance={data} canWrite={canWrite && role !== "client"} onKpiSave={onKpiSave} onKpiArchive={onKpiArchive} />;
@@ -2837,6 +2842,7 @@ export function App() {
         if (view === "plan") return source.plan({ ...params, planType: PLAN_VARIANTS[authorizedPlanVariant].apiValue }).then(planViewModel);
         if (view === "tasks" || view === "schedule" || view === "progress") return source.tasks(params).then(tasksViewModel);
         if (view === "daily") return source.dailyMeetings({ ...params, limit: 100 }).then(dailyMeetingsViewModel);
+        if (view === "credentials") return source.credentials(params).then(credentialsViewModel);
         if (view === "content") return source.contents(params).then(contentsViewModel);
         if (view === "tracking") return source.tracking(params).then(performanceTrackingViewModel);
         if (view === "performance") return source.performance(params).then(performanceViewModel);
@@ -3440,6 +3446,68 @@ export function App() {
     invalidateResource(activeProjectId, "daily");
   };
 
+  const saveProjectCredential = async (credential, fields) => {
+    if (!canWriteTasks || role === "client") {
+      const forbidden = new Error("이 계정은 아이디 관리대장을 수정할 권한이 없습니다.");
+      forbidden.code = "forbidden";
+      throw forbidden;
+    }
+    const mutation = credential ? {
+      entityType: "project_credential",
+      operation: "UPDATE",
+      id: credential.id,
+      expectedRowVersion: credential.rowVersion,
+      fields,
+    } : {
+      entityType: "project_credential",
+      operation: "CREATE",
+      fields,
+    };
+    try {
+      await mutateWithSaveLock("계정 정보를 암호화해 저장하고 있습니다.", { projectId: activeProjectId, mutation });
+    } catch (error) {
+      if (error.code === "conflict") invalidateResource(activeProjectId, "credentials");
+      throw error;
+    }
+    setSaveNotice(credential ? "계정 정보를 수정했습니다." : "사이트 계정을 등록했습니다.");
+    invalidateResource(activeProjectId, "credentials");
+  };
+
+  const archiveProjectCredential = async (credential) => {
+    if (!canWriteTasks || role === "client") {
+      const forbidden = new Error("이 계정은 아이디 관리대장을 삭제할 권한이 없습니다.");
+      forbidden.code = "forbidden";
+      throw forbidden;
+    }
+    try {
+      await mutateWithSaveLock("계정 정보와 암호화된 비밀번호를 삭제하고 있습니다.", {
+        projectId: activeProjectId,
+        mutation: {
+          entityType: "project_credential",
+          operation: "ARCHIVE",
+          id: credential.id,
+          expectedRowVersion: credential.rowVersion,
+          fields: {},
+        },
+      });
+    } catch (error) {
+      if (error.code === "conflict") invalidateResource(activeProjectId, "credentials");
+      throw error;
+    }
+    setSaveNotice("계정 정보와 저장된 비밀번호를 삭제했습니다.");
+    invalidateResource(activeProjectId, "credentials");
+  };
+
+  const revealProjectCredential = async (credential) => {
+    if (role === "client") {
+      const forbidden = new Error("내부 운영 계정만 비밀번호를 열람할 수 있습니다.");
+      forbidden.code = "forbidden";
+      throw forbidden;
+    }
+    const result = await source.revealCredential({ projectId: activeProjectId, credentialId: credential.id });
+    return String(result?.data?.password ?? "");
+  };
+
   const saveKpiDefinition = async (kpi, fields) => {
     if (!canWrite || role === "client") {
       const readOnlyError = new Error("이 계정은 KPI를 설정할 권한이 없습니다.");
@@ -3607,7 +3675,7 @@ export function App() {
     <div className={`app-shell has-sidebar-workspace ${navigation.projectSidebarCollapsed ? "is-sidebar-collapsed" : ""} ${navigation.isDrawerOpen ? "is-navigation-drawer-open" : ""} ${role === "client" ? "is-client-view" : ""} ${sheetSaveLock.visible ? "is-sheet-saving" : ""}`} aria-busy={sheetSaveLock.visible}>
       <ProjectSidebar project={project} clients={bootstrapState.data.clients} activeClient={selectedClient.id} onSelectClient={selectClient} onCreateProject={() => setProjectCreateOpen(true)} onImportQuote={() => setQuoteImportOpen(true)} canCreateProject={live && ["pocket", "ns"].includes(role) && typeof source.createProject === "function"} navigation={navigation} onToggleNavigation={toggleNavigation} role={role} activeView={view} activePlanVariant={authorizedPlanVariant} onView={navigateToView} open={navigation.isDrawerOpen} onClose={() => setSidebarOpen(false)} taskCount={taskCount} visible={navigation.projectSidebarVisible} />
       {navigation.isDrawerOpen && <button className="mobile-overlay" type="button" onClick={() => setSidebarOpen(false)} aria-label="메뉴 닫기" />}
-      <div className="app-main"><Topbar project={project} actor={actor} onLogout={logout} live={live && source.config.loginEnabled} search={search} setSearch={setSearch} notificationTasks={notificationTasks} notificationsLoaded={notificationsLoaded} onNotificationSelect={openNotificationTask} /><main className="content-canvas"><AppContent source={source} actorName={actor?.displayName || actor?.name || (role === "ns" ? "NS" : "포켓컴퍼니")} view={view} planVariant={authorizedPlanVariant} project={project} role={role} search={search} setView={navigateToView} pageState={currentPage} taskActivityState={taskActivityState} onLoadTaskActivity={loadTaskActivity} onRetry={refreshCurrentPage} onCreate={setCreateEntity} onTaskUpdate={updateTask} onTaskArchive={archiveTask} onTaskBatchUpdate={updateTasksBatch} onProjectUpdate={updateProjectStartDate} onIssueCreate={createProjectIssue} onIssueUpdate={updateProjectIssue} onIssueArchive={archiveProjectIssue} onDailyMeetingSave={saveDailyMeeting} onKpiSave={saveKpiDefinition} onKpiArchive={archiveKpiDefinition} onAccessSave={saveAccessAccount} canWrite={(view === "tasks" || view === "schedule" || view === "progress" || view === "daily") ? canWriteTasks : canWrite} /></main><footer className="app-footer"><span>{connectionReady ? "데이터 연결됨" : "연결 확인 중"}</span><span>마지막 동기화 {formatSyncTime(sourceState.lastSuccessfulAt)}</span></footer></div>
+      <div className="app-main"><Topbar project={project} actor={actor} onLogout={logout} live={live && source.config.loginEnabled} search={search} setSearch={setSearch} notificationTasks={notificationTasks} notificationsLoaded={notificationsLoaded} onNotificationSelect={openNotificationTask} /><main className="content-canvas"><AppContent source={source} actorName={actor?.displayName || actor?.name || (role === "ns" ? "NS" : "포켓컴퍼니")} view={view} planVariant={authorizedPlanVariant} project={project} role={role} search={search} setView={navigateToView} pageState={currentPage} taskActivityState={taskActivityState} onLoadTaskActivity={loadTaskActivity} onRetry={refreshCurrentPage} onCreate={setCreateEntity} onTaskUpdate={updateTask} onTaskArchive={archiveTask} onTaskBatchUpdate={updateTasksBatch} onProjectUpdate={updateProjectStartDate} onIssueCreate={createProjectIssue} onIssueUpdate={updateProjectIssue} onIssueArchive={archiveProjectIssue} onDailyMeetingSave={saveDailyMeeting} onCredentialSave={saveProjectCredential} onCredentialArchive={archiveProjectCredential} onCredentialReveal={revealProjectCredential} onKpiSave={saveKpiDefinition} onKpiArchive={archiveKpiDefinition} onAccessSave={saveAccessAccount} canWrite={(view === "tasks" || view === "schedule" || view === "progress" || view === "daily" || view === "credentials") ? canWriteTasks : canWrite} /></main><footer className="app-footer"><span>{connectionReady ? "데이터 연결됨" : "연결 확인 중"}</span><span>마지막 동기화 {formatSyncTime(sourceState.lastSuccessfulAt)}</span></footer></div>
       {createEntity && <CreateRecordModal entityType={createEntity} role={role} clientName={project.clientName} onClose={() => setCreateEntity(null)} onSubmit={createRecord} />}
       {projectCreateOpen && <ProjectCreateModal onClose={() => setProjectCreateOpen(false)} onSubmit={createProject} />}
       {quoteImportOpen && <QuoteImportModal currentProject={project} onClose={() => setQuoteImportOpen(false)} onCreateProject={createProject} onAppendProject={appendQuoteToProject} />}

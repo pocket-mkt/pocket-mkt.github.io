@@ -15,7 +15,7 @@ export function parseViewLocation(hash = "") {
   if (value === "plan/client" || value === "plan") return { view: "plan", planVariant: "client" };
   if (value === "tasks/schedule") return { view: "schedule", planVariant: DEFAULT_PLAN_VARIANT };
   if (value === "tasks/progress" || value === "progress") return { view: "progress", planVariant: DEFAULT_PLAN_VARIANT };
-  if (["overview", "tasks", "schedule", "daily", "content", "tracking", "performance", "files", "permissions"].includes(value)) {
+  if (["overview", "tasks", "schedule", "daily", "credentials", "content", "tracking", "performance", "files", "permissions"].includes(value)) {
     return { view: value, planVariant: DEFAULT_PLAN_VARIANT };
   }
   return { view: "overview", planVariant: DEFAULT_PLAN_VARIANT };

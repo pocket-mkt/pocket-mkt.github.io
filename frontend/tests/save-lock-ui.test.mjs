@@ -19,8 +19,8 @@ test("원장 쓰기는 공통 저장 잠금과 중앙 모달을 사용한다", (
   assert.match(styleSource, /\.app-shell\.is-sheet-saving > :not\(\.global-save-overlay\)[\s\S]*pointer-events:\s*none/);
 });
 
-test("업무·이슈·프로젝트·회의록·KPI·권한 저장이 공통 잠금을 우회하지 않는다", () => {
-  assert.equal((appSource.match(/await mutateWithSaveLock\(/g) || []).length, 10);
+test("업무·이슈·프로젝트·회의록·계정대장·KPI·권한 저장이 공통 잠금을 우회하지 않는다", () => {
+  assert.equal((appSource.match(/await mutateWithSaveLock\(/g) || []).length, 12);
   assert.equal((appSource.match(/await mutateBatchWithSaveLock\(/g) || []).length, 1);
   assert.equal((appSource.match(/await accessMutateWithSaveLock\(/g) || []).length, 1);
   assert.doesNotMatch(appSource, /await source\.mutate\(/);

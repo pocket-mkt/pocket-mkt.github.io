@@ -9,6 +9,7 @@ import { createSupabaseTaskReader } from "./taskRead.js";
 import { createSupabaseTaskActivityReader } from "./taskActivityRead.js";
 import { createSupabaseTaskBatchMutator, createSupabaseTaskMutator } from "./taskMutation.js";
 import { createSupabasePlanReader } from "./planRead.js";
+import { createSupabaseCredentialLedger } from "./credentialLedger.js";
 
 function bridgeError(payload, status) {
   const code = String(payload?.error?.code || "auth_bridge_unavailable");
@@ -112,6 +113,7 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
   const readPlan = createSupabasePlanReader(client, options);
   const mutateTask = createSupabaseTaskMutator(client, options);
   const mutateTasksBatch = createSupabaseTaskBatchMutator(client, options);
+  const credentialLedger = createSupabaseCredentialLedger(client);
   const projectIds = new Map();
   let legacyLoginPromise = null;
 
@@ -286,6 +288,7 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
     if (type === "PROJECT_ISSUE") return core.mutateIssue({ ...input, projectId, mutation: { ...input.mutation, projectId } });
     if (type === "DAILY_MEETING") return core.mutateMeeting({ ...input, projectId, mutation: { ...input.mutation, projectId } });
     if (type === "KPI_DEFINITION") return core.mutateKpi({ ...input, projectId, mutation: { ...input.mutation, projectId } });
+    if (type === "PROJECT_CREDENTIAL") return credentialLedger.mutate({ ...input, projectId, mutation: { ...input.mutation, projectId } });
     await requireLegacySession();
     return sheets.mutate(input);
   }
@@ -366,6 +369,8 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
     contents: legacyRead("contents"),
     tracking: legacyRead("tracking"),
     performance: async (params = {}) => core.performance({ ...params, projectId: await resolveProjectId(params.projectId) }),
+    credentials: async (params = {}) => credentialLedger.read({ ...params, projectId: await resolveProjectId(params.projectId) }),
+    revealCredential: async (params = {}) => credentialLedger.reveal({ ...params, projectId: await resolveProjectId(params.projectId) }),
     files: legacyRead("files"),
     activity,
     permissions: () => accessAdmin.read(),

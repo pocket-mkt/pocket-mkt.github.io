@@ -37,6 +37,7 @@ async function expectNoRows(sql, label) {
 
 await db.exec(`
   create schema auth;
+  create schema vault;
   create role anon;
   create role authenticated;
   create role service_role;
@@ -46,6 +47,49 @@ await db.exec(`
   $$;
   grant usage on schema auth to authenticated;
   grant execute on function auth.uid() to authenticated;
+
+  -- PGlite does not bundle Supabase Vault. This in-memory contract double has
+  -- the same function/view surface so the production migration and access
+  -- rules can be exercised without ever becoming application code.
+  create table vault.secrets(
+    id uuid primary key default gen_random_uuid(),
+    secret text not null,
+    name text,
+    description text,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+  );
+  create view vault.decrypted_secrets as
+    select id, secret as decrypted_secret, name, description, created_at, updated_at
+      from vault.secrets;
+  create function vault.create_secret(
+    new_secret text,
+    new_name text default null,
+    new_description text default null
+  ) returns uuid language plpgsql as $$
+  declare created_id uuid;
+  begin
+    insert into vault.secrets(secret, name, description)
+      values (new_secret, new_name, new_description)
+      returning id into created_id;
+    return created_id;
+  end;
+  $$;
+  create function vault.update_secret(
+    secret_id uuid,
+    new_secret text default null,
+    new_name text default null,
+    new_description text default null
+  ) returns void language plpgsql as $$
+  begin
+    update vault.secrets
+       set secret = coalesce(new_secret, secret),
+           name = coalesce(new_name, name),
+           description = coalesce(new_description, description),
+           updated_at = now()
+     where id = secret_id;
+  end;
+  $$;
 `);
 
 for (const file of readdirSync(migrationsDir).filter((name) => name.endsWith(".sql")).sort()) {
@@ -74,8 +118,8 @@ await db.exec(`
     (1, 'P0', 'MARKETING', '팀 전용 업무', null, null, null, 'NS', 'POCKET', 'PROJECT_TEAM', '${userIds.manager}', '${userIds.manager}');
 `);
 
-assert(await scalar("select count(*)::int as count from pg_tables where schemaname = 'public'") === 23, "table count mismatch");
-assert(await scalar("select count(*)::int as count from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relrowsecurity") === 23, "RLS coverage mismatch");
+assert(await scalar("select count(*)::int as count from pg_tables where schemaname = 'public'") === 24, "table count mismatch");
+assert(await scalar("select count(*)::int as count from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relrowsecurity") === 24, "RLS coverage mismatch");
 assert(await scalar("select count(*)::int as count from information_schema.columns where table_schema='public' and table_name='profiles' and column_name='email'") === 0, "public profile still exposes email");
 assert(await scalar("select count(*)::int as count from information_schema.role_table_grants where grantee='anon' and table_schema='public'") === 0, "anon grants found");
 assert(await scalar("select count(*)::int as count from information_schema.routine_privileges where grantee='PUBLIC' and specific_schema in ('public','private')") === 0, "PUBLIC function execute grants found");
@@ -83,6 +127,9 @@ assert(await scalar("select count(*)::int as count from pg_constraint c join pg_
 
 await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub', '${userIds.client}', false);`);
 await expectDenied("select public.read_tasks(1, false)", "client tasks page permission");
+await expectDenied("select public.read_project_credentials(1)", "client credential ledger read");
+await expectDenied("select public.reveal_project_credential(1, 1)", "client credential reveal");
+await expectDenied(`select public.mutate_project_credential('client_credential_denied','CREATE',1,null,null,'{"site_name":"차단","account_identifier":"blocked","password":"blocked"}'::jsonb)`, "client credential mutation");
 await expectDenied("select * from public.tasks", "client raw task table");
 await expectDenied(`select public.create_project('project_client_denied_001', '권한 우회 고객사', '권한 우회 프로젝트', null, null, null)`, "client project creation");
 const { rows: [clientQuoteCreate] } = await db.query(`select public.create_project_from_quote('quote_client_denied_001', '권한 우회 견적사', '권한 우회 견적', null, null, null, '{}'::jsonb, jsonb_build_array(jsonb_build_object('title','권한 우회 업무'))) as response`);
@@ -105,6 +152,39 @@ await expectDenied("select before_data from public.activity_events", "raw audit 
 
 await db.exec(`reset role; set role authenticated; select set_config('request.jwt.claim.sub', '${userIds.ns}', false);`);
 await expectDenied("select * from public.tasks", "NS raw task table");
+await expectDenied("select * from public.project_credentials", "NS raw credential table");
+const { rows: [emptyCredentialLedger] } = await db.query("select public.read_project_credentials(1) as response");
+assert(emptyCredentialLedger.response?.items?.length === 0 && emptyCredentialLedger.response?.canWrite === true, "NS credential ledger contract mismatch");
+const { rows: [createdCredential] } = await db.query(`select public.mutate_project_credential(
+  'credential_create_0001','CREATE',1,null,null,
+  '{"site_name":"YouTube Studio","site_url":"https://studio.youtube.com","account_identifier":"und-channel","password":"vault-only-password","notes":"운영 채널"}'::jsonb
+) as response`);
+assert(createdCredential.response?.ok === true, `credential create failed: ${JSON.stringify(createdCredential.response)}`);
+const credentialId = createdCredential.response.data.item.credential_id;
+const credentialVersion = createdCredential.response.data.item.row_version;
+const { rows: [credentialList] } = await db.query("select public.read_project_credentials(1) as response");
+assert(credentialList.response?.items?.length === 1, "created credential is missing from ledger");
+assert(!JSON.stringify(credentialList.response).includes("vault-only-password"), "credential list leaked a password");
+assert(!JSON.stringify(credentialList.response).includes("password_secret_id"), "credential list leaked a Vault identifier");
+const { rows: [revealedCredential] } = await db.query(`select public.reveal_project_credential(1,${credentialId}) as response`);
+assert(revealedCredential.response?.password === "vault-only-password", "authorized credential reveal failed");
+const { rows: [updatedCredential] } = await db.query(`select public.mutate_project_credential(
+  'credential_update_0001','UPDATE',1,${credentialId},${credentialVersion},
+  '{"account_identifier":"und-channel-admin","password":"rotated-password"}'::jsonb
+) as response`);
+assert(updatedCredential.response?.ok === true, "credential update failed");
+const updatedCredentialVersion = updatedCredential.response.data.item.row_version;
+const { rows: [revealedUpdatedCredential] } = await db.query(`select public.reveal_project_credential(1,${credentialId}) as response`);
+assert(revealedUpdatedCredential.response?.password === "rotated-password", "credential password rotation failed");
+await db.exec("reset role");
+assert(await scalar("select count(*)::int as count from public.activity_events where entity_type='PROJECT_CREDENTIAL' and after_data ->> 'event' = 'PASSWORD_REVEALED'") === 2, "credential reveals were not audited");
+assert(await scalar("select count(*)::int as count from public.activity_events where entity_type='PROJECT_CREDENTIAL' and (coalesce(before_data,'{}'::jsonb)::text || coalesce(after_data,'{}'::jsonb)::text) like '%rotated-password%'") === 0, "credential audit leaked password plaintext");
+await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub', '${userIds.ns}', false);`);
+const { rows: [archivedCredential] } = await db.query(`select public.mutate_project_credential('credential_archive_0001','ARCHIVE',1,${credentialId},${updatedCredentialVersion},'{}'::jsonb) as response`);
+assert(archivedCredential.response?.ok === true && archivedCredential.response?.data?.item?.archived === true, "credential archive failed");
+await db.exec("reset role");
+assert(await scalar("select count(*)::int as count from vault.secrets") === 0, "archived credential left a Vault secret behind");
+await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub', '${userIds.ns}', false);`);
 const { rows: [projectCreate] } = await db.query(`
   select public.create_project(
     'project_ns_create_0001', 'NS 신규 고객사', 'NS 신규 마케팅 프로젝트',
@@ -388,11 +468,12 @@ console.log(JSON.stringify({
   persistentTaskActivityPagination: "pass",
   scheduledTaskAutomation: "pass",
   overdueHoldTimeline: "pass",
+  projectCredentialVault: "pass",
   taskStatusProgressInvariant: "pass",
   nsAllProjectsAndFutureMemberships: "pass",
   migrations: readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).length,
-  tables: 23,
-  rlsTables: 23,
+  tables: 24,
+  rlsTables: 24,
   pageBoundary: "pass",
   visibilityBoundary: "pass",
   tenantWriteBoundary: "pass",

@@ -328,6 +328,8 @@ export function createHubDataSource(options = {}) {
     files: (params) => load("files", params),
     activity: (params) => load("activity", params),
     permissions: (params) => load("permissions", params),
+    credentials: (params) => load("credentials", params),
+    revealCredential: (params) => domainWrite("revealCredential", params),
     accessAdminMutate,
     createProject: (input) => domainWrite("createProject", input),
     importQuoteTasks: (input) => domainWrite("importQuoteTasks", input),

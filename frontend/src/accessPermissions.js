@@ -5,6 +5,7 @@ export const PAGE_CATALOG = Object.freeze([
   Object.freeze({ id: "progress", label: "진행상황", description: "완료·예정 업무와 확인 요청 요약", navigation: true, customerSelectable: true, nested: true }),
   Object.freeze({ id: "schedule", label: "일정표", permissionId: "tasks", navigation: false, customerSelectable: false, nested: true }),
   Object.freeze({ id: "daily", label: "데일리 회의록", description: "날짜별 회의 내용과 후속 업무", navigation: true, customerSelectable: true, nested: true }),
+  Object.freeze({ id: "credentials", label: "아이디 관리대장", description: "사이트 계정과 비밀번호 보관", navigation: true, customerSelectable: false, nested: true }),
   Object.freeze({ id: "content", label: "콘텐츠", navigation: false, customerSelectable: false }),
   Object.freeze({ id: "tracking", label: "성과 추적", navigation: false, customerSelectable: false }),
   Object.freeze({ id: "performance", label: "성과", description: "핵심 KPI와 실적", navigation: true, customerSelectable: true }),
@@ -15,7 +16,7 @@ export const ACCESS_PAGE_OPTIONS = Object.freeze(PAGE_CATALOG.filter((page) => p
 export const NAVIGATION_PAGE_OPTIONS = Object.freeze(PAGE_CATALOG.filter((page) => page.navigation));
 // Navigation folder only: never create a route or grant from this group ID.
 export const PROJECT_NAVIGATION_GROUP = Object.freeze({
-  id: "project-pages", label: "프로젝트", pageIds: Object.freeze(["tasks", "progress", "daily"]),
+  id: "project-pages", label: "프로젝트", pageIds: Object.freeze(["tasks", "progress", "daily", "credentials"]),
 });
 
 export const ACCESS_PAGE_KEYS = Object.freeze(ACCESS_PAGE_OPTIONS.map((page) => page.id));
@@ -32,6 +33,7 @@ export function firstAllowedView(value) {
 export function isViewAllowed(view, allowedPages) {
   const normalized = String(view || "overview").toLowerCase();
   if (normalized === "permissions") return false;
+  if (normalized === "credentials") return false;
   if (normalized === "content" || normalized === "tracking") return false;
   if (normalized === "schedule") return normalizeAllowedPages(allowedPages).includes("tasks");
   return normalizeAllowedPages(allowedPages).includes(normalized);

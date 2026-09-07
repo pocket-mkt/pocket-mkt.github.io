@@ -9,6 +9,7 @@ export {
   actorRole,
   bootstrapViewModel,
   contentsViewModel,
+  credentialsViewModel,
   dailyMeetingsViewModel,
   filesViewModel,
   overviewViewModel,
