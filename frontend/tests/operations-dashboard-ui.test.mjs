@@ -13,7 +13,7 @@ const issueInteractionMigration = readFileSync(new URL("../../supabase/migration
 test("통합 관리는 처리 가능한 확인 요청과 이동 가능한 평일 마감 업무를 프로젝트별로 보여준다", () => {
   assert.match(dashboardSource, /import \{[^}]*ArrowRight[^}]*\} from "lucide-react"/);
   assert.match(dashboardSource, /확인 요청 상세/);
-  assert.match(dashboardSource, /<IssueRequestCard issue=\{current\}/);
+  assert.match(dashboardSource, /<IssueRequestCard key=\{displayedIssue\.id\} issue=\{displayedIssue\}/);
   assert.match(dashboardSource, /onIssueUpdate/);
   assert.match(dashboardSource, /이전 주차/);
   assert.match(dashboardSource, /다음 주차/);
@@ -22,6 +22,12 @@ test("통합 관리는 처리 가능한 확인 요청과 이동 가능한 평일
   assert.doesNotMatch(dashboardSource, /관련 업무 열기/);
   assert.match(dashboardSource, /ProjectTabs projects=\{dashboard\.projects\}/);
   assert.match(appSource, /onLoadWeek=\{\(startDate, endDate\)/);
+});
+
+test("확인 요청을 처음 열 때 내부 상태 반영 전에도 선택 항목으로 상세 모달을 그린다", () => {
+  assert.match(dashboardSource, /const displayedIssue = current\?\.id === issue\.id \? current : issue/);
+  assert.match(dashboardSource, /<IssueRequestCard key=\{displayedIssue\.id\} issue=\{displayedIssue\}/);
+  assert.doesNotMatch(dashboardSource, /<small>\{current\.clientName\} · \{current\.projectName\}<\/small>/);
 });
 
 test("진행상황·업무 하단·통합관리는 같은 확인요청 카드와 Supabase 행 버전을 사용한다", () => {

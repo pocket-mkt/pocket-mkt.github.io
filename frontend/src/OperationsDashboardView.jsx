@@ -56,7 +56,8 @@ function IssueDetailModal({ issue, canWrite, actorName, onUpdate, onUpdated, onC
   const [current, setCurrent] = useState(issue);
   useEffect(() => setCurrent(issue), [issue]);
   if (!issue) return null;
-  return <div className="ops-modal-backdrop" role="presentation" onMouseDown={onClose}><article className="ops-modal ops-issue-request-modal" role="dialog" aria-modal="true" aria-label="확인 요청 상세" onMouseDown={(event) => event.stopPropagation()}><header><div><span className="ops-panel-icon is-alert"><AlertCircle size={17} /></span><div><small>{current.clientName} · {current.projectName}</small><h2>확인 요청 상세</h2></div></div><button type="button" aria-label="닫기" onClick={onClose}><X size={19} /></button></header><div className="ops-issue-request-content"><IssueRequestCard issue={current} canWrite={canWrite} actorName={actorName} onUpdate={onUpdate} showProject onUpdated={(updated) => { setCurrent(updated); onUpdated?.(updated); }} /></div></article></div>;
+  const displayedIssue = current?.id === issue.id ? current : issue;
+  return <div className="ops-modal-backdrop" role="presentation" onMouseDown={onClose}><article className="ops-modal ops-issue-request-modal" role="dialog" aria-modal="true" aria-label="확인 요청 상세" onMouseDown={(event) => event.stopPropagation()}><header><div><span className="ops-panel-icon is-alert"><AlertCircle size={17} /></span><div><small>{displayedIssue.clientName} · {displayedIssue.projectName}</small><h2>확인 요청 상세</h2></div></div><button type="button" aria-label="닫기" onClick={onClose}><X size={19} /></button></header><div className="ops-issue-request-content"><IssueRequestCard key={displayedIssue.id} issue={displayedIssue} canWrite={canWrite} actorName={actorName} onUpdate={onUpdate} showProject onUpdated={(updated) => { setCurrent(updated); onUpdated?.(updated); }} /></div></article></div>;
 }
 
 function MeetingComposeModal({ projects, initialDate, onClose, onSave }) {
