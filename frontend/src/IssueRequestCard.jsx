@@ -63,10 +63,10 @@ export default function IssueRequestCard({ issue, canWrite = false, actorName, o
 
   return <article className="issue-request-card">
     <div className="issue-request-meta">
-      <span>{showProject && current.clientName ? `${current.clientName} · ${current.projectName || "프로젝트"} · ` : ""}{current.kind || "확인 요청"} · 확인 담당 {current.owner || "미지정"}</span>
+      <div className="issue-request-context">{showProject && current.clientName && <span className="issue-request-project">{current.clientName} · {current.projectName || "프로젝트"}</span>}<span className="issue-request-kind">{current.kind || "확인 요청"}</span><span className="issue-request-owner">확인 담당 <b>{current.owner || "미지정"}</b></span></div>
       <strong className={done ? "is-done" : "is-open"}>{done ? "확인 완료" : "확인 필요"}</strong>
     </div>
-    <div className="issue-request-byline"><span>남긴 사람 <b>{current.requester || "확인되지 않은 사용자"}</b></span><span>작성 {requestCreatedLabel(current.createdAt, current.date)}</span></div>
+    <div className="issue-request-byline"><span><span>남긴 사람</span><b>{current.requester || "확인되지 않은 사용자"}</b></span><span><span>작성</span><b>{requestCreatedLabel(current.createdAt, current.date)}</b></span></div>
     <h3>{current.relatedTask || current.projectName || "확인 요청"}</h3>
     <p>{current.body || "등록된 내용이 없습니다."}</p>
     {href && <a className="issue-request-link" href={href} target="_blank" rel="noopener noreferrer">관련 자료 열기 <ArrowUpRight size={13} /></a>}
@@ -82,7 +82,7 @@ export default function IssueRequestCard({ issue, canWrite = false, actorName, o
     </form>}
     {current.remarks && <details className="issue-request-replies"><summary>답변·추가 메모 보기</summary><p>{current.remarks}</p></details>}
     {canWrite && <div className="issue-request-actions">
-      <button type="button" disabled={saving} aria-expanded={replyOpen} onClick={() => setReplyOpen((value) => !value)}><MessageSquare size={14} />답변 작성</button>
+      <button type="button" className="issue-request-reply-action" disabled={saving} aria-expanded={replyOpen} onClick={() => setReplyOpen((value) => !value)}><MessageSquare size={16} />답변 작성</button>
       <button type="button" disabled={saving} onClick={() => void save({ status_code: done ? "IN_PROGRESS" : "DONE" })}><Check size={14} />{done ? "다시 확인 요청" : "확인 완료"}</button>
       {onArchive && <button type="button" className={`issue-request-delete${deleteArmed ? " is-armed" : ""}`} disabled={saving} onClick={() => void archive()} onBlur={() => setDeleteArmed(false)}><Trash2 size={14} />{deleteArmed ? "한 번 더 눌러 삭제" : "삭제"}</button>}
     </div>}

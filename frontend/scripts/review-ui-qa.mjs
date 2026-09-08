@@ -16,6 +16,7 @@ import { useOverviewResource } from './src/useOverviewResource.js';
 import { ProjectClientProgressView, Topbar } from './src/App.jsx';
 import { ProjectIssuePanel, TaskScheduleTimeline } from './src/TaskWorkspace.jsx';
 import PermissionsView from './src/PermissionsView.jsx';
+import IssueRequestCard from './src/IssueRequestCard.jsx';
 import { tasksViewModel } from './src/api/viewModel.js';
 import './src/styles.css';
 import './src/sidebarWorkspace.css';
@@ -79,8 +80,22 @@ function Overview({projectId}) {
  useOverviewResource({source,activeProjectId:projectId,view:'overview',bootstrapState,actorRole:'client',overviewState:state,pageRefreshKey:0,setOverviewState:setState,setSession});
  return <div>{state.projectId}:{state.status}</div>;
 }
+window.showIssueQa = async () => {
+ await render(<div style={{maxWidth:720,margin:'20px auto',padding:12}}><IssueRequestCard issue={{id:1,kind:'컨펌요청',owner:'허준',requester:'NS마케팅',createdAt:'2026-09-08T05:37:00Z',date:'2026-09-08',relatedTask:'블로그',body:'블로그 원고 컨펌 요청 (이미지 AI 제작)\\n원고 내용과 이미지 방향을 확인한 뒤 답변 부탁드립니다.',statusCode:'IN_PROGRESS',completionUrl:'https://example.com/result'}} canWrite actorName="QA" onUpdate={async(issue,fields)=>({...issue,...fields})} onArchive={async()=>{}}/></div>);
+ const card=document.querySelector('.issue-request-card');
+ check(parseFloat(getComputedStyle(card.querySelector('h3')).fontSize)>=18,'request title too small');
+ check(parseFloat(getComputedStyle(card.querySelector(':scope>p')).fontSize)>=15,'request body too small');
+ check(document.documentElement.scrollWidth<=window.innerWidth+1,'request card overflows viewport');
+};
 window.runQa = async () => {
  const results=[];
+ await window.showIssueQa();
+ document.querySelector('.issue-request-reply-action').click();await tick();
+ check(document.querySelector('.issue-request-reply-form textarea'),'reply editor missing');
+ document.querySelector('.issue-request-deadline button').click();await tick();
+ check(document.querySelector('.issue-request-deadline-form input'),'deadline editor missing');
+ check(document.documentElement.scrollWidth<=window.innerWidth+1,'request editors overflow viewport');
+ results.push('readable confirmation card: 18px title, 15px body, reply/deadline editors and responsive wrapping');
  for(const activeView of ['tasks','portfolio','daily','client-progress']) {
 await render(<div className="has-sidebar-workspace" style={{width:'calc(100vw - 56px)'}}><Topbar project={{id:1,clientName:'UND',name:'UND 통합 마케팅 운영 프로젝트'}} activeView={activeView} actor={{name:'포켓컴퍼니',organization:'POCKET'}} search="" setSearch={()=>{}} notificationTasks={[]} notificationsLoaded={true} onNotificationSelect={()=>{}} onLogout={()=>{}} live={true}/></div>);
   const brand=document.querySelector('.topbar-company-brand'); const context=document.querySelector('.topbar-project-context'); const actions=document.querySelector('.topbar-actions');
@@ -230,6 +245,9 @@ try {
     await evaluate('window.showBrandQa()');
     const brandShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await writeFile(`../artifacts/client-progress/brand-${width}.png`,Buffer.from(brandShot.data,'base64'));
+    await evaluate('window.showIssueQa()');
+    const issueShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await writeFile(`../artifacts/client-progress/issue-${width}.png`,Buffer.from(issueShot.data,'base64'));
   }
   if(errors.length)throw Error(errors.join('; '));
 } finally {

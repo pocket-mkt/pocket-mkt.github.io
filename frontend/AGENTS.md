@@ -27,6 +27,8 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Pocket Marketing Hub design decisions
 
+- Shared confirmation cards prioritize legibility: 18px near-black title, 15px body/replies, 12px labelled author/time, 13px deadline/actions. Separate request type/assignee, deadline and action footer; make reply the navy primary action. Reuse across tasks, progress and integrated management, preserving mobile wrapping/touch sizes.
+
 - All authenticated pages share the supplied POCKET COMPANY horizontal CI at the left of the topbar, before project/workspace context. Preserve the artwork and only clip its outer whitespace. Keep project context to its right with a subtle divider; reduce logo width on mobile without dropping project identity or overlapping notifications/account controls.
 
 - Integrated management confirmation lists sort by creation timestamp descending before display limits, across both open/completed and project filters. Legacy rows fall back to registration date; edits and deadlines must not bump old requests above newly created ones.
