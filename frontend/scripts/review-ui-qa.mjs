@@ -20,6 +20,7 @@ import IssueRequestCard from './src/IssueRequestCard.jsx';
 import DetailLogView from './src/DetailLogView.jsx';
 import ScreenBoundary from './src/ScreenBoundary.jsx';
 import WorkspaceNotifications from './src/WorkspaceNotifications.jsx';
+import { OperationsDashboardView } from './src/OperationsDashboardView.jsx';
 import { tasksViewModel } from './src/api/viewModel.js';
 import './src/styles.css';
 import './src/sidebarWorkspace.css';
@@ -35,6 +36,7 @@ const overviewCalls = [];
 const source = {overview: params => { const pending=deferred(); overviewCalls.push({...params,...pending}); return pending.promise; }};
 window.benchmarkQa = async () => {
  const results=[];
+
 
  for(const count of [100,500,1000]) for(const mode of ['table','gantt']) {
   await render(<div/>);
@@ -97,6 +99,17 @@ function IssueTabsQa() {
 }
 window.runQa = async () => {
  const results=[];
+ const qaMonday=new Date();qaMonday.setDate(qaMonday.getDate()-((qaMonday.getDay()+6)%7));const qaDue=qaMonday.getFullYear()+'-'+String(qaMonday.getMonth()+1).padStart(2,'0')+'-'+String(qaMonday.getDate()).padStart(2,'0');
+ const deltaDashboard={range:{from:qaDue,to:qaDue},projects:[{id:'1',name:'QA',clientName:'QA',totalTasks:1}],meetings:[],issues:[],weeklyTasks:[{id:'1',projectId:'1',title:'QA 상승 업무',dueDate:qaDue,statusCode:'IN_PROGRESS',progressPercent:60,progressDeltaToday:30}]};
+ await render(<OperationsDashboardView dashboard={deltaDashboard} canWrite={false} onOpenProject={()=>{}} onLoadWeek={async()=>deltaDashboard}/>);
+ const delta=document.querySelector('.ops-progress-delta');
+ check(delta?.textContent.includes('+30%p'),'progress delta missing');
+ check(getComputedStyle(delta).color==='rgb(201, 33, 39)'&&parseFloat(getComputedStyle(delta).fontSize)>=11,'progress rise is not legible red');
+ await render(<OperationsDashboardView dashboard={{...deltaDashboard,weeklyTasks:[{...deltaDashboard.weeklyTasks[0],progressDeltaToday:null}]}} canWrite={false} onOpenProject={()=>{}}/>);
+ check(document.querySelector('.ops-progress-unavailable')&&!document.querySelector('.ops-progress-delta'),'missing baseline masked as zero');
+ await render(<OperationsDashboardView dashboard={{...deltaDashboard,weeklyTasks:[{...deltaDashboard.weeklyTasks[0],progressDeltaToday:0}]}} canWrite={false} onOpenProject={()=>{}}/>);
+ check(!document.querySelector('.ops-progress-unavailable')&&!document.querySelector('.ops-progress-delta'),'unchanged progress shows false rise');
+ results.push('progress delta: legible red 11px rise, missing baseline distinct from zero');
  let notificationSelection=null;const notificationCalls=[];
  const notificationSource={activity:async params=>{notificationCalls.push(params);return {data:{items:[{id:9001,entity_id:11,project_id:1,created_at:new Date().toISOString(),project:{project_name:'UND'},task_detail:{task_title:'QA 신규 업무'}},{id:9002,entity_id:22,project_id:2,created_at:new Date().toISOString(),project:{project_name:'무극'},task_detail:{task_title:'QA 다른 프로젝트 업무'}}],nextCursor:null}};}};
  await render(<WorkspaceNotifications source={notificationSource} actorId={'qa-'+window.innerWidth} onSelect={item=>notificationSelection=item}/>);await tick();

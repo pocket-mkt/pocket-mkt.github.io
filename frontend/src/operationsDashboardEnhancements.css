@@ -27,7 +27,7 @@
 
 .ops-progress-reading {
   display: inline-flex;
-  min-width: 40px;
+  min-width: 82px;
   align-items: flex-start;
   justify-content: flex-end;
   gap: 3px;
@@ -36,20 +36,26 @@
 
 .ops-progress-reading > strong {
   color: #263650;
-  font-size: 10px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
-.ops-progress-delta {
-  margin-top: -5px;
-  color: #d92d2a;
-  font-size: 8px;
+.ops-progress-reading > .ops-progress-delta {
+  margin-top: -4px;
+  color: #c92127;
+  background: #fff0f0;
+  padding: 3px 4px;
+  border-radius: 4px;
+  font-size: 11px;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
   letter-spacing: -.025em;
   line-height: 1;
 }
+
+.ops-progress > i { flex: 0 1 40px; min-width: 16px; }
+.ops-progress-reading > .ops-progress-unavailable { color: #667085; font-size: 10px; white-space: normal; }
 
 .ops-deadline-tabs,
 .ops-date-nav-actions,

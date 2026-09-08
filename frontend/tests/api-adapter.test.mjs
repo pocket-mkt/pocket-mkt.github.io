@@ -38,7 +38,7 @@ test("통합 업무 체크는 전일 대비 진행률 상승분을 퍼센트포�
   });
 
   assert.equal(dashboard.weeklyTasks[0].progressDeltaToday, 15);
-  assert.equal(dashboard.weeklyTasks[1].progressDeltaToday, 0);
+  assert.equal(dashboard.weeklyTasks[1].progressDeltaToday, null);
 });
 
 test("API가 없을 때 쓰기는 저장 성공처럼 처리하지 않는다", async () => {

@@ -27,6 +27,8 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Pocket Marketing Hub design decisions
 
+- Portfolio task progress rises use at least 11px red-on-pale-red superscript beside 13px current progress, with enough reserved width. Explain Korea-day baseline reset at midnight. Missing progress_delta_today is null and visibly unavailable, never silently 0; real zero has no rise badge. This feature is not yet in project schedule rows.
+
 - Portfolio has an internal-only all-project notification bell. Use authorized task CREATED audit events from the last 24h, not the current project's cache or only weekly-deadline tasks. Show project labels, newest first, explicit pagination, unread badge (loaded count with + if more), per-account tab acknowledgement, and cross-project schedule navigation. Poll at most once/minute while visible and popover closed, cancel on unmount; failures show retry, never empty-success. Existing per-project bell remains unchanged.
 
 - Detail logs show historical task titles and allowlisted before/after changes via the existing read_task_activity RPC, never raw activity JSON. Filter actor/project/Korea date range on the server; keep exact timestamp precision in keyset cursors. Enrich only projects represented on the current page, max three concurrent requests and 200 events per project; sparse older matches have explicit one-event retry. Workload counts are current-page task saves/distinct tasks, not elapsed labor time or period totals. Non-task types retain metadata until a safe projection exists.
