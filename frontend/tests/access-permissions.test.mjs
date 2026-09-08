@@ -22,12 +22,12 @@ test("고객 권한은 알려진 페이지 코드만 중복 없이 보존한다"
 
 test("운영 메뉴와 고객 권한 선택지는 페이지 카탈로그에서 파생한다", () => {
   assert.deepEqual(ACCESS_PAGE_KEYS, ["overview", "plan", "tasks", "progress", "daily", "performance", "files"]);
-  assert.deepEqual(ACCESS_PAGE_OPTIONS.map((page) => page.label), ["총괄 현황", "실행계획", "업무", "진행상황", "데일리 회의록", "성과", "세부 로그"]);
-  assert.deepEqual(NAVIGATION_PAGE_OPTIONS.map((page) => page.id), ["overview", "portfolio", "plan", "tasks", "progress", "daily", "credentials", "performance", "files"]);
+  assert.deepEqual(ACCESS_PAGE_OPTIONS.map((page) => page.label), ["총괄 현황", "실행계획", "업무", "진행상황 - 클라이언트", "데일리 회의록", "성과", "세부 로그"]);
+  assert.deepEqual(NAVIGATION_PAGE_OPTIONS.map((page) => page.id), ["overview", "portfolio", "plan", "tasks", "progress", "client-progress", "daily", "credentials", "performance", "files"]);
 });
 
 test("프로젝트는 업무·진행상황·회의록·내부 계정대장의 탐색 폴더이다", () => {
-  assert.deepEqual(PROJECT_NAVIGATION_GROUP.pageIds, ["tasks", "progress", "daily", "credentials"]);
+  assert.deepEqual(PROJECT_NAVIGATION_GROUP.pageIds, ["tasks", "progress", "client-progress", "daily", "credentials"]);
   assert.equal(PROJECT_NAVIGATION_GROUP.label, "프로젝트");
   assert.equal(NAVIGATION_PAGE_OPTIONS.some(page => page.id === PROJECT_NAVIGATION_GROUP.id), false);
   assert.equal(ACCESS_PAGE_KEYS.includes(PROJECT_NAVIGATION_GROUP.id), false);
@@ -42,7 +42,10 @@ test("고객에게 허용된 첫 화면과 실행계획 하위 경로를 판정�
   assert.equal(isViewAllowed("daily", ["tasks"]), false);
   assert.equal(isViewAllowed("daily", ["daily"]), true);
   assert.equal(isViewAllowed("schedule", ["tasks"]), true);
-  assert.equal(isViewAllowed("progress", ["progress"]), true);
+  assert.equal(isViewAllowed("progress", ["progress"]), false);
+  assert.equal(isViewAllowed("client-progress", ["progress"]), true);
+  assert.equal(isViewAllowed("client-progress", ["tasks"]), true);
+  assert.equal(firstAllowedView(["progress"]), "client-progress");
   assert.equal(isViewAllowed("progress", ["tasks"]), false);
   assert.equal(isViewAllowed("progress", ["daily"]), false);
   assert.equal(isViewAllowed("content", ["content"]), false);

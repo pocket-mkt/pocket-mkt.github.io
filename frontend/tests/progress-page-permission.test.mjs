@@ -17,8 +17,10 @@ test("Supabase 허용 페이지 제약은 진행상황 코드를 포함한다", 
   assert.match(bridge, /"overview", "plan", "tasks", "progress", "daily"/);
 });
 
-test("진행상황 전용 고객은 읽기 전용 업무 투영을 조회할 수 있다", () => {
-  assert.match(migration, /target_page = 'tasks' and 'progress' = any\(membership\.allowed_pages\)/);
-  assert.match(migration, /security definer/);
-  assert.match(migration, /auth\.uid\(\)/);
+test("진행상황 전용 고객은 이슈를 포함하는 기존 업무 조회를 사용할 수 없다", async () => {
+  const safe = await readFile(new URL("../../supabase/migrations/20260908075045_client_progress_safe_projection.sql", import.meta.url), "utf8");
+  assert.doesNotMatch(safe, /target_page = 'tasks' and 'progress' = any/);
+  assert.match(safe, /private\.read_client_progress/);
+  assert.match(safe, /security definer set search_path = ''/);
+  assert.match(safe, /auth\.uid\(\)/);
 });

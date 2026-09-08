@@ -56,6 +56,10 @@ jobs:
         working-directory: frontend
         run: npm test
 
+      - name: Test local database permissions and mutations
+        working-directory: frontend
+        run: npm run test:supabase
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 

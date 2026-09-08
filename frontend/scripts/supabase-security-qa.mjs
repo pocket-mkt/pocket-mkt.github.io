@@ -500,4 +500,32 @@ console.log(JSON.stringify({
   quoteProjectAtomicity: "pass",
   quoteImportRollback: "pass",
 }));
+// Dedicated customer page: same public-only projection for internal preview.
+await db.exec(`update public.project_memberships set allowed_pages=array['progress'] where user_id='${userIds.client}' and project_id=1;`);
+for (const userId of [userIds.manager, userIds.ns, userIds.client]) {
+  await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub', '${userId}', false);`);
+  const payload = (await db.query('select public.read_client_progress(1) as value')).rows[0].value;
+  assert(payload.audience === 'client-progress' && payload.items.length > 0, 'customer projection unavailable');
+  assert(payload.items.every(row => row.visibility_code === 'CLIENT' && row.project_id === 1), 'preview leaked hidden/cross-project task');
+  for (const field of ['issues', 'members', 'meetings', 'activities']) assert(!Object.hasOwn(payload, field), `customer projection leaked ${field}`);
+  for (const row of payload.items) {
+    for (const field of ['remarks','plan_note','blocker_reason','responsible_org_code','created_by_user_id','updated_by_user_id','reviewer_org_code']) assert(!Object.hasOwn(row,field), `customer task leaked ${field}`);
+  }
+  assert(!JSON.stringify(payload).includes('내부 메모'), 'customer projection leaked private text');
+  if (userId === userIds.client) {
+    await expectDenied('select public.read_task_workspace(1,false)', 'progress-only client task workspace');
+    await expectDenied('select public.read_tasks(1,false)', 'progress-only client legacy tasks');
+    await expectDenied('select public.read_client_progress(2)', 'cross-project customer progress');
+  }
+  await db.exec('reset role');
+}
+await db.exec(`update public.project_memberships set allowed_pages=array['overview'] where user_id='${userIds.client}' and project_id=1; set role authenticated; select set_config('request.jwt.claim.sub', '${userIds.client}', false);`);
+await expectDenied('select public.read_client_progress(1)', 'missing customer progress grant');
+await db.exec(`reset role; update public.project_memberships set allowed_pages=array['tasks'] where user_id='${userIds.client}' and project_id=1; set role authenticated; select set_config('request.jwt.claim.sub', '${userIds.client}', false);`);
+assert((await db.query('select public.read_client_progress(1) as value')).rows[0].value.audience === 'client-progress', 'task grant cannot open safe progress');
+await db.exec(`reset role; update public.projects set client_view_enabled=false where id=1; set role authenticated; select set_config('request.jwt.claim.sub', '${userIds.client}', false);`);
+await expectDenied('select public.read_client_progress(1)', 'disabled client sharing');
+await db.exec("reset role; set role anon; select set_config('request.jwt.claim.sub','',false);");
+await expectDenied('select public.read_client_progress(1)', 'anonymous customer progress');
+console.log(JSON.stringify({clientProgressRoleProjection:'pass',clientProgressOnlyBoundary:'pass',clientProgressAnonymousAndDisabled:'blocked'}));
 await db.close();

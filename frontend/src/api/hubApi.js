@@ -9,6 +9,7 @@ export const READ_ACTIONS = Object.freeze({
   overview: "project_overview",
   plan: "project_plan",
   tasks: "tasks",
+  clientProgress: "client_progress",
   dailyMeetings: "daily_meetings",
   contents: "contents",
   tracking: "performance_tracking",

@@ -16,6 +16,7 @@
     "migrate:campaign-schedule": "node scripts/migrate-campaign-schedule.mjs",
     "restore:supabase-schedules": "node scripts/restore-supabase-campaign-schedules.mjs",
     "test:ui": "node scripts/browser-smoke.mjs",
+    "test:review-ui": "node scripts/review-ui-qa.mjs",
     "test:sites": "node --test tests/sites-worker.test.mjs"
   },
   "dependencies": {

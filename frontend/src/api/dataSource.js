@@ -98,8 +98,9 @@ export function createHubDataSource(options = {}) {
 
     if (!live) throw new HubApiError("API 주소가 설정되지 않았습니다.", { code: "missing_api_url", action: resource, retriable: false });
 
-    try {
-      const result = await live[resource](params);
+      try {
+        if (typeof live[resource] !== "function") throw new HubApiError("고객용 조회 서버 설정을 확인해 주세요.", { code: "unsupported_action", action: resource, retriable: false });
+        const result = await live[resource](params);
       const nextState = {
         mode: "live",
         phase: "ready",
@@ -322,6 +323,7 @@ export function createHubDataSource(options = {}) {
     overview: (params) => load("overview", params),
     plan: (params) => load("plan", params),
     tasks: (params) => load("tasks", params),
+    clientProgress: (params) => load("clientProgress", params),
     dailyMeetings: (params) => load("dailyMeetings", params),
     contents: (params) => load("contents", params),
     tracking: (params) => load("tracking", params),

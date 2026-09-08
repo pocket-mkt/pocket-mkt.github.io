@@ -5,7 +5,7 @@ import { createSessionStore } from "../api/session.js";
 import { getSupabaseClient } from "./client.js";
 import { createSupabaseAccessAdmin } from "./accessAdmin.js";
 import { createSupabaseCoreDomainApi } from "./coreDomainApi.js";
-import { createSupabaseTaskReader } from "./taskRead.js";
+import { createSupabaseTaskReader, createClientProgressReader } from "./taskRead.js";
 import { createSupabaseTaskActivityReader } from "./taskActivityRead.js";
 import { createSupabaseTaskBatchMutator, createSupabaseTaskMutator } from "./taskMutation.js";
 import { createSupabasePlanReader } from "./planRead.js";
@@ -26,13 +26,14 @@ function bridgeError(payload, status) {
   );
 }
 
-async function fetchBridge(config, credentials = {}) {
+async function fetchBridge(config, credentials = {}, lifecycleSignal) {
   const controller = new AbortController();
-  const abort = () => controller.abort(credentials.signal?.reason);
-  if (credentials.signal) {
-    if (credentials.signal.aborted) abort();
-    else credentials.signal.addEventListener("abort", abort, { once: true });
-  }
+  const signals = [credentials.signal, lifecycleSignal].filter(Boolean);
+  const abort = () => controller.abort(signals.find((signal) => signal.aborted)?.reason);
+  signals.forEach((signal) => {
+    if (signal.aborted) abort();
+    else signal.addEventListener("abort", abort, { once: true });
+  });
   const timer = setTimeout(() => controller.abort("timeout"), 45_000);
   try {
     const response = await fetch(`${config.url}/functions/v1/hub-auth-bridge`, {
@@ -55,13 +56,14 @@ async function fetchBridge(config, credentials = {}) {
     return payload;
   } catch (error) {
     if (error instanceof HubApiError) throw error;
+    const cancelled = signals.some((signal) => signal.aborted);
     throw new HubApiError(
-      controller.signal.aborted ? "로그인 서버 응답 시간이 초과되었습니다." : "로그인 서버에 연결하지 못했습니다.",
-      { code: controller.signal.aborted ? "timeout" : "network_error", action: "login", retriable: true, cause: error },
+      cancelled ? "로그인 요청이 취소되었습니다." : controller.signal.aborted ? "로그인 서버 응답 시간이 초과되었습니다." : "로그인 서버에 연결하지 못했습니다.",
+      { code: cancelled ? "aborted" : controller.signal.aborted ? "timeout" : "network_error", action: "login", retriable: !cancelled, cause: error },
     );
   } finally {
     clearTimeout(timer);
-    credentials.signal?.removeEventListener?.("abort", abort);
+    signals.forEach((signal) => signal.removeEventListener("abort", abort));
   }
 }
 
@@ -109,6 +111,7 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
   const core = createSupabaseCoreDomainApi(client);
   const accessAdmin = createSupabaseAccessAdmin(client);
   const readTasks = createSupabaseTaskReader(client, options);
+  const readClientProgress = createClientProgressReader(client, options);
   const readTaskActivity = createSupabaseTaskActivityReader(client, options);
   const readPlan = createSupabasePlanReader(client, options);
   const mutateTask = createSupabaseTaskMutator(client, options);
@@ -116,6 +119,23 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
   const credentialLedger = createSupabaseCredentialLedger(client);
   const projectIds = new Map();
   let legacyLoginPromise = null;
+  let sessionGeneration = 0;
+  let bridgeController = null;
+
+  function resetSessionWork() {
+    sessionGeneration += 1;
+    bridgeController?.abort("session_changed");
+    bridgeController = null;
+    legacyLoginPromise = null;
+    legacySessionStore.clear();
+    projectIds.clear();
+  }
+
+  function assertCurrentSession(generation, signal) {
+    if (generation !== sessionGeneration || signal?.aborted) {
+      throw new HubApiError("로그인 요청이 취소되었습니다.", { code: "aborted", action: "login", retriable: false });
+    }
+  }
 
   function rememberProjectMappings(envelope) {
     (envelope?.data?.projects || []).forEach((project) => {
@@ -147,19 +167,28 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
     return { token: authSession.access_token, expiresIn, user: publicUser(profile) };
   }
 
-  function warmLegacySession(credentials) {
-    legacyLoginPromise = fetchBridge(storageConfig, credentials)
+  function warmLegacySession(credentials, generation) {
+    const controller = new AbortController();
+    bridgeController = controller;
+    const pending = fetchBridge(storageConfig, credentials, controller.signal)
       .then((payload) => {
+        assertCurrentSession(generation, credentials.signal);
         legacySessionStore.write(payload.data.legacy.session);
         return payload.data.legacy.session;
       })
       .catch(() => null)
-      .finally(() => { legacyLoginPromise = null; });
+      .finally(() => {
+        if (legacyLoginPromise === pending) legacyLoginPromise = null;
+        if (bridgeController === controller) bridgeController = null;
+      });
+    legacyLoginPromise = pending;
   }
 
   async function requireLegacySession() {
+    const generation = sessionGeneration;
     if (legacySessionStore.read()) return;
     if (legacyLoginPromise) await legacyLoginPromise;
+    assertCurrentSession(generation);
     if (!legacySessionStore.read()) {
       throw new HubApiError("이 화면의 기존 Sheets 연결 세션이 만료되었습니다. 다시 로그인해 주세요.", {
         code: "legacy_session_required",
@@ -170,7 +199,9 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
   }
 
   const legacyRead = (method) => async (params = {}) => {
+    const generation = sessionGeneration;
     await requireLegacySession();
+    assertCurrentSession(generation, params.signal);
     return sheets[method](params);
   };
 
@@ -214,13 +245,31 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
   }
 
   async function login(credentials = {}) {
+    resetSessionWork();
+    sessionStore.clear();
+    const generation = sessionGeneration;
+    assertCurrentSession(generation, credentials.signal);
     const email = accountEmail(credentials.account || credentials.email);
     let authSession;
     let usedBridge = false;
     const direct = await client.auth.signInWithPassword({ email, password: String(credentials.accessCode || "") });
+    assertCurrentSession(generation, credentials.signal);
+    const authStatus = Number(direct.error?.status || 0);
+    if (direct.error && (authStatus === 429 || authStatus >= 500 || direct.error.name === "AuthRetryableFetchError")) {
+      // An infrastructure failure is not evidence of an unmigrated account.
+      // Do not turn it into a second, up-to-45-second legacy login attempt.
+      throw new HubApiError(authStatus === 429 ? "로그인 요청이 많습니다. 잠시 후 다시 시도해 주세요." : "로그인 서버에 연결하지 못했습니다.", {
+        code: authStatus === 429 ? "rate_limited" : "network_error", status: authStatus || null,
+        action: "login", retriable: true, cause: direct.error,
+      });
+    }
     if (direct.error || !direct.data?.session) {
-      const payload = await fetchBridge(storageConfig, credentials);
+      const controller = new AbortController();
+      bridgeController = controller;
+      const payload = await fetchBridge(storageConfig, credentials, controller.signal);
+      assertCurrentSession(generation, credentials.signal);
       const { error } = await client.auth.setSession({ access_token: payload.data.session.access_token, refresh_token: payload.data.session.refresh_token });
+      assertCurrentSession(generation, credentials.signal);
       if (error) throw bridgeError({ error }, 401);
       authSession = payload.data.session;
       legacySessionStore.write(payload.data.legacy.session);
@@ -229,11 +278,12 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
       authSession = direct.data.session;
     }
     const bootstrap = await core.bootstrap({ signal: credentials.signal });
+    assertCurrentSession(generation, credentials.signal);
     const profile = bootstrap.data.currentUser;
     sessionStore.write(mainSessionPayload(authSession, profile));
     projectIds.clear();
     rememberProjectMappings(bootstrap);
-    if (!usedBridge) warmLegacySession(credentials);
+    if (!usedBridge) warmLegacySession(credentials, generation);
     return {
       ok: true,
       generatedAt: new Date().toISOString(),
@@ -262,7 +312,7 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
   async function overview(params = {}) {
     const projectId = await resolveProjectId(params.projectId);
     const [legacyOverview, taskEnvelope] = await Promise.all([
-      sheets.overview(params),
+      legacyRead("overview")(params),
       readTasks({ ...params, projectId }),
     ]);
     const taskRollup = summarizeSupabaseTasks(taskEnvelope.data.items);
@@ -296,6 +346,7 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
   async function mutateBatch(input = {}) {
     const mutations = Array.isArray(input.mutations) ? input.mutations : [];
     if (!mutations.length || mutations.some((mutation) => String(mutation?.entityType || mutation?.entity || "").toUpperCase() !== "TASK")) {
+      await requireLegacySession();
       return sheets.mutateBatch(input);
     }
     const projectId = await resolveProjectId(input.projectId);
@@ -303,6 +354,7 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
   }
 
   async function accessAdminMutate(input = {}) {
+    const generation = sessionGeneration;
     const operation = String(input.operation || input.account?.operation || "UPSERT").toUpperCase();
     let result;
     try {
@@ -319,6 +371,7 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
     // delaying the permission screen.
     void (async () => {
       if (legacyLoginPromise) await legacyLoginPromise;
+      if (generation !== sessionGeneration) return;
       if (!legacySessionStore.read()) return;
       try {
         await sheets.accessAdminMutate(legacyPermissionMirrorInput(input));
@@ -330,7 +383,7 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
   }
 
   async function activity(params = {}) {
-    if (String(params.entityType || "").toUpperCase() !== "TASK") return sheets.activity(params);
+    if (String(params.entityType || "").toUpperCase() !== "TASK") return legacyRead("activity")(params);
     const projectId = await resolveProjectId(params.projectId);
     return readTaskActivity({ ...params, projectId });
   }
@@ -347,9 +400,8 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
   }
 
   function logout() {
+    resetSessionWork();
     sessionStore.clear();
-    legacySessionStore.clear();
-    projectIds.clear();
     void client.auth.signOut({ scope: "local" });
   }
 
@@ -366,6 +418,7 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
     overview,
     plan,
     tasks,
+    clientProgress: async (params = {}) => readClientProgress({ ...params, projectId: await resolveProjectId(params.projectId) }),
     dailyMeetings: async (params = {}) => core.dailyMeetings({ ...params, projectId: await resolveProjectId(params.projectId) }),
     contents: legacyRead("contents"),
     tracking: legacyRead("tracking"),

@@ -14,6 +14,7 @@ export function parseViewLocation(hash = "") {
   if (value === "plan/internal") return { view: "plan", planVariant: "internal" };
   if (value === "plan/client" || value === "plan") return { view: "plan", planVariant: "client" };
   if (value === "tasks/schedule") return { view: "schedule", planVariant: DEFAULT_PLAN_VARIANT };
+  if (value === "tasks/client-progress" || value === "client-progress") return { view: "client-progress", planVariant: DEFAULT_PLAN_VARIANT };
   if (value === "tasks/progress" || value === "progress") return { view: "progress", planVariant: DEFAULT_PLAN_VARIANT };
   if (["overview", "portfolio", "tasks", "schedule", "daily", "credentials", "content", "tracking", "performance", "files", "permissions"].includes(value)) {
     return { view: value, planVariant: DEFAULT_PLAN_VARIANT };
@@ -24,6 +25,7 @@ export function parseViewLocation(hash = "") {
 export function viewLocationHash(view, planVariant = DEFAULT_PLAN_VARIANT) {
   if (view === "schedule") return "tasks/schedule";
   if (view === "progress") return "tasks/progress";
+  if (view === "client-progress") return "tasks/client-progress";
   return view === "plan" ? `plan/${normalizePlanVariant(planVariant)}` : view;
 }
 

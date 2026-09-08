@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   Copy,
@@ -107,12 +107,19 @@ function CredentialModal({ credential, onClose, onSave }) {
   </div>;
 }
 
-export function CredentialLedgerView({ project, credentials = [], query = "", canWrite, onSave, onArchive, onReveal }) {
+export function CredentialLedgerView(props) {
+  // Never reuse revealed secrets or an open editor across project boundaries.
+  return <ProjectCredentialLedger key={props.project.id} {...props} />;
+}
+
+function ProjectCredentialLedger({ project, credentials = [], query = "", canWrite, onSave, onArchive, onReveal }) {
   const [editing, setEditing] = useState(undefined);
   const [revealed, setRevealed] = useState({});
   const [busyId, setBusyId] = useState(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState(null);
+  const lifecycle = useRef(0);
+  const pendingReveals = useRef(new Set());
   const filtered = useMemo(() => {
     const term = String(query || "").trim().toLocaleLowerCase("ko");
     if (!term) return credentials;
@@ -124,6 +131,7 @@ export function CredentialLedgerView({ project, credentials = [], query = "", ca
     setBusyId(null);
     setNotice("");
     setError(null);
+    return () => { lifecycle.current += 1; pendingReveals.current.clear(); };
   }, [project.id]);
 
   useEffect(() => {
@@ -133,19 +141,26 @@ export function CredentialLedgerView({ project, credentials = [], query = "", ca
   }, [notice]);
 
   const reveal = async (credential) => {
+    if (pendingReveals.current.has(credential.id)) return;
     if (revealed[credential.id] !== undefined) {
       setRevealed((current) => { const next = { ...current }; delete next[credential.id]; return next; });
       return;
     }
     setBusyId(credential.id);
     setError(null);
+    const generation = lifecycle.current;
+    pendingReveals.current.add(credential.id);
     try {
       const password = await onReveal(credential);
+      if (generation !== lifecycle.current) return;
       setRevealed((current) => ({ ...current, [credential.id]: password }));
     } catch (nextError) {
-      setError(nextError);
+      if (generation === lifecycle.current) setError(nextError);
     } finally {
-      setBusyId(null);
+      if (generation === lifecycle.current) {
+        pendingReveals.current.delete(credential.id);
+        setBusyId((current) => current === credential.id ? null : current);
+      }
     }
   };
 

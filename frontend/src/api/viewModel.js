@@ -462,6 +462,7 @@ export function tasksViewModel(envelope) {
     issues: (data.issues || []).map(projectIssueViewModel),
     issueCanWrite: data.issueCanWrite === true,
     total: Number(data.totalMatching || 0),
+    truncated: data.truncated === true,
     nextCursor: data.nextCursor || null,
     project: data.project ? {
       id: data.project.project_id || null,

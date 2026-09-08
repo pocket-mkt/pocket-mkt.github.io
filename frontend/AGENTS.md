@@ -1,5 +1,12 @@
 # Prototype Instructions
 
+## Customer progress boundary (2026-09-08)
+
+- Add `진행상황 - 클라이언트` immediately after internal `진행상황` in the project folder. The customer route is `#tasks/client-progress`; internal progress is Pocket/NS only. This supersedes older guidance below that allowed customers into internal progress.
+- Customer progress consists ONLY of the shared three-column work flow and read-only project Gantt. No issues, confirmation requests, meetings, private task fields, executor names, or edit actions. Use the dedicated `read_client_progress` RPC and a separate cache, including when Pocket/NS preview it. Filter `CLIENT` visibility on the server before bounding results. Never fall back to the internal task workspace or Sheets.
+- Retain stored `progress` membership grants but map them to the new customer route and permission label. A `tasks` grant also permits the safe route. Redirect old customer progress URLs before any internal fetch. Independent existing task/daily grants are not revoked by this feature: a customer intended to see ONLY this page must receive ONLY the `progress` grant.
+- Invalidate the safe projection on task/visibility changes; do not patch its cache with internal canonical records. Deploy the DB migration before the frontend and verify an actual customer login before sharing the live URL.
+
 Run the local server yourself and open the preview in the browser available to this environment. Do not give the user server-start instructions when you can run it.
 
 Before making substantial visual changes, use the Product Design plugin's `get-context` skill when the visual source is unclear or no longer matches the current goal. When the user gives durable prototype-specific design feedback, preferences, or decisions, record them in `AGENTS.md`.

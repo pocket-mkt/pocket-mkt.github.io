@@ -11,7 +11,8 @@ test("진행상황은 업무 바로 아래에 위치하고 업무 권한·캐시
   assert.deepEqual(parseViewLocation("#tasks/progress"), { view: "progress", planVariant: "client" });
   assert.equal(viewLocationHash("progress"), "tasks/progress");
   assert.equal(viewResourceKey("progress"), "tasks");
-  assert.equal(isViewAllowed("progress", ["progress"]), true);
+  assert.equal(isViewAllowed("progress", ["progress"]), false);
+  assert.equal(isViewAllowed("client-progress", ["progress"]), true);
   assert.equal(isViewAllowed("progress", ["tasks"]), false);
   assert.equal(isViewAllowed("progress", ["overview"]), false);
 });
@@ -94,7 +95,7 @@ test("실서비스 진행상황은 시안 대신 실제 원장을 읽고 쓰기�
   assert.ok(app.includes('key={project.id}'));
   assert.ok(app.includes('view === "progress") return source.tasks(params)'));
   assert.ok(!view.includes("dashboard-prototype"));
-  assert.ok(app.includes('view === "progress") return <ProjectProgressView'));
+  assert.ok(app.includes('view === "progress") return role === "client" ? <LoadingState'));
   assert.ok(app.includes('displayMode="gantt" summaryOnly canWrite={false}'));
   assert.ok(app.includes('showOwners={props.role !== "client"}'));
   assert.ok(view.indexOf('className="pb-priority-grid"') < view.indexOf('className="pb-work-grid"'));

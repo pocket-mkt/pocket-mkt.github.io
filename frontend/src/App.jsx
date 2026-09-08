@@ -81,16 +81,11 @@ import {
   removeResourceSessionCache,
   scheduleResourceSessionCacheWrite,
 } from "./resourceSessionCache.js";
-import {
-  addIsoDays,
-  buildQuoteImportPayload,
-  buildQuoteItems,
-  QUOTE_MAPPING_FIELDS,
-  quoteColumnLabel,
-  readQuoteFile,
-} from "./quoteImport.js";
+import { QuoteSummary } from "./QuoteSummary.jsx";
+import { useOverviewResource } from "./useOverviewResource.js";
+import { invalidateResourceReads, invalidateWorkspaceCaches, WORKSPACE_SUMMARY_KEYS } from "./resourceInvalidation.js";
 import IssueRequestCard from "./IssueRequestCard.jsx";
-import IssueRequestCreateModal from "./IssueRequestCreateModal.jsx";
+const IssueRequestCreateModal = lazy(() => import("./IssueRequestCreateModal.jsx"));
 
 const SAVE_OVERLAY_MIN_MS = 500;
 const SAVE_OVERLAY_COALESCE_MS = 250;
@@ -99,7 +94,9 @@ const CredentialLedgerView = lazy(() => import("./CredentialLedgerView.jsx").the
 const OperationsDashboardView = lazy(() => import("./OperationsDashboardView.jsx").then((module) => ({ default: module.OperationsDashboardView })));
 const WorkspaceDailyMeetingsView = lazy(() => import("./OperationsDashboardView.jsx").then((module) => ({ default: module.WorkspaceDailyMeetingsView })));
 const ProgressView = lazy(() => import("./ProgressView.jsx").then((module) => ({ default: module.ProgressView })));
+const ClientProgressView = lazy(() => import("./ClientProgressView.jsx").then((module) => ({ default: module.ClientProgressView })));
 const TaskCreateModal = lazy(() => import("./TaskCreateModal.jsx").then((module) => ({ default: module.TaskCreateModal })));
+const QuoteImportModal = lazy(() => import("./QuoteImportModal.jsx"));
 
 const navIcons = {
   overview: LayoutDashboard,
@@ -108,6 +105,7 @@ const navIcons = {
   tasks: ClipboardCheck,
   schedule: CalendarDays,
   progress: CircleDot,
+  "client-progress": CircleDot,
   daily: NotebookPen,
   credentials: KeyRound,
   performance: BarChart3,
@@ -245,7 +243,7 @@ export function ProjectSidebar({ project, role, activeView, activePlanVariant, o
   const visibleNavItems = navItems.filter((item) => {
     if (item.accessManagerOnly) return canManageClientAccess(role);
     if (role !== "client") return true;
-    return isViewAllowed(item.permissionId || item.id, project.allowedPages);
+    return isViewAllowed(item.id, project.allowedPages);
   });
   const workspaceNavItem = visibleNavItems.find((item) => item.id === "portfolio");
   const projectNavItems = visibleNavItems.filter((item) => item.id !== "portfolio");
@@ -448,151 +446,6 @@ function ProjectCreateModal({ onClose, onSubmit }) {
   </div>;
 }
 
-function won(value) {
-  return value === null || value === undefined ? "–" : `${Math.round(Number(value)).toLocaleString("ko-KR")}원`;
-}
-
-function localIsoToday() {
-  const now = new Date();
-  const pad = (value) => String(value).padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
-
-function QuoteSummary({ quote }) {
-  const totals = quote?.totals || {};
-  if (!quote || (!quote.issued_at && !quote.project && !Object.keys(totals).length)) return null;
-  return <div className="quote-summary" aria-label="적용된 견적 정보">
-    <span className="quote-summary-label">견적</span>
-    {quote.issued_at && <span><small>발행</small><strong>{quote.issued_at}</strong></span>}
-    {quote.project && <span className="quote-summary-project"><small>프로젝트</small><strong>{quote.project}</strong></span>}
-    {totals.base !== undefined && <span><small>기준단가</small><strong>{won(totals.base)}</strong></span>}
-    {totals.discount !== undefined && <span className="is-discount"><small>할인</small><strong>-{won(totals.discount)}</strong></span>}
-    {totals.supply !== undefined && <span><small>공급가액</small><strong>{won(totals.supply)}</strong></span>}
-    {totals.vat !== undefined && <span><small>부가세</small><strong>{won(totals.vat)}</strong></span>}
-    {totals.total !== undefined && <span className="is-total"><small>총 결제금액</small><strong>{won(totals.total)}</strong></span>}
-  </div>;
-}
-
-function QuoteImportModal({ currentProject, onClose, onCreateProject, onAppendProject }) {
-  const inputRef = useRef(null);
-  const [state, setState] = useState({ stage: "select", detail: "", error: null });
-  const [parsed, setParsed] = useState(null);
-  const [mapping, setMapping] = useState({});
-  const [items, setItems] = useState([]);
-  const [selectedIndexes, setSelectedIndexes] = useState([]);
-  const [showMapping, setShowMapping] = useState(false);
-  const [splitQuantities, setSplitQuantities] = useState(true);
-  const [deriveDesign, setDeriveDesign] = useState(true);
-  const [fields, setFields] = useState({ clientName: "", projectName: "", start: "", end: "" });
-
-  useEffect(() => {
-    const closeOnEscape = (event) => { if (event.key === "Escape" && state.stage !== "saving") onClose(); };
-    globalThis.addEventListener?.("keydown", closeOnEscape);
-    return () => globalThis.removeEventListener?.("keydown", closeOnEscape);
-  }, [onClose, state.stage]);
-
-  const setField = (name, value) => setFields((current) => ({ ...current, [name]: value }));
-  const processFile = async (file) => {
-    if (!file) return;
-    setState({ stage: "reading", detail: file.name, error: null });
-    try {
-      const result = await readQuoteFile(file, ({ stage, detail }) => setState({ stage, detail, error: null }));
-      const today = localIsoToday();
-      const nextItems = result.items;
-      setParsed(result);
-      setMapping(result.analysis.map);
-      setItems(nextItems);
-      setSelectedIndexes(nextItems.map((_, index) => index));
-      setShowMapping(!result.analysis.autoMapped);
-      setFields({
-        clientName: result.analysis.metadata.client || "",
-        projectName: result.analysis.metadata.project || result.fileName.replace(/\.[^.]+$/, ""),
-        start: result.analysis.metadata.start || today,
-        end: result.analysis.metadata.end || addIsoDays(today, 29),
-      });
-      setState({ stage: "review", detail: "", error: null });
-    } catch (error) {
-      setState({ stage: "error", detail: "", error });
-    }
-  };
-
-  const updateMapping = (field, value) => {
-    const next = { ...mapping };
-    if (value === "") delete next[field]; else next[field] = Number(value);
-    setMapping(next);
-    if (parsed) {
-      const nextItems = buildQuoteItems(parsed.analysis, next);
-      setItems(nextItems);
-      setSelectedIndexes(nextItems.map((_, index) => index));
-    }
-  };
-
-  const toggleItem = (index) => setSelectedIndexes((current) => current.includes(index) ? current.filter((item) => item !== index) : [...current, index]);
-  const preview = useMemo(() => {
-    if (!parsed || !items.length) return { payload: null, error: null };
-    try {
-      return { payload: buildQuoteImportPayload({ analysis: parsed.analysis, items, selectedIndexes, clientName: fields.clientName, projectName: fields.projectName, start: fields.start, end: fields.end, splitQuantities, deriveDesign, fileName: parsed.fileName }), error: null };
-    } catch (error) { return { payload: null, error }; }
-  }, [deriveDesign, fields, items, parsed, selectedIndexes, splitQuantities]);
-  const previewPayload = preview.payload;
-
-  const submit = async (mode) => {
-    if (!parsed) return;
-    try {
-      const payload = buildQuoteImportPayload({ analysis: parsed.analysis, items, selectedIndexes, clientName: fields.clientName, projectName: fields.projectName, start: fields.start, end: fields.end, splitQuantities, deriveDesign, fileName: parsed.fileName });
-      if (mode === "new" && (!payload.fields.client_name || !payload.fields.project_name)) throw new Error("새 프로젝트의 회사명과 프로젝트명을 입력해 주세요.");
-      setState({ stage: "saving", detail: `${payload.tasks.length}개 업무 저장`, error: null });
-      if (mode === "new") await onCreateProject(payload);
-      else await onAppendProject(payload);
-      onClose();
-    } catch (error) {
-      setState({ stage: parsed ? "review" : "error", detail: "", error });
-    }
-  };
-
-  const busy = ["reading", "library", "parsing", "matching", "saving"].includes(state.stage);
-  const quoteFileType = parsed?.fileName.split(".").pop()?.toUpperCase() || "파일";
-  return <div className="modal-backdrop quote-import-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
-    <section className="create-modal quote-import-modal" role="dialog" aria-modal="true" aria-labelledby="quote-import-title">
-      <header><div>{parsed && state.stage === "review" ? <><h2 id="quote-import-title">견적서에서 캠페인 만들기</h2><span>{parsed.fileName} · {parsed.sheetName ? `시트 ${parsed.sheetName} · ` : ""}{quoteFileType} · 항목 {items.length}건</span></> : <><p className="editorial-kicker">견적서 → 프로젝트·업무</p><h2 id="quote-import-title">견적서 불러오기</h2><span>PDF·엑셀·CSV의 항목, 수량, 금액을 읽어 프로젝트 일정으로 만듭니다.</span></>}</div><button className="icon-button" type="button" onClick={onClose} disabled={busy} aria-label="닫기"><X size={18} /></button></header>
-      <input ref={inputRef} className="quote-file-input" type="file" accept=".pdf,.xlsx,.xls,.xlsm,.csv,.tsv,application/pdf" onClick={(event) => { event.currentTarget.value = ""; }} onChange={(event) => processFile(event.target.files?.[0])} />
-      {state.stage === "select" && <div className="quote-dropzone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); processFile(event.dataTransfer.files?.[0]); }}>
-        <span className="quote-dropzone-icon"><FileUp size={26} /></span><strong>견적서 파일을 놓으세요</strong><p>또는 파일을 직접 선택할 수 있습니다. 최대 20MB</p><button className="primary-button" type="button" onClick={() => inputRef.current?.click()}>파일 선택</button>
-      </div>}
-      {busy && <div className="quote-import-progress" role="status"><LoaderCircle size={25} className="spin" /><strong>{state.stage === "saving" ? "프로젝트를 저장하고 있습니다" : "견적서를 읽고 있습니다"}</strong><span>{state.detail}</span></div>}
-      {state.stage === "error" && <div className="quote-import-error"><AlertCircle size={24} /><strong>견적서를 읽지 못했습니다</strong><span>{state.error?.message || "파일 형식을 확인해 주세요."}</span><button className="secondary-button" type="button" onClick={() => { setState({ stage: "select", detail: "", error: null }); if (inputRef.current) inputRef.current.value = ""; }}>다른 파일 선택</button></div>}
-      {state.stage === "review" && parsed && <>
-        <div className="quote-import-body">
-          {state.error && <div className="form-error"><AlertCircle size={15} /><span>{state.error.message}</span></div>}
-          <div className="quote-mapping-head"><span>{parsed.analysis.autoMapped ? "✓ 표 머리글을 찾아 열을 자동으로 맞췄습니다." : "열을 자동 추정했습니다. 항목 열을 확인하세요."}</span><button type="button" onClick={() => setShowMapping((current) => !current)}>{showMapping ? "열 지정 접기" : "열 지정 고치기"}</button></div>
-          {showMapping && <div className="quote-mapping-grid">{QUOTE_MAPPING_FIELDS.map((field) => <label key={field.key}><span>{field.label}</span><select value={mapping[field.key] ?? ""} onChange={(event) => updateMapping(field.key, event.target.value)}><option value="">없음</option>{parsed.analysis.columns.map((column) => <option key={column.index} value={column.index}>{quoteColumnLabel(column)}</option>)}</select></label>)}</div>}
-          <div className="quote-project-meta">
-            <label><span>CLIENT</span><input value={fields.clientName} onChange={(event) => setField("clientName", event.target.value)} placeholder="고객사명" /></label>
-            <label><span>PROJECT</span><input value={fields.projectName} onChange={(event) => setField("projectName", event.target.value)} placeholder="캠페인명" /></label>
-            <div><span>담당</span><strong>{parsed.analysis.metadata.manager || "-"}</strong></div>
-            <div><span>발행일</span><strong>{parsed.analysis.metadata.issuedAt || "-"}</strong></div>
-          </div>
-          <div className="quote-period-row">
-            <span>캠페인 기간</span>
-            <input type="date" value={fields.start} max={fields.end || undefined} onChange={(event) => setField("start", event.target.value)} aria-label="캠페인 시작일" />
-            <ArrowRight size={14} />
-            <input type="date" value={fields.end} min={fields.start || undefined} onChange={(event) => setField("end", event.target.value)} aria-label="캠페인 종료일" />
-            <small>{parsed.analysis.metadata.start ? "견적서에서 읽은 기간입니다." : "견적서에 기간이 없어 오늘부터 한 달로 잡았습니다."} 고치면 생성될 일정이 이 기간에 맞춰 분산됩니다.</small>
-          </div>
-          <QuoteSummary quote={{ issued_at: parsed.analysis.metadata.issuedAt, project: parsed.analysis.metadata.project, totals: parsed.analysis.totals }} />
-          <div className="quote-item-table-wrap"><table className="quote-item-table"><thead><tr><th aria-label="선택" /><th>매체</th><th>항목</th><th>수량</th><th>금액</th></tr></thead><tbody>{items.map((item, index) => <tr key={`${item.name}-${index}`} className={selectedIndexes.includes(index) ? "" : "is-off"}><td><input type="checkbox" checked={selectedIndexes.includes(index)} onChange={() => toggleItem(index)} /></td><td><span className="quote-media-chip">{item.media}</span></td><td><strong>{item.name}</strong>{item.detail && <small>{item.detail}</small>}</td><td>{item.quantity}{item.unit}</td><td>{won(item.amount)}</td></tr>)}</tbody></table></div>
-        </div>
-        <footer className="quote-import-footer">
-          <div className="quote-import-options"><label><input type="checkbox" checked={splitQuantities} onChange={(event) => setSplitQuantities(event.target.checked)} /><span>수량만큼 행 나누기 <small>(10건 → 1/10 … 10/10)</small></span></label><label><input type="checkbox" checked={deriveDesign} onChange={(event) => setDeriveDesign(event.target.checked)} /><span>디자인·썸네일 업무 자동 추가 <small>(담당 포켓)</small></span></label></div>
-          <span className={`quote-task-count${preview.error ? " is-error" : ""}`} title={preview.error?.message || undefined}>{preview.error ? preview.error.message : <>업무 <strong>{previewPayload?.tasks.length ?? 0}</strong>행 생성</>}</span>
-          <button className="secondary-button" type="button" onClick={onClose}>취소</button>
-          <button className="secondary-button" type="button" disabled={!previewPayload || !currentProject?.id} onClick={() => submit("append")}>현재 프로젝트에 추가</button>
-          <button className="primary-button" type="button" disabled={!previewPayload || !fields.clientName.trim() || !fields.projectName.trim()} onClick={() => submit("new")}>새 프로젝트로 만들기</button>
-        </footer>
-      </>}
-    </section>
-  </div>;
-}
 
 function CampaignWorkspaceHeader({ clients, activeClient, onSelectClient, project, role, activeView, activePlanVariant, onView, actor, onLogout, live, search, setSearch, connectionReady, sourceState }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -601,7 +454,7 @@ function CampaignWorkspaceHeader({ clients, activeClient, onSelectClient, projec
   const visibleNavItems = navItems.filter((item) => {
     if (item.accessManagerOnly) return canManageClientAccess(role);
     if (role !== "client") return true;
-    return isViewAllowed(item.permissionId || item.id, project.allowedPages);
+    return isViewAllowed(item.id, project.allowedPages);
   });
   const activePage = visibleNavItems.find((item) => item.id === activeView);
   const activeLabel = activeView === "plan"
@@ -1481,7 +1334,7 @@ export function ProjectIssuePanel({ issues, project, canWrite, actorName, onCrea
       {issues.length ? issues.map((issue, index) => <ProjectIssueRow key={issue.id} issue={issue} index={index} canWrite={canWrite} onUpdate={onUpdate} onArchive={onArchive} />) : <tr><td colSpan={canWrite ? 10 : 9} className="project-issue-empty">기록된 이슈가 없습니다.</td></tr>}
     </tbody></table></div>}
     {canWrite && <footer className="project-issue-footer"><button type="button" className="project-issue-add" onClick={() => setComposeOpen(true)}><Plus size={14} />확인 요청 추가</button></footer>}
-    {composeOpen && <IssueRequestCreateModal projects={[project]} initialProjectId={project?.id} owners={owners} actorName={actorName} onCreate={onCreate} onClose={() => setComposeOpen(false)} />}
+    {composeOpen && <Suspense fallback={<LoadingState label="확인요청 작성 화면을 여는 중입니다." />}><IssueRequestCreateModal projects={[project]} initialProjectId={project?.id} owners={owners} actorName={actorName} onCreate={onCreate} onClose={() => setComposeOpen(false)} /></Suspense>}
   </section>;
 }
 
@@ -2491,12 +2344,21 @@ export function ProjectProgressView(props) {
   />} /></Suspense>;
 }
 
+export function ProjectClientProgressView({ project, taskPage }) {
+  const scheduleProject = { ...project, ...(taskPage.project || {}) };
+  return <Suspense fallback={<LoadingState label="고객용 진행상황을 준비하고 있습니다." />}><ClientProgressView project={project} taskPage={taskPage} schedule={<TaskScheduleTimeline
+    key={scheduleProject.id} tasks={taskPage.items || []} issues={[]} project={scheduleProject}
+    displayMode="gantt" summaryOnly canWrite={false} canWriteIssues={false} canEditProject={false} showOwners={false}
+  />} /></Suspense>;
+}
+
 function AppContent({ view, planVariant, project, role, search, setView, pageState, taskActivityState, onLoadTaskActivity, onRetry, onCreate, onTaskUpdate, onTaskArchive, onTaskBatchUpdate, onProjectUpdate, onIssueCreate, onIssueUpdate, onIssueArchive, onDailyMeetingSave, onCredentialSave, onCredentialArchive, onCredentialReveal, onKpiSave, onKpiArchive, onAccessSave, onOpenProject, canWrite, source, actorName }) {
   if (pageState.status === "loading" && !pageState.data) return <LoadingState />;
   if (pageState.status === "error" && !pageState.data) return <ErrorState error={pageState.error} onRetry={onRetry} />;
   const data = pageState.data || {};
   if (view === "portfolio") return role !== "client" ? <Suspense fallback={<LoadingState label="통합 관리 화면을 준비하고 있습니다." />}><OperationsDashboardView dashboard={data} actorName={actorName} canWrite={canWrite} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} onOpenProject={onOpenProject} onLoadWeek={(startDate, endDate) => source.operationsDashboard({ startDate, endDate }).then(operationsDashboardViewModel)} /></Suspense> : <ErrorState error={new Error("내부 운영 계정만 접근할 수 있습니다.")} />;
-  if (view === "progress") return <ProjectProgressView key={project.id} project={project} role={role} taskPage={data} source={source} actorName={actorName} canWrite={canWrite} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} onNavigate={setView} />;
+  if (view === "client-progress") return <ProjectClientProgressView key={project.id} project={project} taskPage={data} />;
+  if (view === "progress") return role === "client" ? <LoadingState label="고객용 진행상황으로 이동합니다." /> : <ProjectProgressView key={project.id} project={project} role={role} taskPage={data} source={source} actorName={actorName} canWrite={canWrite} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} onNavigate={setView} />;
   if (view === "plan") return <PlanView plan={data} project={project} planVariant={planVariant} />;
   if (view === "tasks" || view === "schedule") return <TasksView role={role} query={search} taskPage={{ ...data, project: { id: project.id, clientId: project.clientId, clientName: project.clientName, name: project.name, permissionCode: project.permissionCode, allowedPages: project.allowedPages, phaseCode: project.phaseCode, phase: project.phase, startDate: project.startDate, endDate: project.endDate, rowVersion: project.rowVersion, ...(data.project || {}) } }} activityState={taskActivityState} onLoadActivity={onLoadTaskActivity} onCreate={onCreate} actorName={actorName} onUpdate={onTaskUpdate} onArchive={onTaskArchive} onBatchUpdate={onTaskBatchUpdate} onProjectUpdate={onProjectUpdate} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} canWrite={canWrite} initialSection="schedule" />;
   if (view === "daily") return role !== "client" && Array.isArray(data.projects)
@@ -2604,6 +2466,7 @@ export function App() {
   const resourceCacheRef = useRef(new Map());
   const resourceRequestRef = useRef(new Map());
   const resourceCacheEpochRef = useRef(0);
+  const resourceVersionsRef = useRef(new Map());
   const taskActivityRequestRef = useRef(null);
   const live = Boolean(source);
   const compactViewport = useMediaQuery("(max-width: 900px)");
@@ -2682,7 +2545,7 @@ export function App() {
     if (bootstrapState.status !== "ready" || actorRole !== "client" || !activeProjectId) return;
     const allowedPages = bootstrapState.data?.projects?.[activeProjectId]?.allowedPages || [];
     if (isViewAllowed(view, allowedPages)) return;
-    const fallbackView = firstAllowedView(allowedPages);
+    const fallbackView = view === "progress" && isViewAllowed("client-progress", allowedPages) ? "client-progress" : firstAllowedView(allowedPages);
     setView(fallbackView);
     setPlanVariant(DEFAULT_PLAN_VARIANT);
   }, [bootstrapState.status, bootstrapState.data, actorRole, activeProjectId, view]);
@@ -2711,6 +2574,7 @@ export function App() {
     resourceCacheEpochRef.current += 1;
     resourceCacheRef.current.clear();
     resourceRequestRef.current.clear();
+    resourceVersionsRef.current.clear();
     if (data.initial?.projectId === nextProjectId) {
       const initialState = {
         status: "ready",
@@ -2787,9 +2651,10 @@ export function App() {
             ]).then(([bootstrap, overview]) => ({ bootstrap, overview })),
         };
       }
+      const initializationRequest = initializationRequestRef.current;
       try {
-        const result = await initializationRequestRef.current.promise;
-        if (!active) return;
+        const result = await initializationRequest.promise;
+        if (!active || initializationRequestRef.current !== initializationRequest) return;
         const envelope = result?.bootstrap || result;
         setSession(source.getSession());
         const bootstrapData = applyBootstrapEnvelope(envelope);
@@ -2806,7 +2671,7 @@ export function App() {
           });
         }
       } catch (error) {
-        if (!active) return;
+        if (!active || initializationRequestRef.current !== initializationRequest) return;
         initializationRequestRef.current = null;
         setLoginError(error);
         setBootstrapState({ status: "error", data: null, error });
@@ -2818,19 +2683,12 @@ export function App() {
     return () => { active = false; };
   }, [source, applyBootstrapEnvelope, bootstrapRetryKey]);
 
-  useEffect(() => {
-    if (!source || !activeProjectId || view !== "overview" || bootstrapState.status !== "ready") return undefined;
-    const allowedPages = bootstrapState.data?.projects?.[activeProjectId]?.allowedPages || [];
-    if (actorRole !== "client" || isViewAllowed("schedule", allowedPages)) return undefined;
-    if (overviewState.status === "ready" && overviewState.projectId === activeProjectId && overviewState.refreshKey === pageRefreshKey) return undefined;
-    const controller = new AbortController();
-    setOverviewState({ status: "loading", data: null, error: null, resource: "overview", projectId: activeProjectId });
-    source.overview({ projectId: activeProjectId, signal: controller.signal }).then((envelope) => setOverviewState({ status: "ready", data: overviewViewModel(envelope, bootstrapState.data.projects[activeProjectId]), error: null, resource: "overview", projectId: activeProjectId, refreshKey: pageRefreshKey })).catch((error) => { if (!controller.signal.aborted) { if (error.code === "unauthorized") setSession(null); setOverviewState({ status: "error", data: null, error, resource: "overview", projectId: activeProjectId, refreshKey: pageRefreshKey }); } });
-    return () => controller.abort();
-  }, [source, activeProjectId, view, bootstrapState.status, bootstrapState.data, actorRole, overviewState.status, overviewState.projectId, pageRefreshKey]);
+  useOverviewResource({ source, activeProjectId, view, bootstrapState, actorRole, overviewState, pageRefreshKey, setOverviewState, setSession });
 
   useEffect(() => {
     if (!source || !activeProjectId || view === "overview" || bootstrapState.status !== "ready") return undefined;
+    // Authorize before consulting caches or issuing a request for a legacy URL.
+    if (actorRole === "client" && !isViewAllowed(view, bootstrapState.data?.projects?.[activeProjectId]?.allowedPages || [])) return undefined;
     const cacheKey = `${resourceProjectId}:${activeResource}`;
     let cached = resourceCacheRef.current.get(cacheKey) || null;
     if (!cached && PERSISTED_RESOURCES.has(activeResource)) {
@@ -2849,13 +2707,15 @@ export function App() {
     if (cacheIsFresh) return undefined;
     if (!cachedState && !visibleState) setResourceState({ status: "loading", data: null, error: null, resource: activeResource, projectId: resourceProjectId, refreshKey: pageRefreshKey });
     const params = { projectId: activeProjectId, limit: 200, ...(view === "progress" ? { permissionPage: "progress" } : {}) };
-    const requestKey = `${cacheKey}:${pageRefreshKey}`;
+    const resourceVersion = resourceVersionsRef.current.get(cacheKey) || 0;
+    const requestKey = `${cacheKey}:${resourceVersion}:${pageRefreshKey}`;
     const requestEpoch = resourceCacheEpochRef.current;
     let request = resourceRequestRef.current.get(requestKey);
     if (!request) {
       const fallback = () => {
         if (view === "portfolio" || (view === "daily" && actorRole !== "client")) return source.operationsDashboard({ ...params, ...operationsDashboardRange() }).then(operationsDashboardViewModel);
         if (view === "plan") return source.plan({ ...params, planType: PLAN_VARIANTS[authorizedPlanVariant].apiValue }).then(planViewModel);
+        if (view === "client-progress") return source.clientProgress(params).then(tasksViewModel);
         if (view === "tasks" || view === "schedule" || view === "progress") return source.tasks(params).then(tasksViewModel);
         if (view === "daily") return source.dailyMeetings({ ...params, limit: 100 }).then(dailyMeetingsViewModel);
         if (view === "credentials") return source.credentials(params).then(credentialsViewModel);
@@ -2876,7 +2736,7 @@ export function App() {
     }
     let active = true;
     request.then((data) => {
-      if (resourceCacheEpochRef.current !== requestEpoch) return;
+      if (resourceCacheEpochRef.current !== requestEpoch || (resourceVersionsRef.current.get(cacheKey) || 0) !== resourceVersion) return;
       const nextState = { status: "ready", data, error: null, resource: activeResource, projectId: resourceProjectId, refreshKey: pageRefreshKey };
       const nextCache = { state: nextState, cachedAt: Date.now() };
       resourceCacheRef.current.set(cacheKey, nextCache);
@@ -2885,7 +2745,7 @@ export function App() {
       }
       if (active) setResourceState(nextState);
     }).catch((error) => {
-      if (!active) return;
+      if (!active || resourceCacheEpochRef.current !== requestEpoch || (resourceVersionsRef.current.get(cacheKey) || 0) !== resourceVersion) return;
       if (error.code === "unauthorized") setSession(null);
       if (!cachedState && !visibleState) setResourceState({ status: "error", data: null, error, resource: activeResource, projectId: resourceProjectId, refreshKey: pageRefreshKey });
     });
@@ -2898,6 +2758,7 @@ export function App() {
   }, [view, planVariant]);
 
   const handleLogin = async (credentials) => {
+    initializationRequestRef.current = null;
     setLoginError(null);
     try {
       const result = await source.login({ ...credentials, initialView: serverInitialView(view) });
@@ -2908,6 +2769,7 @@ export function App() {
   };
 
   const logout = () => {
+    initializationRequestRef.current = null;
     source.logout();
     clearBootstrapSessionCache();
     clearResourceSessionCache();
@@ -2921,6 +2783,7 @@ export function App() {
     resourceCacheEpochRef.current += 1;
     resourceCacheRef.current.clear();
     resourceRequestRef.current.clear();
+    resourceVersionsRef.current.clear();
     setCreateEntity(null);
     setSaveNotice(null);
   };
@@ -2957,9 +2820,10 @@ export function App() {
     : resourceState.resource === activeResource && resourceState.projectId === resourceProjectId
       ? resourceState
       : cachedPageForView || { ...blankPage, status: "loading", resource: activeResource, projectId: resourceProjectId };
-  const notificationTaskState = resourceState.resource === "tasks" && resourceState.projectId === activeProjectId
+  const notificationResource = view === "client-progress" ? "client-progress" : "tasks";
+  const notificationTaskState = resourceState.resource === notificationResource && resourceState.projectId === activeProjectId
     ? resourceState
-    : resourceCacheRef.current.get(`${activeProjectId}:tasks`)?.state || null;
+    : resourceCacheRef.current.get(`${activeProjectId}:${notificationResource}`)?.state || null;
   const notificationTasks = notificationTaskState?.data?.items || [];
   const notificationsLoaded = Boolean(notificationTaskState?.data?.items);
   const taskCount = view === "tasks" && resourceState.resource === "tasks" ? Number(resourceState.data?.total || 0) : Number(project.metrics?.[0]?.value?.replace?.(/\D/g, "") || 0);
@@ -2967,16 +2831,35 @@ export function App() {
   const canWriteTasks = canOperateProjectTasks({ live, role, loginEnabled: source.config.loginEnabled });
   const connectionReady = live && Boolean(sourceState.lastSuccessfulAt);
 
+  const discardResourceRead = (projectId, resource) => {
+    invalidateResourceReads(resourceRequestRef.current, resourceVersionsRef.current, `${projectId}:${resource}`);
+  };
+
+  const invalidateWorkspaceSummaries = () => {
+    // The customer projection is a separate cache: never patch it with an
+    // internal canonical task (which can contain notes or hidden tasks).
+    for (const key of resourceCacheRef.current.keys()) {
+      if (key.endsWith(":client-progress")) resourceCacheRef.current.delete(key);
+    }
+    const clientProjectIds = new Set([activeProjectId]);
+    for (const key of resourceRequestRef.current.keys()) {
+      if (key.includes(":client-progress:")) clientProjectIds.add(key.split(":")[0]);
+    }
+    for (const projectId of clientProjectIds) discardResourceRead(projectId, "client-progress");
+    invalidateWorkspaceCaches({
+      cache: resourceCacheRef.current,
+      requests: resourceRequestRef.current,
+      versions: resourceVersionsRef.current,
+      removePersisted: (key) => removeResourceSessionCache(source?.getSession(), key),
+    });
+    if (WORKSPACE_SUMMARY_KEYS.includes(`${resourceProjectId}:${activeResource}`)) setPageRefreshKey((value) => value + 1);
+  };
+
   const invalidateResource = (projectId, resource) => {
     const cacheKey = `${projectId}:${resource}`;
-    resourceCacheEpochRef.current += 1;
+    discardResourceRead(projectId, resource);
     resourceCacheRef.current.delete(cacheKey);
-    if (["tasks", "daily"].includes(resource)) {
-      resourceCacheRef.current.delete("workspace:portfolio");
-      for (const requestKey of resourceRequestRef.current.keys()) {
-        if (requestKey.startsWith("workspace:portfolio:")) resourceRequestRef.current.delete(requestKey);
-      }
-    }
+    if (["tasks", "daily"].includes(resource)) invalidateWorkspaceSummaries();
     if (PERSISTED_RESOURCES.has(resource)) removeResourceSessionCache(source?.getSession(), cacheKey);
     for (const requestKey of resourceRequestRef.current.keys()) {
       if (requestKey.startsWith(`${cacheKey}:`)) resourceRequestRef.current.delete(requestKey);
@@ -3055,7 +2938,7 @@ export function App() {
       : entityType === "task"
         ? { ...fields, sort_order: nextTaskSortOrder }
         : fields;
-    if (entityType === "task") resourceCacheEpochRef.current += 1;
+    if (entityType === "task") discardResourceRead(activeProjectId, "tasks");
     const result = await mutateWithSaveLock("새 데이터를 원장에 기록하고 있습니다.", {
       projectId: activeProjectId,
       mutation: { entityType, operation: "CREATE", fields: nextFields },
@@ -3064,6 +2947,7 @@ export function App() {
     // refresh is secondary and must not keep the create modal blocked.
     setSaveNotice(entityType === "task" ? "Supabase 업무 원장에 저장했습니다." : "Google Sheets 원장에 저장했습니다.");
     if (entityType === "task") {
+      invalidateWorkspaceSummaries();
       const canonicalRecord = result?.data?.record;
       const canonicalTask = canonicalRecord
         ? tasksViewModel({ data: { items: [canonicalRecord], totalMatching: 1 }, generatedAt: result.generatedAt }).items[0]
@@ -3221,7 +3105,7 @@ export function App() {
     const previousTask = { ...task };
     // A task write must not be overwritten by a slower workspace/read request
     // that started before the click.
-    resourceCacheEpochRef.current += 1;
+    discardResourceRead(projectId, "tasks");
     patchTaskResource(projectId, task.id, (current) => taskWithMutationFields(current, fields));
     try {
       const result = await mutateWithSaveLock("업무 변경사항을 원장에 기록하고 있습니다.", {
@@ -3235,6 +3119,7 @@ export function App() {
         },
       });
       const canonicalRecord = result?.data?.record;
+      invalidateWorkspaceSummaries();
       const canonicalTask = canonicalRecord
         ? tasksViewModel({ data: { items: [canonicalRecord], totalMatching: 1 }, generatedAt: result.generatedAt }).items[0]
         : null;
@@ -3258,7 +3143,7 @@ export function App() {
       throw readOnlyError;
     }
     const projectId = activeProjectId;
-    resourceCacheEpochRef.current += 1;
+    discardResourceRead(projectId, "tasks");
     try {
       await mutateWithSaveLock("업무를 원장에서 보관 처리하고 있습니다.", {
         projectId,
@@ -3271,6 +3156,7 @@ export function App() {
         },
       });
       removeTaskResource(projectId, task.id);
+      invalidateWorkspaceSummaries();
       setTaskActivityState({ ...blankTaskActivity, projectId });
       setSaveNotice("업무를 삭제했습니다. 원장에는 복구 가능한 보관 이력이 남습니다.");
     } catch (error) {
@@ -3292,7 +3178,7 @@ export function App() {
     }
     const projectId = activeProjectId;
     const previousTasks = new Map(updates.map(({ task }) => [task.id, { ...task }]));
-    resourceCacheEpochRef.current += 1;
+    discardResourceRead(projectId, "tasks");
     updates.forEach(({ task, operation = "UPDATE", fields = {} }) => {
       if (operation === "ARCHIVE") removeTaskResource(projectId, task.id);
       else patchTaskResource(projectId, task.id, (current) => taskWithMutationFields(current, fields));
@@ -3311,6 +3197,7 @@ export function App() {
       const canonicalTasks = (result?.data?.results || []).map((item) => item?.record)
         .filter(Boolean)
         .map((record) => tasksViewModel({ data: { items: [record], totalMatching: 1 }, generatedAt: result.generatedAt }).items[0]);
+      invalidateWorkspaceSummaries();
       const canonicalById = new Map(canonicalTasks.map((task) => [task.id, task]));
       updates.forEach(({ task, operation = "UPDATE", fields = {} }) => {
         if (operation === "ARCHIVE") return;
@@ -3344,13 +3231,14 @@ export function App() {
       throw readOnlyError;
     }
     const projectId = projectIdOverride || activeProjectId;
-    resourceCacheEpochRef.current += 1;
+    discardResourceRead(projectId, "tasks");
     const result = await mutateWithSaveLock("새 이슈 행을 원장에 기록하고 있습니다.", {
       projectId,
       mutation: { entityType: "project_issue", operation: "CREATE", fields },
     });
     const canonicalIssue = projectIssueViewModel(result?.data?.item || {});
     appendIssueResource(projectId, canonicalIssue);
+    invalidateWorkspaceSummaries();
     setSaveNotice("이슈 행을 Supabase 원장에 추가했습니다.");
     return canonicalIssue;
   };
@@ -3362,7 +3250,7 @@ export function App() {
       throw readOnlyError;
     }
     const projectId = issue.projectId || activeProjectId;
-    resourceCacheEpochRef.current += 1;
+    discardResourceRead(projectId, "tasks");
     try {
       const result = await mutateWithSaveLock("이슈 변경사항을 원장에 기록하고 있습니다.", {
         projectId,
@@ -3382,6 +3270,7 @@ export function App() {
         projectName: issue.projectName,
       };
       patchIssueResource(projectId, issue.id, () => canonicalIssue);
+      invalidateWorkspaceSummaries();
       setSaveNotice("이슈 변경사항을 Supabase에 저장했습니다.");
       return canonicalIssue;
     } catch (error) {
@@ -3397,6 +3286,7 @@ export function App() {
       throw readOnlyError;
     }
     const projectId = issue.projectId || activeProjectId;
+    discardResourceRead(projectId, "tasks");
     try {
       await mutateWithSaveLock("이슈 행을 원장에서 보관 처리하고 있습니다.", {
         projectId,
@@ -3409,6 +3299,7 @@ export function App() {
         },
       });
       removeIssueResource(projectId, issue.id);
+      invalidateWorkspaceSummaries();
       setSaveNotice("이슈 행을 삭제했습니다.");
     } catch (error) {
       if (error.code === "conflict") invalidateResource(projectId, "tasks");
@@ -3680,7 +3571,7 @@ export function App() {
     taskActivityRequestRef.current = null;
     const nextProject = bootstrapState.data.projects[client.projectId];
     const nextView = role !== "client" || isViewAllowed("schedule", nextProject?.allowedPages || []) ? "schedule" : firstAllowedView(nextProject?.allowedPages || []);
-    setView(view === "progress" && (role !== "client" || isViewAllowed("progress", nextProject?.allowedPages || [])) ? "progress" : nextView);
+    setView(["progress", "client-progress"].includes(view) && (role !== "client" || isViewAllowed(view, nextProject?.allowedPages || [])) ? view : nextView);
     setSearch("");
   };
 
@@ -3722,7 +3613,7 @@ export function App() {
       <div className="app-main"><Topbar project={project} activeView={view} actor={actor} onLogout={logout} live={live && source.config.loginEnabled} search={search} setSearch={setSearch} notificationTasks={notificationTasks} notificationsLoaded={notificationsLoaded} onNotificationSelect={openNotificationTask} /><main className="content-canvas"><AppContent source={source} actorName={actor?.displayName || actor?.name || (role === "ns" ? "NS" : "포켓컴퍼니")} view={view} planVariant={authorizedPlanVariant} project={project} role={role} search={search} setView={navigateToView} pageState={currentPage} taskActivityState={taskActivityState} onLoadTaskActivity={loadTaskActivity} onRetry={refreshCurrentPage} onCreate={setCreateEntity} onTaskUpdate={updateTask} onTaskArchive={archiveTask} onTaskBatchUpdate={updateTasksBatch} onProjectUpdate={updateProjectStartDate} onIssueCreate={createProjectIssue} onIssueUpdate={updateProjectIssue} onIssueArchive={archiveProjectIssue} onDailyMeetingSave={saveDailyMeeting} onCredentialSave={saveProjectCredential} onCredentialArchive={archiveProjectCredential} onCredentialReveal={revealProjectCredential} onKpiSave={saveKpiDefinition} onKpiArchive={archiveKpiDefinition} onAccessSave={saveAccessAccount} onOpenProject={openDashboardProject} canWrite={(view === "tasks" || view === "schedule" || view === "progress" || view === "daily" || view === "credentials" || view === "portfolio") ? canWriteTasks : canWrite} /></main><footer className="app-footer"><span>{connectionReady ? "데이터 연결됨" : "연결 확인 중"}</span><span>마지막 동기화 {formatSyncTime(sourceState.lastSuccessfulAt)}</span></footer></div>
       {createEntity && <CreateRecordModal entityType={createEntity} role={role} clientName={project.clientName} onClose={() => setCreateEntity(null)} onSubmit={createRecord} />}
       {projectCreateOpen && <ProjectCreateModal onClose={() => setProjectCreateOpen(false)} onSubmit={createProject} />}
-      {quoteImportOpen && <QuoteImportModal currentProject={project} onClose={() => setQuoteImportOpen(false)} onCreateProject={createProject} onAppendProject={appendQuoteToProject} />}
+      {quoteImportOpen && <Suspense fallback={<LoadingState label="견적서 화면을 여는 중입니다." />}><QuoteImportModal currentProject={project} onClose={() => setQuoteImportOpen(false)} onCreateProject={createProject} onAppendProject={appendQuoteToProject} /></Suspense>}
       {saveNotice && <div className="save-toast" role="status"><Check size={16} />{saveNotice}</div>}
       {sheetSaveLock.visible && <GlobalSaveOverlay label={sheetSaveLock.label} />}
     </div>

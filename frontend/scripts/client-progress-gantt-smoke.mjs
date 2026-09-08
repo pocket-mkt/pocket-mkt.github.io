@@ -3,7 +3,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-const appUrl = process.env.APP_URL || "https://pockethjs-sketch.github.io/pocket-marketing-hub/#progress";
+const appUrl = process.env.APP_URL || "https://pocket-mkt.github.io/#tasks/client-progress";
 const chromePath = process.env.CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const account = process.env.SMOKE_ACCOUNT || "";
 const accessCode = process.env.SMOKE_ACCESS_CODE || "";
@@ -125,6 +125,8 @@ try {
     return {
       hash: location.hash,
       heading: document.querySelector('.pb-heading h1')?.textContent.trim() || '',
+      customerPage: Boolean(document.querySelector('.client-progress-view')),
+      internalPanels: Boolean(document.querySelector('.pb-priority-grid, .pb-meeting-panel, .project-issue-panel')),
       ganttGroups: gantt.querySelectorAll('.g-grow').length,
       ganttTaskRows: gantt.querySelectorAll('.g-row').length,
       ganttScheduledCells: gantt.querySelectorAll('.g-c[data-gantt-task-id]').length,
@@ -133,7 +135,7 @@ try {
       readOnly: !document.querySelector('.pb-schedule .g-action, .pb-schedule .task-schedule-edit, .pb-schedule .task-delete-button'),
     };
   })()`);
-  if (!result.heading.includes("진행상황")) throw new Error(`Unexpected progress heading: ${result.heading}`);
+  if (!result.heading || !result.customerPage || result.internalPanels) throw new Error('Customer projection missing or internal panels exposed');
   if (result.ganttTaskRows < 1 || result.ganttScheduledCells < 1 || result.ganttBars < 1 || result.visibleHeight < 100) {
     throw new Error(`Client Gantt is empty or hidden: ${JSON.stringify(result)}`);
   }

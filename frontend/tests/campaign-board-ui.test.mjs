@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const appSource = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+const quoteSource = await readFile(new URL("../src/QuoteImportModal.jsx", import.meta.url), "utf8");
 const styleSource = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
 
 test("필터는 탭 없이 모두 표시하고 간트는 업무별 상태를 문자와 색상으로 표시한다", () => {
@@ -302,10 +303,11 @@ test("포켓과 NS 계정은 고객 권한 관리 화면을 함께 사용한다"
 });
 
 test("견적서를 검토한 뒤 새 프로젝트 또는 현재 프로젝트 업무로 생성한다", () => {
-  assert.match(appSource, /function QuoteImportModal/);
+  assert.match(appSource, /lazy\(\(\) => import\("\.\/QuoteImportModal\.jsx"\)\)/);
+  assert.match(quoteSource, /function QuoteImportModal/);
   assert.match(appSource, /견적서 불러오기/);
-  assert.match(appSource, /현재 프로젝트에 추가/);
-  assert.match(appSource, /새 프로젝트로 만들기/);
+  assert.match(quoteSource, /현재 프로젝트에 추가/);
+  assert.match(quoteSource, /새 프로젝트로 만들기/);
   assert.match(appSource, /source\.importQuoteTasks/);
   assert.match(styleSource, /\.quote-item-table/);
 });

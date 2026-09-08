@@ -62,3 +62,18 @@ export function createSupabaseTaskReader(client, options = {}) {
     };
   };
 }
+
+export function createClientProgressReader(client, options = {}) {
+  return async (params = {}) => {
+    let request = client.rpc("read_client_progress", { p_project_id: projectArgument(params.projectId) });
+    if (params.signal && typeof request?.abortSignal === "function") request = request.abortSignal(params.signal);
+    const { data, error } = await request;
+    if (error) throw readError(error);
+    if (data?.audience !== "client-progress" || !Array.isArray(data.items) || data.issues || data.members || data.meetings
+      || data.items.some(row => row.visibility_code !== "CLIENT" || String(row.project_id) !== String(projectArgument(params.projectId))
+        || ["remarks", "plan_note", "blocker_reason", "assignee_user_id", "responsible_org_code"].some(key => Object.hasOwn(row, key)))) {
+      throw new HubApiError("고객용 진행상황 응답을 확인할 수 없습니다.", { code: "invalid_contract", retriable: false });
+    }
+    return { ok: true, generatedAt: (options.now || (() => new Date().toISOString()))(), data: { ...data, members: [], issues: [], issueCanWrite: false } };
+  };
+}
