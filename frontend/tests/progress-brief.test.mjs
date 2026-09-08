@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { appendBriefReply, briefRequestFields, briefWeek, latestBriefMeeting, progressBriefTasks, publicHttpLink, requestDeadlineFields, requestDeadlineLabel } from "../src/progressBrief.js";
+import { appendBriefReply, briefRequestFields, briefWeek, latestBriefMeeting, progressBriefTasks, publicHttpLink, requestCreatedLabel, requestDeadlineFields, requestDeadlineLabel } from "../src/progressBrief.js";
 import { parseViewLocation, viewLocationHash, viewResourceKey } from "../src/planNavigation.js";
 import { isViewAllowed, NAVIGATION_PAGE_OPTIONS } from "../src/accessPermissions.js";
 
@@ -76,6 +76,11 @@ test("컨펌 마감일은 선택 입력·해제·한국시간 기한 상태를 �
   assert.equal(requestDeadlineLabel({dueDate:"2026-09-04"},"2026-09-04"),"오늘 마감 · 2026-09-04");
   assert.match(requestDeadlineLabel({dueDate:"2026-09-03"},"2026-09-04"),/기한 초과/);
   assert.doesNotMatch(requestDeadlineLabel({dueDate:"2026-09-03",statusCode:"DONE"},"2026-09-04"),/기한 초과/);
+});
+
+test("확인 요청 작성 시각은 한국시간 시·분까지 표시한다", () => {
+  assert.equal(requestCreatedLabel("2026-09-08T05:07:00Z", "2026-09-08"), "9.8 14:07");
+  assert.equal(requestCreatedLabel(null, "2026-09-08"), "09.08");
 });
 
 test("실서비스 진행상황은 시안 대신 실제 원장을 읽고 쓰기를 공통 잠금에 연결한다", async () => {

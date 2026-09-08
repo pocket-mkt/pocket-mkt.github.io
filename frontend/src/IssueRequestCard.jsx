@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ArrowUpRight, Check, MessageSquare, Trash2 } from "lucide-react";
-import { appendBriefReply, publicHttpLink, requestDeadlineFields, requestDeadlineLabel, seoulDate } from "./progressBrief.js";
+import { appendBriefReply, publicHttpLink, requestCreatedLabel, requestDeadlineFields, requestDeadlineLabel, seoulDate } from "./progressBrief.js";
 import "./issueRequestCard.css";
 
 const shortDate = (value) => value ? String(value).slice(5, 10).replace("-", ".") : "미정";
@@ -66,7 +66,7 @@ export default function IssueRequestCard({ issue, canWrite = false, actorName, o
       <span>{showProject && current.clientName ? `${current.clientName} · ${current.projectName || "프로젝트"} · ` : ""}{current.kind || "확인 요청"} · 확인 담당 {current.owner || "미지정"}</span>
       <strong className={done ? "is-done" : "is-open"}>{done ? "확인 완료" : "확인 필요"}</strong>
     </div>
-    <div className="issue-request-byline"><span>남긴 사람 <b>{current.requester || "확인되지 않은 사용자"}</b></span><span>작성 {shortDate(current.date || current.createdAt)}</span></div>
+    <div className="issue-request-byline"><span>남긴 사람 <b>{current.requester || "확인되지 않은 사용자"}</b></span><span>작성 {requestCreatedLabel(current.createdAt, current.date)}</span></div>
     <h3>{current.relatedTask || current.projectName || "확인 요청"}</h3>
     <p>{current.body || "등록된 내용이 없습니다."}</p>
     {href && <a className="issue-request-link" href={href} target="_blank" rel="noopener noreferrer">관련 자료 열기 <ArrowUpRight size={13} /></a>}

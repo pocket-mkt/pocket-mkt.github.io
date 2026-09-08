@@ -4,6 +4,17 @@ export function seoulDate(now = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 }
 
+export function requestCreatedLabel(createdAt, fallbackDate = null) {
+  const instant = createdAt ? new Date(createdAt) : null;
+  if (instant && Number.isFinite(instant.getTime())) {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat("ko-KR", {
+      timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).formatToParts(instant).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+    return `${Number(parts.month)}.${Number(parts.day)} ${parts.hour.padStart(2, "0")}:${parts.minute.padStart(2, "0")}`;
+  }
+  return fallbackDate ? String(fallbackDate).slice(5, 10).replace("-", ".") : "미정";
+}
+
 export function briefWeek(now = new Date()) {
   const today = seoulDate(now);
   const start = new Date(`${today}T00:00:00Z`);
