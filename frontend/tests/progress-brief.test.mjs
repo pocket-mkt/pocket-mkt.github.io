@@ -52,11 +52,11 @@ test("완료 별칭과 검토 중 업무도 진행상황에서 누락하지 않�
   assert.equal(result.planned.some(task=>task.statusCode==="COMPLETED"),false);
 });
 
-test("확인 요청은 기존 issue 필드만 저장하며 위험한 링크를 차단한다", () => {
+test("확인 요청은 남긴 사람을 포함해 저장하며 위험한 링크를 차단한다", () => {
   assert.equal(publicHttpLink("javascript:alert(1)"), null);
   assert.equal(publicHttpLink("file:///secret"), null);
-  const fields = briefRequestFields({kind:"내용 확인", title:" 요청 ", body:" 설명 ", owner:"UND", link:"https://example.com/item"});
-  assert.deepEqual(fields, { kind_text:"내용 확인", related_task_text:"요청", body_text:"설명", owner_text:"UND", completion_url:"https://example.com/item", status_code:"IN_PROGRESS", due_date:null });
+  const fields = briefRequestFields({kind:"내용 확인", title:" 요청 ", body:" 설명 ", owner:"UND", requester:" 작성자 ", link:"https://example.com/item"});
+  assert.deepEqual(fields, { kind_text:"내용 확인", related_task_text:"요청", body_text:"설명", owner_text:"UND", requester_text:"작성자", completion_url:"https://example.com/item", status_code:"IN_PROGRESS", due_date:null });
   assert.throws(() => briefRequestFields({title:"",body:"abc"}));
   assert.throws(() => briefRequestFields({title:"a",body:"b",link:"data:text/html,hi"}));
 });
@@ -85,7 +85,7 @@ test("실서비스 진행상황은 시안 대신 실제 원장을 읽고 쓰기�
   assert.ok(view.includes('taskPage.issueCanWrite === true'));
   assert.ok(view.includes('!controller.signal.aborted'));
   assert.ok(view.includes('role === "client"'));
-  assert.ok(view.includes('await onCreate(briefRequestFields(fields))'));
+  assert.ok(view.includes('<IssueRequestCreateModal'));
   assert.ok(app.includes('key={project.id}'));
   assert.ok(app.includes('view === "progress") return source.tasks(params)'));
   assert.ok(!view.includes("dashboard-prototype"));

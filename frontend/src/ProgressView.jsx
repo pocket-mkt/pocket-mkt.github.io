@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, CalendarDays, CheckCircle2, CircleAlert, CircleDot, Plus, RefreshCw, X } from "lucide-react";
+import { ArrowUpRight, CalendarDays, CheckCircle2, CircleAlert, CircleDot, Plus, RefreshCw } from "lucide-react";
 import { dailyMeetingsViewModel } from "./api/viewModel.js";
 import { isViewAllowed } from "./accessPermissions.js";
 import IssueRequestCard from "./IssueRequestCard.jsx";
-import { briefRequestFields, latestBriefMeeting, progressBriefTasks, publicHttpLink } from "./progressBrief.js";
+import IssueRequestCreateModal from "./IssueRequestCreateModal.jsx";
+import { latestBriefMeeting, progressBriefTasks, publicHttpLink } from "./progressBrief.js";
 import "./progressView.css";
 
 const shortDate = value => value ? String(value).slice(5, 10).replace("-", ".") : "미정";
@@ -73,28 +74,7 @@ function MeetingFocus({ latest, state, client, canRead, onRetry, onOpen }) {
   const actions = splitPoints(latest.actionItems);
   return <div className="pb-meeting-focus"><div className="pb-meeting-title"><span>{shortDate(latest.date)} · {latest.visibilityCode === "CLIENT" ? "고객 공개" : latest.visibilityCode === "POCKET_ONLY" ? "포켓 전용" : "프로젝트 팀"}</span><h3>{latest.title}</h3>{latest.attendees && <small>참석 · {latest.attendees}</small>}</div><div className="pb-meeting-points"><section><h4><CheckCircle2 size={14} />결정사항</h4>{decisions.length ? <ul>{decisions.slice(0, 4).map((item, index) => <li key={index}>{item}</li>)}</ul> : <p>기록된 결정사항이 없습니다.</p>}</section><section><h4><CircleDot size={14} />후속업무</h4>{actions.length ? <ul>{actions.slice(0, 4).map((item, index) => <li key={index}>{item}</li>)}</ul> : <p>기록된 후속업무가 없습니다.</p>}</section></div>{latest.discussion && <details className="pb-meeting-discussion"><summary>전체 회의 내용 보기</summary><p>{latest.discussion}</p></details>}{canRead && <button className="pb-meeting-open" type="button" onClick={onOpen}>회의록 전체 보기 <ArrowUpRight size={13} /></button>}</div>;
 }
-function RequestForm({ owners, onCreate, onClose }) {
-  const [fields, setFields] = useState({ title: "", body: "", owner: owners[0], kind: "콘텐츠 검토", link: "", deadline: "" });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const field = (name, value) => setFields(current => ({ ...current, [name]: value }));
-  const submit = async event => {
-    event.preventDefault(); setSaving(true); setError("");
-    try { await onCreate(briefRequestFields(fields)); onClose(); }
-    catch (err) { setError(err.message || "요청을 저장하지 못했습니다."); }
-    finally { setSaving(false); }
-  };
-  return <form className="pb-request-form" onSubmit={submit}>
-    <div className="pb-form-row"><label>확인할 사람<select value={fields.owner} onChange={e => field("owner", e.target.value)}>{owners.map(owner => <option key={owner}>{owner}</option>)}</select></label><label>유형<select value={fields.kind} onChange={e => field("kind", e.target.value)}>{["콘텐츠 검토", "자료 요청", "내용 확인"].map(kind => <option key={kind}>{kind}</option>)}</select></label></div>
-    <label>제목<input autoFocus required maxLength={500} value={fields.title} onChange={e => field("title", e.target.value)} placeholder="확인이 필요한 내용을 적어 주세요" /></label>
-    <label>내용<textarea required maxLength={20000} rows={3} value={fields.body} onChange={e => field("body", e.target.value)} /></label>
-    <label>콘텐츠·자료 링크<input type="url" maxLength={2048} value={fields.link} onChange={e => field("link", e.target.value)} placeholder="https://…" /></label>
-    <label>컨펌 마감일 (선택)<input type="date" value={fields.deadline} onChange={e => field("deadline", e.target.value)} /><small>한국시간 해당 날짜까지 · 비워두면 기한 미정</small></label>
-    {error && <p className="pb-error" role="alert">{error}</p>}
-    <footer><small>고객에게 공유되는 요청입니다. 작성 이력은 로그인 계정으로 기록됩니다.</small><button type="button" onClick={onClose} disabled={saving}>취소</button><button className="pb-primary" disabled={saving}>{saving ? "저장 중…" : "요청 등록"}</button></footer>
-  </form>;
-}
-export function ProgressView({ project, role, taskPage, source, actorName, canWrite, onIssueCreate, onIssueUpdate, onNavigate, schedule }) {
+export function ProgressView({ project, role, taskPage, source, actorName, canWrite, onIssueCreate, onIssueUpdate, onIssueArchive, onNavigate, schedule }) {
   const [now, setNow] = useState(() => new Date());
   const [meetingState, setMeetingState] = useState({ status: "loading", items: [] });
   const [meetingRetry, setMeetingRetry] = useState(0);
@@ -137,8 +117,8 @@ export function ProgressView({ project, role, taskPage, source, actorName, canWr
       <section className="pb-panel pb-attention-panel"><header><div><h2><CircleAlert size={16} />주요 이슈·확인 안건</h2><small>확인 필요 {openIssues.length}건</small></div>{canWriteIssues && <button className={adding ? "is-active" : ""} onClick={() => setAdding(!adding)}>{adding ? <X size={14} /> : <Plus size={14} />}{adding ? "닫기" : "안건 추가"}</button>}</header>
         {heldTasks.length > 0 && <div className="pb-held-tasks"><strong>보류·차단 업무 {heldTasks.length}건</strong>{heldTasks.slice(0, 3).map(task => <button type="button" key={task.id} onClick={() => onNavigate("tasks")}><span>{task.title}</span><Tag code={task.statusCode} /></button>)}</div>}
         <div className="pb-review-toolbar"><span>{canWriteIssues ? "업무의 이슈·추가요청과 같은 기록을 사용합니다." : "공유된 요청을 조회합니다. 등록·답변은 운영 담당자가 처리합니다."}</span><select aria-label="확인 요청 상태" value={filter} onChange={e => { setFilter(e.target.value); setAllRequests(false); }}><option value="open">확인 필요</option><option value="done">확인 완료</option><option value="all">전체</option></select></div>
-        {adding && canWriteIssues && <RequestForm owners={owners} onCreate={async fields => { await onIssueCreate(fields); setFilter("open"); }} onClose={() => setAdding(false)} />}
-        {requests.length ? (allRequests ? requests : requests.slice(0, 3)).map(issue => <IssueRequestCard key={issue.id} issue={issue} canWrite={canWriteIssues} actorName={actorName} onUpdate={onIssueUpdate} today={week.today} />) : <Empty>해당 상태의 확인 요청이 없습니다.</Empty>}
+        {adding && canWriteIssues && <IssueRequestCreateModal projects={[project]} initialProjectId={project.id} owners={owners} actorName={actorName} onCreate={async fields => { await onIssueCreate(fields); setFilter("open"); }} onClose={() => setAdding(false)} />}
+        {requests.length ? (allRequests ? requests : requests.slice(0, 3)).map(issue => <IssueRequestCard key={issue.id} issue={issue} canWrite={canWriteIssues} actorName={actorName} onUpdate={onIssueUpdate} onArchive={onIssueArchive} today={week.today} />) : <Empty>해당 상태의 확인 요청이 없습니다.</Empty>}
         {requests.length > 3 && <button className="pb-more" onClick={() => setAllRequests(value => !value)}>{allRequests ? "간단히 보기" : `나머지 ${requests.length - 3}건 더 보기`}</button>}
       </section>
     </div>

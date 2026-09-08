@@ -9,6 +9,8 @@ const requestCardSource = readFileSync(new URL("../src/IssueRequestCard.jsx", im
 const viewModelSource = readFileSync(new URL("../src/api/viewModel.js", import.meta.url), "utf8");
 const progressDeltaMigration = readFileSync(new URL("../../supabase/migrations/20260908002729_add_operations_progress_daily_delta.sql", import.meta.url), "utf8");
 const issueInteractionMigration = readFileSync(new URL("../../supabase/migrations/20260908094500_expose_operations_issue_interaction_fields.sql", import.meta.url), "utf8");
+const confirmationWorkflowMigration = readFileSync(new URL("../../supabase/migrations/20260908114500_confirmation_request_workflow.sql", import.meta.url), "utf8");
+const requestCreateSource = readFileSync(new URL("../src/IssueRequestCreateModal.jsx", import.meta.url), "utf8");
 
 test("통합 관리는 처리 가능한 확인 요청과 이동 가능한 평일 마감 업무를 프로젝트별로 보여준다", () => {
   assert.match(dashboardSource, /import \{[^}]*ArrowRight[^}]*\} from "lucide-react"/);
@@ -34,11 +36,19 @@ test("진행상황·업무 하단·통합관리는 같은 확인요청 카드와
   assert.match(requestCardSource, /답변 작성/);
   assert.match(requestCardSource, /마감일 변경/);
   assert.match(requestCardSource, /확인 완료/);
+  assert.match(requestCardSource, /한 번 더 눌러 삭제/);
   assert.match(requestCardSource, /appendBriefReply\(current, reply, actorName\)/);
   assert.match(appSource, /<OperationsDashboardView[^>]*actorName=\{actorName\}[^>]*onIssueUpdate=\{onIssueUpdate\}/);
   assert.match(viewModelSource, /rowVersion: Number\(row\.row_version \|\| 0\)/);
   assert.match(issueInteractionMigration, /'remarks', source\.remarks/);
   assert.match(issueInteractionMigration, /'row_version', source\.row_version/);
+  assert.match(dashboardSource, /확인 완료/);
+  assert.match(dashboardSource, /남긴 사람/);
+  assert.match(dashboardSource, /<IssueRequestCreateModal/);
+  assert.match(requestCreateSource, /확인할 사람/);
+  assert.match(requestCreateSource, /남긴 사람/);
+  assert.match(confirmationWorkflowMigration, /add column requester_text/);
+  assert.match(confirmationWorkflowMigration, /read_operations_dashboard_with_confirmation_history/);
 });
 
 test("업무 체크는 실제 당일 변경 이력에서 계산한 상승분만 작은 빨간 지표로 보여준다", () => {

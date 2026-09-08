@@ -43,10 +43,10 @@ export function latestBriefMeeting(items = [], { client = false, today = seoulDa
 export function briefRequestFields(fields) {
   const link = String(fields.link || "").trim();
   if (link && !publicHttpLink(link)) throw new Error("http 또는 https 자료 링크를 입력해 주세요.");
-  if (!fields.title?.trim() || !fields.body?.trim()) throw new Error("제목과 내용을 입력해 주세요.");
+  if (!fields.title?.trim() || !fields.body?.trim() || !fields.owner?.trim() || !fields.kind?.trim() || !fields.requester?.trim()) throw new Error("필수 항목을 모두 입력해 주세요.");
   return {
     kind_text: fields.kind, related_task_text: fields.title.trim(), body_text: fields.body.trim(),
-    owner_text: fields.owner, completion_url: link ? publicHttpLink(link) : "", status_code: "IN_PROGRESS",
+    owner_text: fields.owner, requester_text: fields.requester.trim(), completion_url: link ? publicHttpLink(link) : "", status_code: "IN_PROGRESS",
     due_date: requestDeadlineFields(fields.deadline).due_date,
   };
 }

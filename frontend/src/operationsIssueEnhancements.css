@@ -1,0 +1,7 @@
+.ops-issue-list em{display:block;margin-top:4px;color:#7a8798;font-size:10px;font-style:normal}
+.ops-issue-list small{color:#52627a;font-weight:750}
+.ops-issue-tabs{display:flex;gap:6px;padding:12px 14px 2px}
+.ops-issue-tabs button{display:flex;align-items:center;gap:7px;padding:8px 11px;border:1px solid #dce4ee;border-radius:9px;background:#fff;color:#68778e;font-size:11px;font-weight:800}
+.ops-issue-tabs button b{padding:1px 5px;border-radius:9px;background:#eef2f7;font-size:9px}
+.ops-issue-tabs button.is-active{border-color:#17366f;background:#edf3ff;color:#17366f}
+.ops-panel>header .ops-issue-create{padding:7px 10px;border:1px solid #cbd7e8;border-radius:8px;background:#fff;color:#17366f}
