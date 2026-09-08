@@ -11,7 +11,7 @@ export const PAGE_CATALOG = Object.freeze([
   Object.freeze({ id: "content", label: "콘텐츠", navigation: false, customerSelectable: false }),
   Object.freeze({ id: "tracking", label: "성과 추적", navigation: false, customerSelectable: false }),
   Object.freeze({ id: "performance", label: "성과", description: "핵심 KPI와 실적", navigation: true, customerSelectable: true }),
-  Object.freeze({ id: "files", label: "세부 로그", description: "프로젝트 변경 이력", navigation: true, customerSelectable: true }),
+  Object.freeze({ id: "files", label: "세부 로그", description: "전체 프로젝트 계정별 작업 이력", navigation: true, customerSelectable: false }),
 ]);
 
 // Keep the existing stored progress grant; only its customer route changes.
@@ -37,6 +37,7 @@ export function firstAllowedView(value) {
 export function isViewAllowed(view, allowedPages) {
   const normalized = String(view || "overview").toLowerCase();
   if (normalized === "permissions") return false;
+  if (normalized === "files") return false;
   if (normalized === "portfolio") return false;
   if (normalized === "credentials") return false;
   if (normalized === "progress") return false;

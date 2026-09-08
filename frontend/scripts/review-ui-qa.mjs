@@ -17,6 +17,7 @@ import { ProjectClientProgressView, Topbar, ProjectSidebar } from './src/App.jsx
 import { ProjectIssuePanel, TaskScheduleTimeline } from './src/TaskWorkspace.jsx';
 import PermissionsView from './src/PermissionsView.jsx';
 import IssueRequestCard from './src/IssueRequestCard.jsx';
+import DetailLogView from './src/DetailLogView.jsx';
 import { tasksViewModel } from './src/api/viewModel.js';
 import './src/styles.css';
 import './src/sidebarWorkspace.css';
@@ -32,6 +33,7 @@ const overviewCalls = [];
 const source = {overview: params => { const pending=deferred(); overviewCalls.push({...params,...pending}); return pending.promise; }};
 window.benchmarkQa = async () => {
  const results=[];
+
  for(const count of [100,500,1000]) for(const mode of ['table','gantt']) {
   await render(<div/>);
   const tasks=tasksViewModel({data:{items:Array.from({length:count},(_,i)=>({task_id:i+1,project_id:1,title:'QA 업무 '+(i+1),category_code:'YOUTUBE',workstream_code:'MARKETING',status_mode:'MANUAL',status_code:'IN_PROGRESS',progress_percent:30,planned_start_date:'2026-09-01',due_date:'2026-09-30',schedule_dates_json:'["2026-09-01"]',visibility_code:'CLIENT'})),totalMatching:count}}).items;
@@ -93,6 +95,16 @@ function IssueTabsQa() {
 }
 window.runQa = async () => {
  const results=[];
+ const logActor='12345678-1234-1234-1234-123456789abc';
+ const logData={actors:[{id:logActor,display_name:'QA 계정',organization_code:'NS'}],items:[{id:1,created_at:'2026-09-08T01:00:00Z',actor_user_id:logActor,project:{project_name:'QA 프로젝트'},entity_type:'TASK',action_code:'UPDATED',event_status_code:'COMMIT'}],nextCursor:null};
+ const logCalls=[];const logSource={activity:async params=>{logCalls.push(params);return {data:{...logData,items:[]}};}};
+ window.showLogQa=()=>render(<div style={{padding:16}}><DetailLogView initialData={logData} source={logSource}/></div>);
+ await window.showLogQa();
+ check(document.querySelector('.detail-log-view').textContent.includes('QA 계정'),'detail log account label missing');
+ const accountSelect=document.querySelector('.detail-log-toolbar select');accountSelect.value=logActor;accountSelect.dispatchEvent(new Event('change',{bubbles:true}));await tick();
+ check(logCalls[0]?.actorId===logActor,'account filter was not sent to data source');
+ check(document.querySelector('.detail-log-empty').textContent.includes('없습니다'),'filtered empty state missing');
+ results.push('workspace detail log: account-labelled rows, server account filter, empty state');
  for(const visible of [true,false]) {
   await render(<div className="has-sidebar-workspace" style={{width:visible?264:56}}><ProjectSidebar project={{id:1,name:'QA',allowedPages:['progress']}} role="client" activeView="client-progress" visible={visible} navigation={{actionLabel:'메뉴',controlledIds:'project-navigation-content'}} onToggleNavigation={()=>{}} onClose={()=>{}} onView={()=>{}}/></div>);
   const mark=document.querySelector('.sidebar-company-symbol');
@@ -121,7 +133,10 @@ window.runQa = async () => {
  check(document.querySelector('.issue-request-deadline-form input'),'deadline editor missing');
  check(document.documentElement.scrollWidth<=window.innerWidth+1,'request editors overflow viewport');
  results.push('readable confirmation card: 18px title, 15px body, reply/deadline editors and responsive wrapping');
- for(const activeView of ['tasks','portfolio','daily','client-progress']) {
+ await render(<div className="has-sidebar-workspace" style={{width:264}}><ProjectSidebar project={{id:1,name:'QA'}} role="ns" activeView="files" visible navigation={{actionLabel:'메뉴',controlledIds:'project-navigation-content'}} onToggleNavigation={()=>{}} onClose={()=>{}} onView={()=>{}}/></div>);
+ check([...document.querySelectorAll('.sidebar-global-nav strong')].map(el=>el.textContent).join(',')==='통합 관리,권한 관리,세부 로그','workspace navigation order incorrect');
+ check(!document.querySelector('.sidebar-current-project'),'workspace log still highlights project');
+ for(const activeView of ['tasks','portfolio','daily','client-progress','files','permissions']) {
 await render(<div className="has-sidebar-workspace" style={{width:'calc(100vw - 56px)'}}><Topbar project={{id:1,clientName:'UND',name:'UND 통합 마케팅 운영 프로젝트'}} activeView={activeView} actor={{name:'포켓컴퍼니',organization:'POCKET'}} search="" setSearch={()=>{}} notificationTasks={[]} notificationsLoaded={true} onNotificationSelect={()=>{}} onLogout={()=>{}} live={true}/></div>);
   const brand=document.querySelector('.topbar-company-brand'); const context=document.querySelector('.topbar-project-context'); const actions=document.querySelector('.topbar-actions');
   for(let attempt=0;attempt<50&&!brand.querySelector('img').complete;attempt++) await tick();
@@ -277,6 +292,9 @@ try {
     await evaluate('window.showIssueQa()');
     const issueShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await writeFile(`../artifacts/client-progress/issue-${width}.png`,Buffer.from(issueShot.data,'base64'));
+    await evaluate('window.showLogQa()');
+    const logShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await writeFile(`../artifacts/client-progress/detail-log-${width}.png`,Buffer.from(logShot.data,'base64'));
   }
   if(errors.length)throw Error(errors.join('; '));
 } finally {

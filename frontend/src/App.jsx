@@ -2,6 +2,8 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import CompanyBrand from "./CompanyBrand.jsx";
 import CompanySymbol from "./CompanySymbol.jsx";
 import { statusClass, formatSyncTime, EmptyState, LoadingState, ErrorState, FormSelect, trackerStatusOptions, trackerStatusLabels, trackerDate, localDateValue } from "./TaskUiPrimitives.jsx";
+const DetailLogView = lazy(() => import("./DetailLogView.jsx"));
+const WORKSPACE_VIEWS = new Set(["portfolio", "permissions", "files"]);
 const TaskScheduleTimeline = lazy(() => import("./TaskWorkspace.jsx").then(module => ({ default: module.TaskScheduleTimeline })));
 import { Activity, AlertCircle, ArrowRight, BarChart3, Bell, BookOpenText, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleDot, ClipboardCheck, FolderOpen, FileUp, LayoutDashboard, KeyRound, ListFilter, LoaderCircle, LockKeyhole, LogOut, MoreHorizontal, MousePointerClick, NotebookPen, Pencil, Plus, Search, Settings2, ShieldCheck, TrendingUp, Trash2, Video, WifiOff, X } from "lucide-react";
 import { activityListViewModel, bootstrapViewModel, createHubDataSource, overviewViewModel, operationsDashboardViewModel, projectIssueViewModel, taskResponsibleOrganization, tasksViewModel } from "./api/index.js";
@@ -157,17 +159,17 @@ export function ProjectSidebar({ project, role, activeView, activePlanVariant, o
     if (role !== "client") return true;
     return isViewAllowed(item.id, project.allowedPages);
   });
-  const workspaceNavItem = visibleNavItems.find((item) => item.id === "portfolio");
-  const projectNavItems = visibleNavItems.filter((item) => item.id !== "portfolio");
+  const workspaceNavItems = visibleNavItems.filter((item) => WORKSPACE_VIEWS.has(item.id)).sort((a,b) => ["portfolio","permissions","files"].indexOf(a.id) - ["portfolio","permissions","files"].indexOf(b.id));
+  const projectNavItems = visibleNavItems.filter((item) => !WORKSPACE_VIEWS.has(item.id));
   const projectNavChildren = projectNavItems.filter(item => PROJECT_NAVIGATION_GROUP.pageIds.includes(item.id));
-  const projectContextActive = activeView !== "portfolio";
+  const projectContextActive = !WORKSPACE_VIEWS.has(activeView);
 
   return (
     <aside id="project-navigation" className={`project-sidebar ${open ? "is-open" : ""}`} aria-label="프로젝트 탐색">
       <div className="sidebar-menu-header">{visible && <div className="sidebar-menu-brand"><CompanySymbol /><strong>프로젝트 · 메뉴</strong></div>}<button className="sidebar-toggle" type="button" onClick={onToggleNavigation} aria-label={navigation.actionLabel} title={navigation.actionLabel} aria-expanded={visible} aria-controls={navigation.controlledIds}>{visible ? <ChevronLeft size={20} strokeWidth={2.5} /> : <ChevronRight size={20} strokeWidth={2.5} />}</button></div>
       <div id="project-navigation-content" className="sidebar-workspace-content" hidden={!visible}>
       <div className="sidebar-workspace-scroll">
-      {workspaceNavItem && <nav className="sidebar-global-nav" aria-label="전체 프로젝트"><button type="button" className={activeView === "portfolio" ? "is-active" : ""} aria-current={activeView === "portfolio" ? "page" : undefined} onClick={() => { onView("portfolio"); onClose(); }}><FolderOpen size={18} strokeWidth={1.9} /><span><strong>통합 관리</strong><small>전체 프로젝트 운영 현황</small></span><ChevronRight size={15} /></button></nav>}
+      {workspaceNavItems.length > 0 && <nav className="sidebar-global-nav" aria-label="공통 관리">{workspaceNavItems.map(item=>{const Icon=item.icon;return <button key={item.id} type="button" className={activeView===item.id?"is-active":""} aria-current={activeView===item.id?"page":undefined} onClick={()=>{onView(item.id);onClose();}}><Icon size={18}/><span><strong>{item.label}</strong></span><ChevronRight size={15}/></button>;})}</nav>}
       <section className="sidebar-projects"><span className="sidebar-section-label">프로젝트</span><nav className="sidebar-company-list" aria-label="프로젝트 회사 선택">{clients.map(client => { const selected = projectContextActive && client.id === activeClient; return <button key={client.id} type="button" className={selected ? "is-active" : ""} aria-current={selected ? "true" : undefined} onClick={() => { onSelectClient(client.id); onClose(); }}><span>{client.name}</span>{selected && <Check size={15} strokeWidth={2.5} />}</button>; })}</nav>{projectContextActive && <p className="sidebar-current-project" title={project.name}>{project.name}</p>}</section>
       <span className="sidebar-section-label sidebar-pages-label">메뉴</span>
       <nav className="project-nav">{projectNavItems.map((item) => {
@@ -305,8 +307,9 @@ function TaskNotificationCenter({ projectId, tasks, loaded, onSelect }) {
 }
 
 export function Topbar({ project, activeView, actor, onLogout, live, search, setSearch, notificationTasks, notificationsLoaded, onNotificationSelect }) {
-  const workspaceMode = activeView === "portfolio";
-return <header className="topbar"><div className="topbar-leading"><CompanyBrand /><div className={`topbar-project-context${workspaceMode ? " is-workspace" : ""}`}><small>{workspaceMode ? "전체 프로젝트" : project.clientName}</small><strong title={workspaceMode ? "통합 관리" : project.name}>{workspaceMode ? "통합 관리" : project.name}</strong></div></div><div className="topbar-actions">{!workspaceMode && <><label className="global-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="업무 검색" /></label><TaskNotificationCenter projectId={project.id} tasks={notificationTasks} loaded={notificationsLoaded} onSelect={onNotificationSelect} /></>}<ActorBadge actor={actor} onLogout={onLogout} live={live} /></div></header>;
+  const workspaceMode = WORKSPACE_VIEWS.has(activeView);
+  const workspaceTitle = {portfolio:"통합 관리",permissions:"권한 관리",files:"세부 로그"}[activeView];
+return <header className="topbar"><div className="topbar-leading"><CompanyBrand /><div className={`topbar-project-context${workspaceMode ? " is-workspace" : ""}`}><small>{workspaceMode ? "전체 프로젝트" : project.clientName}</small><strong title={workspaceMode ? workspaceTitle : project.name}>{workspaceMode ? workspaceTitle : project.name}</strong></div></div><div className="topbar-actions">{!workspaceMode && <><label className="global-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="업무 검색" /></label><TaskNotificationCenter projectId={project.id} tasks={notificationTasks} loaded={notificationsLoaded} onSelect={onNotificationSelect} /></>}<ActorBadge actor={actor} onLogout={onLogout} live={live} /></div></header>;
 }
 
 function ProjectCreateModal({ onClose, onSubmit }) {
@@ -959,10 +962,6 @@ function TrackingView({ tracking }) {
 }
 
 
-function DetailLogView({ role, activities }) {
-  return <div className="view-stack"><ViewHeader eyebrow="Project history" title="세부 로그" description="업무 로그에서 생략한 시스템·기술 이력까지 시간순으로 확인합니다." /><section className="panel detail-log-panel"><div className="panel-heading"><div><h3>전체 변경 이력</h3><p>내부 ID와 원본 감사 정보를 포함한 확정 활동입니다.</p></div><Activity size={17} /></div>{activities.length ? <div className="activity-timeline">{activities.map((item) => <article key={item.id}><span /><div><strong>{item.taskTitle || item.title}</strong><p>{item.action} · {item.meta}</p>{role !== "client" && <small>{[item.entityId && `ID ${item.entityId}`, item.actor && `처리 ${item.actor}`, item.internalMeta].filter(Boolean).join(" · ")}</small>}</div></article>)}</div> : <EmptyState title="기록된 활동이 없습니다" description="웹에서 업무나 회의록이 추가·수정되면 여기에 표시됩니다." />}</section></div>;
-}
-
 const PLAN_ALLOWED_TAGS = new Set([
   "a", "article", "b", "blockquote", "br", "dd", "div", "dl", "dt", "em", "figcaption", "figure",
   "h1", "h2", "h3", "h4", "h5", "h6", "hr", "i", "li", "ol", "p", "section", "small", "span",
@@ -1082,7 +1081,7 @@ function AppContent({ view, planVariant, project, role, search, setView, pageSta
   if (view === "tracking") return <TrackingView tracking={data} />;
   if (view === "performance") return <PerformanceView performance={data} canWrite={canWrite && role !== "client"} onKpiSave={onKpiSave} onKpiArchive={onKpiArchive} />;
   if (view === "permissions") return canManageClientAccess(role) ? <Suspense fallback={<LoadingState label="권한관리 화면을 준비하고 있습니다." />}><PermissionsView access={data} onSave={onAccessSave} role={role} /></Suspense> : <ErrorState error={new Error("내부 운영 계정만 접근할 수 있습니다.")} />;
-  if (view === "files") return <DetailLogView role={role} activities={data.activities?.items || []} />;
+  if (view === "files") return role !== "client" ? <Suspense fallback={<LoadingState label="세부 로그를 준비하고 있습니다." />}><DetailLogView initialData={data} source={source} /></Suspense> : <ErrorState error={new Error("내부 계정만 접근할 수 있습니다.")} />;
   return <OverviewView project={data.project || project} role={role} activities={data.activities || []} onNavigate={setView} />;
 }
 
@@ -1147,7 +1146,7 @@ export function App() {
   });
   const authorizedPlanVariant = planVariant;
   const activeResource = viewResourceKey(view, authorizedPlanVariant);
-  const resourceProjectId = view === "portfolio" || (view === "daily" && actorRole !== "client") ? "workspace" : activeProjectId;
+  const resourceProjectId = WORKSPACE_VIEWS.has(view) || (view === "daily" && actorRole !== "client") ? "workspace" : activeProjectId;
   pageRefreshKeyRef.current = pageRefreshKey;
 
   const runSheetWrite = useCallback(async (label, operation) => {

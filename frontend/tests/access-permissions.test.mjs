@@ -21,8 +21,9 @@ test("고객 권한은 알려진 페이지 코드만 중복 없이 보존한다"
 });
 
 test("운영 메뉴와 고객 권한 선택지는 페이지 카탈로그에서 파생한다", () => {
-  assert.deepEqual(ACCESS_PAGE_KEYS, ["overview", "plan", "tasks", "progress", "daily", "performance", "files"]);
-  assert.deepEqual(ACCESS_PAGE_OPTIONS.map((page) => page.label), ["총괄 현황", "실행계획", "업무", "진행상황 - 클라이언트", "데일리 회의록", "성과", "세부 로그"]);
+  assert.deepEqual(ACCESS_PAGE_KEYS, ["overview", "plan", "tasks", "progress", "daily", "performance"]);
+  assert.deepEqual(ACCESS_PAGE_OPTIONS.map((page) => page.label), ["총괄 현황", "실행계획", "업무", "진행상황 - 클라이언트", "데일리 회의록", "성과"]);
+  assert.equal(isViewAllowed("files", ["files"]), false);
   assert.deepEqual(NAVIGATION_PAGE_OPTIONS.map((page) => page.id), ["overview", "portfolio", "plan", "tasks", "progress", "client-progress", "daily", "credentials", "performance", "files"]);
 });
 

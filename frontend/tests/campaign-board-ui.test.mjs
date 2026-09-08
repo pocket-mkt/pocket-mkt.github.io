@@ -206,8 +206,8 @@ test("프로젝트 선택과 기존 총괄 진입은 일정 권한이 있으면 
 
 test("통합 관리는 프로젝트 선택보다 위의 독립 탐색 항목이며 프로젝트 컨텍스트를 비활성화한다", () => {
   assert.match(appSource, /className="sidebar-global-nav"/);
-  assert.match(appSource, /const projectNavItems = visibleNavItems\.filter\(\(item\) => item\.id !== "portfolio"\)/);
-  assert.match(appSource, /const projectContextActive = activeView !== "portfolio"/);
+  assert.match(appSource, /const projectNavItems = visibleNavItems\.filter\(\(item\) => !WORKSPACE_VIEWS.has\(item.id\)\)/);
+  assert.match(appSource, /const projectContextActive = !WORKSPACE_VIEWS.has\(activeView\)/);
   assert.match(appSource, /workspaceMode \? "전체 프로젝트" : project\.clientName/);
   assert.doesNotMatch(appSource, /view === "portfolio" && role !== "client"/);
 });

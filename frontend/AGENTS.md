@@ -27,6 +27,8 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Pocket Marketing Hub design decisions
 
+- Workspace navigation order is 통합 관리 → 권한 관리 → 세부 로그, above project choices. These views do not highlight an active project or show project-only search/notifications; preserve Pocket/NS access and deny customers. Detail logs use explicitly granted Supabase activity metadata with RLS, never Sheets or raw before/after JSON. Account filters use immutable actor_user_id, not names; keyset pagination covers older rows. Distinguish account activity from login/logout events, which are not included.
+
 - Expanded sidebar: place the supplied blue Pocket symbol immediately left of “프로젝트 · 메뉴”. Hide the symbol/title together in the collapsed rail, retaining the navigation toggle. Keep the horizontal topbar logo unchanged.
 
 - The tasks confirmation panel is card-only: no card/ledger toggle. Split requests into 확인요청 and 확인완료 with live counts (DONE/CLOSED/COMPLETED), newest-created first. Preserve add/reply/deadline/archive and reopening completed requests; changing projects resets to open requests.

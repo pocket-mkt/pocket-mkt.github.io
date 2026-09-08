@@ -43,7 +43,7 @@ export function useActiveResource({ source, activeProjectId, resourceProjectId, 
         if (view === "content") return source.contents(params).then(contentsViewModel);
         if (view === "tracking") return source.tracking(params).then(performanceTrackingViewModel);
         if (view === "performance") return source.performance(params).then(performanceViewModel);
-        if (view === "files") return source.activity(params).then((activity) => ({ activities: activityListViewModel(activity) }));
+        if (view === "files") return source.activity({limit:100}).then((activity) => activity.data);
         if (view === "permissions") return source.permissions().then(accessAdminViewModel);
         return Promise.reject(new Error(`Unsupported resource: ${view}`));
       };

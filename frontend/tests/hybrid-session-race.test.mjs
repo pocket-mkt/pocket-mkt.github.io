@@ -82,7 +82,7 @@ test("an older bridge finishing cannot detach or overwrite the newer connection"
   await f.api.login({ account: "two", accessCode: "test-only" });
   f.finishBridge(0, "old-legacy");
   await flush();
-  const pendingRead = f.api.activity({ projectId: "1" });
+  const pendingRead = f.api.files({ projectId: "1" });
   pendingRead.catch(() => {}); // Keep a failing assertion from leaking an unhandled rejection.
   await flush();
   assert.equal(f.requests.length, 2, "legacy read must wait for the current bridge");
@@ -109,7 +109,7 @@ test("logout during bootstrap prevents a late login from persisting either sessi
 
 test("unconnected legacy paths return the specific connection error before any request", async (t) => {
   const f = fixture(t);
-  await assert.rejects(f.api.activity({ projectId: "1" }), { code: "legacy_session_required" });
+  await assert.rejects(f.api.files({ projectId: "1" }), { code: "legacy_session_required" });
   await assert.rejects(f.api.mutateBatch({ mutations: [{ entityType: "CONTENT" }] }), { code: "legacy_session_required" });
   assert.equal(f.requests.length, 0);
 });
