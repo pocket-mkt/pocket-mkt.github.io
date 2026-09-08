@@ -2,6 +2,29 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.ops-meeting-body section {
+  border: 1px solid #e1e6ee;
+  background: #f9fafc;
+}
+
+.ops-meeting-body h3 {
+  color: #111827;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.ops-meeting-body p,
+.ops-meeting-body ul {
+  color: #171d29;
+  font-size: 13px;
+  font-weight: 560;
+  line-height: 1.75;
+}
+
+.ops-meeting-body li + li {
+  margin-top: 6px;
+}
+
 .ops-progress-reading {
   display: inline-flex;
   min-width: 40px;
@@ -187,11 +210,11 @@
 .ops-focus-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
 .ops-focus-columns > section { padding: 17px 20px 19px; }
 .ops-focus-columns > section + section { border-left: 1px solid #e5eaf1; }
-.ops-focus-columns h3 { margin: 0 0 11px; color: #293a56; font-size: 13px; }
+.ops-focus-columns h3 { margin: 0 0 11px; color: #111827; font-size: 14px; font-weight: 900; }
 .ops-focus-columns ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .ops-focus-columns li { display: grid; grid-template-columns:auto minmax(0, 1fr) auto; align-items: start; gap: 9px; padding: 10px 11px; border-radius: 10px; background: #f7f9fc; }
 .ops-focus-columns li > span { padding: 3px 6px; border-radius: 5px; background: #e9eff9; color: #29466f; font-size: 10px; font-weight: 850; white-space: nowrap; }
-.ops-focus-columns li > strong { color: #35445a; font-size: 12px; line-height: 1.55; }
+.ops-focus-columns li > strong { color: #171d29; font-size: 13px; font-weight: 750; line-height: 1.65; }
 .ops-focus-columns li > time { color: #7b899c; font-size: 10px; font-weight: 750; white-space: nowrap; }
 .ops-focus-columns .is-action li { background: #fff9ec; }
 .ops-focus-columns .is-action li > span { background: #fcecc3; color: #80560b; }
@@ -202,9 +225,9 @@
 
 .ops-workspace-daily .ops-meeting-body { gap: 14px; }
 .ops-workspace-daily .ops-meeting-body section { padding: 16px; }
-.ops-workspace-daily .ops-meeting-body h3 { margin-bottom: 10px; font-size: 13px; }
+.ops-workspace-daily .ops-meeting-body h3 { margin-bottom: 10px; color: #0f172a; font-size: 14px; }
 .ops-workspace-daily .ops-meeting-body p,
-.ops-workspace-daily .ops-meeting-body ul { color: #46566c; font-size: 13px; line-height: 1.72; }
+.ops-workspace-daily .ops-meeting-body ul { color: #161c27; font-size: 14px; font-weight: 560; line-height: 1.78; }
 .ops-workspace-daily .ops-meeting-body ul { padding-left: 19px; }
 .ops-workspace-daily .ops-meeting-body li + li { margin-top: 5px; }
 

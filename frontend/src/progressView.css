@@ -34,19 +34,19 @@
 .pb-panel > header button.is-active { border-color:#b8c8e6; background:#edf3ff; }
 .pb-meeting-focus { position:relative; padding:17px; }
 .pb-meeting-title { padding-bottom:13px; border-bottom:1px solid #e8edf4; }
-.pb-meeting-title > span { color:#49618d; font-size:10px; font-weight:750; }
-.pb-meeting-title h3 { margin:6px 0 4px; font-size:16px; line-height:1.45; }
-.pb-meeting-title small { color:var(--pb-muted); font-size:10px; }
+.pb-meeting-title > span { color:#344b72; font-size:11px; font-weight:800; }
+.pb-meeting-title h3 { margin:6px 0 4px; color:#0f172a; font-size:17px; line-height:1.5; }
+.pb-meeting-title small { color:#59677b; font-size:11px; }
 .pb-meeting-points { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:13px; }
 .pb-meeting-points section { min-width:0; padding:12px; border:1px solid #e2e8f1; border-radius:10px; background:#fafbfd; }
-.pb-meeting-points h4 { display:flex; align-items:center; gap:6px; margin:0 0 8px; color:#263b66; font-size:11px; }
+.pb-meeting-points h4 { display:flex; align-items:center; gap:6px; margin:0 0 8px; color:#111827; font-size:13px; font-weight:850; }
 .pb-meeting-points ul { display:grid; gap:6px; margin:0; padding:0; list-style:none; }
-.pb-meeting-points li { position:relative; padding-left:10px; color:#4e5e75; font-size:11px; line-height:1.55; overflow-wrap:anywhere; }
+.pb-meeting-points li { position:relative; padding-left:11px; color:#171d29; font-size:13px; font-weight:550; line-height:1.68; overflow-wrap:anywhere; }
 .pb-meeting-points li::before { position:absolute; top:.65em; left:0; width:4px; height:4px; border-radius:50%; background:#315fbb; content:""; }
-.pb-meeting-points p { margin:0; color:#8792a3; font-size:10px; line-height:1.55; }
+.pb-meeting-points p { margin:0; color:#59677b; font-size:12px; line-height:1.65; }
 .pb-meeting-discussion { margin-top:10px; padding:10px 12px; border-radius:8px; background:#f5f7fa; }
-.pb-meeting-discussion summary { color:#53627a; cursor:pointer; font-size:10px; font-weight:750; }
-.pb-meeting-discussion p { margin:9px 0 0; white-space:pre-wrap; color:#66748a; font-size:11px; line-height:1.65; }
+.pb-meeting-discussion summary { color:#243b63; cursor:pointer; font-size:12px; font-weight:850; }
+.pb-meeting-discussion p { margin:10px 0 0; white-space:pre-wrap; color:#171d29; font-size:13px; font-weight:550; line-height:1.75; }
 .pb-meeting-open { margin-top:11px; }
 .pb-held-tasks { display:grid; gap:6px; padding:11px 16px; border-bottom:1px solid #efd8c7; background:#fffaf4; }
 .pb-held-tasks > strong { color:#9b5b1c; font-size:10px; }
