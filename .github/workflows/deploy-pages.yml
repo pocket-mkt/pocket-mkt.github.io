@@ -60,6 +60,19 @@ jobs:
         working-directory: frontend
         run: npm run test:supabase
 
+      - name: Test isolated desktop and mobile browser regressions
+        working-directory: frontend
+        timeout-minutes: 5
+        run: npm run test:review-ui
+
+      - name: Preserve browser QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-qa
+          path: artifacts/client-progress/
+          retention-days: 7
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 

@@ -71,6 +71,17 @@ function entityType(input = {}) {
   return String(input.mutation?.entityType || input.mutation?.entity || "").trim().toUpperCase();
 }
 
+export function needsLegacyPages(bootstrap) {
+  const profile = bootstrap?.data?.currentUser;
+  // Unknown legacy profiles stay compatible until the migration is verified.
+  if (!profile?.role || ["POCKET_MANAGER", "EXECUTOR_EDITOR"].includes(profile.role)) return true;
+  return (bootstrap.data.projects || []).some(project => !Array.isArray(project.allowed_pages) || project.allowed_pages.some(page => ["overview", "files"].includes(page)));
+}
+
+function retiredFeature() {
+  throw new HubApiError("현재 사용하지 않는 콘텐츠·성과추적 화면은 중지되었습니다. 업무 또는 성과 메뉴를 이용해 주세요.", { code: "unsupported_action", retriable: false });
+}
+
 export function summarizeSupabaseTasks(items = []) {
   const active = items.filter((item) => !item?.archived_at);
   const statusCount = (codes) => active.filter((item) => codes.includes(String(item?.status_code || "").toUpperCase())).length;
@@ -283,7 +294,7 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
     sessionStore.write(mainSessionPayload(authSession, profile));
     projectIds.clear();
     rememberProjectMappings(bootstrap);
-    if (!usedBridge) warmLegacySession(credentials, generation);
+    if (!usedBridge && needsLegacyPages(bootstrap)) warmLegacySession(credentials, generation);
     return {
       ok: true,
       generatedAt: new Date().toISOString(),
@@ -376,7 +387,7 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
       try {
         await sheets.accessAdminMutate(legacyPermissionMirrorInput(input));
       } catch (error) {
-        console.info("[legacy-permission-sync] skipped", error?.code || error?.message || "unknown_error");
+        console.info("[legacy-permission-sync] skipped", error?.code || "unknown_error");
       }
     })();
     return result;
@@ -420,8 +431,8 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
     tasks,
     clientProgress: async (params = {}) => readClientProgress({ ...params, projectId: await resolveProjectId(params.projectId) }),
     dailyMeetings: async (params = {}) => core.dailyMeetings({ ...params, projectId: await resolveProjectId(params.projectId) }),
-    contents: legacyRead("contents"),
-    tracking: legacyRead("tracking"),
+    contents: async () => retiredFeature(),
+    tracking: async () => retiredFeature(),
     performance: async (params = {}) => core.performance({ ...params, projectId: await resolveProjectId(params.projectId) }),
     credentials: async (params = {}) => credentialLedger.read({ ...params, projectId: await resolveProjectId(params.projectId) }),
     revealCredential: async (params = {}) => credentialLedger.reveal({ ...params, projectId: await resolveProjectId(params.projectId) }),

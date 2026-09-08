@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const appSource = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+const appSource = (await Promise.all(["App.jsx", "TaskWorkspace.jsx"].map(file => readFile(new URL(`../src/${file}`, import.meta.url), "utf8")))).join("\n");
+const permissionsSource = await readFile(new URL("../src/PermissionsView.jsx", import.meta.url), "utf8");
 const quoteSource = await readFile(new URL("../src/QuoteImportModal.jsx", import.meta.url), "utf8");
-const styleSource = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
+const styleSource = (await Promise.all(["styles.css", "permissionsView.css"].map(file => readFile(new URL(`../src/${file}`, import.meta.url), "utf8")))).join("\n");
 
 test("필터는 탭 없이 모두 표시하고 간트는 업무별 상태를 문자와 색상으로 표시한다", () => {
   const filters = appSource.slice(appSource.indexOf("function TaskScheduleFilters("), appSource.indexOf("function TaskWorkspaceTabs("));
@@ -74,8 +75,8 @@ test("번호 회차 업무도 일정표와 간트에서 접지 않고 개별 행
   assert.doesNotMatch(appSource, /const displayRows = groupTaskScheduleSeries\(tasks\)/);
   assert.doesNotMatch(appSource, /ganttSeriesGroups/);
   assert.doesNotMatch(appSource, /expandedSeries/);
-  assert.match(appSource, /tasks\.forEach\(\(task\) =>/);
-  assert.match(appSource, /group\.tasks\.map\(\(task\) => renderGanttTaskRow/);
+  assert.match(appSource, /tasks\.forEach\(\(task, index\) =>/);
+  assert.match(appSource, /if \(row\.task\) return renderGanttTaskRow\(row\.task/);
 });
 
 test("참고 캠페인 일정 화면이 업무 화면의 최상위 구조이며 로그는 툴바에서 연다", () => {
@@ -139,7 +140,7 @@ test("포켓은 선택한 업무를 고객사에서 일괄 숨기거나 다시 �
 });
 
 test("업무표와 간트는 다중 이동·Shift 범위 선택·일괄 소프트 삭제를 제공한다", () => {
-  assert.match(appSource, /selectTaskRange\(filteredTasks, current, selectionAnchorRef\.current, taskId, checked\)/);
+  assert.match(appSource, /selectTaskRange\(filteredTasks, current, anchorTaskId, taskId, checked\)/);
   assert.match(appSource, /event\.nativeEvent\?\.shiftKey \|\| event\.shiftKey/);
   assert.match(appSource, /selectedTaskIds\.has\(taskId\)[\s\S]*filteredTasks\.filter/);
   assert.match(appSource, /reorderTaskSchedule\(filteredTasks, sourceIds, targetTaskId, position\)/);
@@ -217,9 +218,9 @@ test("일정표 URL로 새로고침해도 서버 초기 업무 코드로 정규�
 });
 
 test("고객사 계정 모달은 넓은 단일 폼에서 프로젝트 하위 권한을 따로 고른다", () => {
-  assert.match(appSource, /const pageGroups = \[/);
-  assert.match(appSource, /PROJECT_NAVIGATION_GROUP\.pageIds\.includes\(page\.id\)/);
-  assert.match(appSource, /className="access-page-groups"/);
+  assert.match(permissionsSource, /const pageGroups = \[/);
+  assert.match(permissionsSource, /PROJECT_NAVIGATION_GROUP\.pageIds\.includes\(page\.id\)/);
+  assert.match(permissionsSource, /className="access-page-groups"/);
   assert.match(styleSource, /\.create-modal\.access-account-modal\s*\{\s*width:\s*min\(960px/);
   assert.match(styleSource, /\.access-account-modal form\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
   assert.match(styleSource, /\.access-page-groups\s*\{[^}]*grid-template-columns:/);
@@ -299,7 +300,7 @@ test("포켓과 NS 계정은 고객 권한 관리 화면을 함께 사용한다"
   assert.match(appSource, /function canManageClientAccess\(role\)/);
   assert.match(appSource, /role === "pocket" \|\| role === "ns"/);
   assert.match(appSource, /accessManagerOnly:\s*true/);
-  assert.match(appSource, /canDisableAccount=\{role === "pocket"\}/);
+  assert.match(permissionsSource, /canDisableAccount=\{role === "pocket"\}/);
 });
 
 test("견적서를 검토한 뒤 새 프로젝트 또는 현재 프로젝트 업무로 생성한다", () => {

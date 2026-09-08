@@ -1,5 +1,13 @@
 # Prototype Instructions
 
+## Review implementation guardrails (2026-09-08)
+
+- `TaskWorkspace.jsx` owns the schedule table/Gantt and is lazy-loaded; `PermissionsView.jsx` and its CSS own access administration. Never re-export TaskWorkspace statically from App, which forces the lazy chunk back into the initial bundle. Common small UI/status primitives live in `TaskUiPrimitives.jsx`, active resource loading in `useActiveResource.js`, and batch state transforms in `taskResourcePatch.js`.
+- Workspaces with over 200 rows use measured-height virtual windows. Keep focused editors mounted, retain all canonical rows for filtering/selection/shift/reordering, and preserve complete DOM during native row drags. Do not change saved data or dates because of scrolling. Browser CI must check last-row reachability, focus retention, Shift selection, and one mutation per Gantt gesture.
+- A previous browser bootstrap snapshot is not current authorization. Wait for a server bootstrap before showing cached data; clear persisted resource projections on bootstrap/authority changes and authorization failure. Revalidate the visible tab on focus/online and a 60-second timer, with debounce, backoff and no overlap. Defer refresh during inputs, dialogs, writes and drags, including if editing starts while the bootstrap request is pending.
+- Diagnostics are bounded in tab memory and contain only operation names, timings, estimated decoded response sizes and allowlisted error codes. Never log credentials, tokens, IDs, request arguments, body text or error messages. Internal operators may inspect `window.pocketHubDiagnostics()`; clearing a session also clears measurements. Percentiles require real samples and must never be advertised as live DB benchmarks from synthetic fixtures.
+- Native-only customer sessions must not warm a Sheets session. Hidden content/tracking reads are explicitly retired; detailed logs/project mutation and legacy login fallback remain until their server migration and access tests are verified. Do not claim a single Supabase backend while those paths exist.
+
 ## Customer progress boundary (2026-09-08)
 
 - The shared work-flow list uses compact single-line rows (34px desktop, 44px touch/mobile): disclosure, status, task title, date, and completion-link icon. Keep full title/details in a keyboard/touch-expandable detail row. Avoid repeated descriptions/owners below every collapsed task. Reuse this density in both progress views and retain customer owner privacy when expanded.

@@ -35,64 +35,7 @@
   --shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
-/* Customer account and page-level access administration. */
-.access-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.access-summary article { display: flex; align-items: center; justify-content: space-between; min-height: 76px; padding: 18px 20px; border: 1px solid var(--rule); border-radius: 16px; background: var(--paper); box-shadow: var(--shadow); }
-.access-summary span { color: var(--muted); font-size: 13px; font-weight: 700; }
-.access-summary strong { font-size: 25px; letter-spacing: -.04em; }
-.access-panel { padding: 0; overflow: hidden; }
-.access-panel > .panel-heading { padding: 22px 24px 18px; border-bottom: 1px solid var(--rule); }
-.access-panel .panel-heading p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
-.access-account-list { display: grid; }
-.access-account-row { display: grid; grid-template-columns: 36px minmax(150px, .8fr) minmax(170px, .9fr) minmax(220px, 1.5fr) auto 18px; align-items: center; gap: 14px; width: 100%; padding: 16px 22px; border: 0; border-bottom: 1px solid var(--rule); background: #fff; color: var(--ink); text-align: left; }
-.access-account-row:last-child { border-bottom: 0; }
-.access-account-row:hover { background: #f8fcfa; }
-.access-account-state { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; color: var(--muted); background: var(--ground); }
-.access-account-state.is-active { color: #078857; background: #e8faf2; }
-.access-account-identity, .access-account-project { display: grid; gap: 3px; min-width: 0; }
-.access-account-identity strong, .access-account-project strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-.access-account-identity small, .access-account-project small { color: var(--muted); font-size: 11px; }
-.access-page-badges { display: flex; flex-wrap: wrap; gap: 5px; }
-.access-page-badges i { padding: 4px 7px; border-radius: 7px; background: #f1f5f3; color: #4d6158; font-size: 10px; font-style: normal; font-weight: 700; }
-.create-modal.access-account-modal { width: min(960px, calc(100vw - 32px)); }
-.access-account-modal form { grid-template-columns: minmax(0, 1fr); gap: 0; }
-.access-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.access-form-grid > * { min-width: 0; }
-.access-form-grid > :last-child { grid-column: 1 / -1; }
-.access-page-fieldset { margin: 20px 0 0; padding: 18px; border: 1px solid var(--rule); border-radius: 14px; }
-.access-page-fieldset legend { padding: 0 6px; font-size: 13px; font-weight: 800; }
-.access-page-fieldset > p { margin: 0 0 13px; color: var(--muted); font-size: 11px; }
-.access-page-groups { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 12px; }
-.access-page-group { min-width: 0; padding: 14px; border: 1px solid var(--rule); border-radius: 12px; background: #fafcff; }
-.access-page-group > header { display: grid; gap: 3px; margin-bottom: 10px; }
-.access-page-group > header strong { color: var(--ink); font-size: 12px; }
-.access-page-group > header small { color: var(--muted); font-size: 10px; line-height: 1.4; }
-.access-page-options { display: grid; gap: 7px; }
-.access-page-options label { display: flex; align-items: flex-start; gap: 9px; min-height: 58px; padding: 10px 11px; border: 1px solid var(--rule); border-radius: 9px; background: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
-.access-page-options label:hover { border-color: #bfd0ef; background: #f7faff; }
-.access-page-fieldset input { accent-color: var(--accent); }
-.access-page-options input { flex: 0 0 auto; margin-top: 2px; }
-.access-page-options label > span { display: grid; min-width: 0; gap: 3px; }
-.access-page-options label strong { color: var(--ink); font-size: 12px; }
-.access-page-options label small { color: var(--muted); font-size: 10px; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; }
 .detail-log-panel { max-width: 980px; }
-.access-account-modal footer { display: flex; align-items: center; gap: 8px; margin-top: 22px; }
-.access-account-modal footer > span { flex: 1; }
-.access-current-projects { display: grid; gap: 10px; margin-top: 18px; padding: 14px; border: 1px solid var(--rule); border-radius: 12px; background: var(--ground); }
-.access-current-projects > strong { font-size: 12px; color: var(--muted); }
-.access-current-projects > div { display: grid; gap: 8px; }
-.access-current-projects article { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 9px; background: #fff; }
-.access-current-projects article > span { display: grid; gap: 2px; flex: 1; min-width: 0; }
-.access-current-projects article b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-.access-current-projects article small { color: var(--muted); font-size: 11px; }
-
-@media (max-width: 760px) {
-  .access-summary { grid-template-columns: 1fr; }
-  .access-account-row { grid-template-columns: 34px 1fr auto 16px; }
-  .access-account-project, .access-page-badges { grid-column: 2 / -1; }
-  .access-form-grid, .access-page-groups { grid-template-columns: 1fr; }
-  .access-form-grid > :last-child { grid-column: auto; }
-}
 
 * {
   box-sizing: border-box;

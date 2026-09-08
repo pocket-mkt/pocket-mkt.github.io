@@ -236,7 +236,7 @@ test("고객 공개 업무만 고객사 표시 대상으로 판정한다", () =>
 });
 
 test("간트는 날짜별 선택 셀과 연속 구간 모서리를 표시한다", () => {
-  const appSource = fs.readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const appSource = fs.readFileSync(new URL("../src/TaskWorkspace.jsx", import.meta.url), "utf8");
   const styles = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
   assert.match(appSource, /className="gantt reference-gantt"/);
   assert.match(appSource, /starts \? " rs"/);

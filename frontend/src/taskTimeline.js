@@ -173,7 +173,7 @@ export function selectTaskRange(tasks = [], selectedIds = new Set(), anchorTaskI
   }
   const start = Math.min(anchorIndex, targetIndex);
   const end = Math.max(anchorIndex, targetIndex);
-  visibleIds.slice(start, end + 1).forEach((id) => {
+  tasks.slice(start, end + 1).forEach(({ id }) => {
     if (checked) next.add(id); else next.delete(id);
   });
   return next;

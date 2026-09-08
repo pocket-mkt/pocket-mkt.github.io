@@ -93,7 +93,8 @@ test("실서비스 진행상황은 시안 대신 실제 원장을 읽고 쓰기�
   assert.ok(view.includes('role === "client"'));
   assert.ok(view.includes('<IssueRequestCreateModal'));
   assert.ok(app.includes('key={project.id}'));
-  assert.ok(app.includes('view === "progress") return source.tasks(params)'));
+  const resourceHook = await readFile(new URL("../src/useActiveResource.js", import.meta.url), "utf8");
+  assert.ok(resourceHook.includes('view === "progress") return source.tasks(params)'));
   assert.ok(!view.includes("dashboard-prototype"));
   assert.ok(app.includes('view === "progress") return role === "client" ? <LoadingState'));
   assert.ok(app.includes('displayMode="gantt" summaryOnly canWrite={false}'));

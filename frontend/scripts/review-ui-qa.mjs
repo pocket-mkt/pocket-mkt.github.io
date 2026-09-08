@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { existsSync } from "node:fs";
 
 const bundle = await build({
   stdin: { contents: `
@@ -12,7 +13,9 @@ import React, { lazy, Suspense, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CredentialLedgerView } from './src/CredentialLedgerView.jsx';
 import { useOverviewResource } from './src/useOverviewResource.js';
-import { ProjectIssuePanel, ProjectClientProgressView } from './src/App.jsx';
+import { ProjectClientProgressView } from './src/App.jsx';
+import { ProjectIssuePanel, TaskScheduleTimeline } from './src/TaskWorkspace.jsx';
+import PermissionsView from './src/PermissionsView.jsx';
 import { tasksViewModel } from './src/api/viewModel.js';
 import './src/styles.css';
 const QuoteImportModal = lazy(() => import('./src/QuoteImportModal.jsx'));
@@ -25,6 +28,49 @@ const bootstrapState = {status:'ready',data:{projects:{A:{id:'A',allowedPages:['
 let overviewState;
 const overviewCalls = [];
 const source = {overview: params => { const pending=deferred(); overviewCalls.push({...params,...pending}); return pending.promise; }};
+window.benchmarkQa = async () => {
+ const results=[];
+ for(const count of [100,500,1000]) for(const mode of ['table','gantt']) {
+  await render(<div/>);
+  const tasks=tasksViewModel({data:{items:Array.from({length:count},(_,i)=>({task_id:i+1,project_id:1,title:'QA 업무 '+(i+1),category_code:'YOUTUBE',workstream_code:'MARKETING',status_mode:'MANUAL',status_code:'IN_PROGRESS',progress_percent:30,planned_start_date:'2026-09-01',due_date:'2026-09-30',schedule_dates_json:'["2026-09-01"]',visibility_code:'CLIENT'})),totalMatching:count}}).items;
+  const started=performance.now();
+  await render(<TaskScheduleTimeline tasks={tasks} issues={[]} project={{id:1,clientName:'QA',name:'QA'}} query="" canWrite={true} onUpdate={async()=>{}} onBatchUpdate={async()=>{}} displayMode={mode} onViewChange={()=>{}}/>);
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  results.push({count,mode,mountAndPaintMs:Math.round(performance.now()-started),domNodes:document.querySelectorAll('*').length});
+ }
+ return results;
+};
+window.runLargeListQa = async () => {
+ const tasks=tasksViewModel({data:{items:Array.from({length:500},(_,i)=>({task_id:i+1,project_id:1,title:'QA 업무 '+(i+1),description:'여러 줄로 표시하는 업무 설명',category_code:'YOUTUBE',workstream_code:'MARKETING',status_mode:'MANUAL',status_code:'IN_PROGRESS',progress_percent:30,planned_start_date:'2026-09-01',due_date:'2026-09-30',visibility_code:'CLIENT'})),totalMatching:500}}).items;
+ for(const mode of ['table','gantt']) {
+  const writes=[];
+  await render(<div/>);
+  await render(<TaskScheduleTimeline tasks={tasks} issues={[]} project={{id:1,clientName:'QA',name:'QA'}} query="" canWrite={true} onUpdate={async()=>{}} onBatchUpdate={async updates=>{writes.push(updates);}} displayMode={mode} onViewChange={()=>{}}/>);
+  const scroll=document.querySelector(mode==='table'?'.reference-task-scroll':'.reference-gantt-scroll');
+  check(scroll.querySelectorAll('[data-window-id]').length<80,'large list renders every row');
+  if(mode==='table') {
+   const boxes=[...scroll.querySelectorAll('tbody .reference-task-select input')];
+   boxes[0].click();await tick();boxes[4].dispatchEvent(new MouseEvent('click',{bubbles:true,shiftKey:true}));await tick();
+   check(document.querySelector('.task-bulk-toolbar')?.textContent.includes('5개 선택'),'Shift range selection broke: '+document.querySelector('.task-bulk-toolbar')?.textContent);
+   const input=scroll.querySelector('tbody textarea');const row=input.closest('[data-window-id]');const id=row.dataset.windowId;
+   input.focus();await tick();scroll.scrollTop=2000;scroll.dispatchEvent(new Event('scroll'));await tick();
+   check(document.activeElement===input && scroll.querySelector('[data-window-id="'+id+'"]'),'scroll unmounted focused editor');
+   input.blur();await tick();
+  }
+  scroll.scrollTop=scroll.scrollHeight;scroll.dispatchEvent(new Event('scroll'));await tick();await tick();
+  check([...scroll.querySelectorAll('[data-window-id]')].some(row=>row.dataset.windowId===String(tasks.at(-1).id)),'cannot reach final task by scrolling '+mode);
+  scroll.scrollTop=0;scroll.dispatchEvent(new Event('scroll'));await tick();await tick();
+  check(scroll.querySelectorAll('[data-window-id]').length<80,'rows did not release after returning to top');
+  if(mode==='gantt') {
+   const cell=scroll.querySelector('.g-c[data-gantt-task-id]');
+   cell.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerId:1}));
+   window.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,button:0,pointerId:1}));
+   window.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,button:0,pointerId:1}));await tick();
+   check(writes.length===1 && writes[0].length===1,'Gantt gesture did not produce exactly one task mutation');
+  }
+ }
+ return ['500-row table/Gantt: bounded DOM, scroll to final row and back, Shift selection, focused editor retained, one mutation per Gantt gesture'];
+};
 function Overview({projectId}) {
  const [state,setState]=useState({status:'idle'});
  const [session,setSession]=useState(null);
@@ -72,6 +118,12 @@ window.runQa = async () => {
  check(document.querySelector('.quote-item-table tbody tr'),'quote parsing/render failed');
  check([...document.querySelectorAll('button')].some(button=>button.textContent==='새 프로젝트로 만들기' && !button.disabled),'quote creation controls unavailable');
  results.push('quote: lazy modal, CSV parsing, review table, enabled creation controls');
+ await render(<PermissionsView access={{accounts:[],projects:[{id:'A',name:'QA 프로젝트'}]}} role="ns" onSave={async()=>{}}/>);
+ [...document.querySelectorAll('button')].find(button=>button.textContent.includes('고객사 계정 생성')).click();await tick();
+ check(document.querySelector('.access-page-groups'),'extracted permission controls missing');
+ check(document.querySelector('.access-account-modal').getBoundingClientRect().width<=window.innerWidth,'permission dialog overflows');
+ check(!document.querySelector('.access-account-modal').textContent.includes('계정 비활성화'),'NS has account-disable control');
+ results.push('permissions: separate module, project grants, responsive creation dialog, NS boundary');
  await render(<ProjectIssuePanel issues={[]} project={{id:'A',clientName:'QA 회사'}} canWrite={true} actorName="QA" onCreate={async()=>{}}/>);
  document.querySelector('.project-issue-add').click();
  for(let i=0;i<100 && !document.querySelector('[role="dialog"]');i++) await tick();
@@ -115,8 +167,10 @@ await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
 const url=`http://127.0.0.1:${server.address().port}`;
 const debugPort=Number(process.env.CDP_PORT || 9349);
 const profile=await mkdtemp(path.join(tmpdir(),"pocket-review-qa-"));
-const chrome=spawn(process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',[
-  '--headless=new','--disable-gpu',`--remote-debugging-port=${debugPort}`,`--user-data-dir=${profile}`,'about:blank',
+const chromePath=process.env.CHROME_PATH || (process.platform==='win32' ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : ['/usr/bin/google-chrome','/usr/bin/chromium','/usr/bin/chromium-browser'].find(existsSync));
+if(!chromePath)throw Error('Chrome not found; set CHROME_PATH');
+const chrome=spawn(chromePath,[
+  '--headless=new','--disable-gpu','--disable-dev-shm-usage',...(process.env.CI ? ['--no-sandbox'] : []),`--remote-debugging-port=${debugPort}`,`--user-data-dir=${profile}`,'about:blank',
 ],{stdio:'ignore',windowsHide:true});
 let socket;
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -132,6 +186,19 @@ try {
   const send=(method,params={})=>new Promise((resolve,reject)=>{const next=++id;pending.set(next,{resolve,reject});socket.send(JSON.stringify({id:next,method,params}));});
   const evaluate=async expression=>{const result=await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(result.exceptionDetails)throw Error(JSON.stringify(result.exceptionDetails));return result.result.value;};
   await send('Runtime.enable'); await send('Page.enable');
+  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
+  await send('Page.navigate',{url});
+  for(let i=0;i<100;i++){if(await evaluate('typeof window.runLargeListQa === "function"'))break;await delay(100);}
+  console.log(JSON.stringify({largeList:await evaluate('window.runLargeListQa()')}));
+  if(process.env.BENCHMARK_UI==='1') {
+    await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
+    await send('Page.navigate',{url});
+    for(let i=0;i<100;i++){if(await evaluate('typeof window.benchmarkQa === "function"'))break;await delay(100);}
+    const benchmark=await evaluate('window.benchmarkQa()');
+    await mkdir('../artifacts/client-progress',{recursive:true});
+    await writeFile('../artifacts/client-progress/render-benchmark.json',JSON.stringify(benchmark,null,2));
+    console.log(JSON.stringify({benchmark}));
+  }
   for(const width of [1440,390]) {
     await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<500});
     await send('Page.navigate',{url});

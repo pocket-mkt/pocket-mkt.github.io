@@ -1,6 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createSupabaseHybridApi } from "../src/supabase/hybridApi.js";
+import { createSupabaseHybridApi, needsLegacyPages } from "../src/supabase/hybridApi.js";
+
+test("native-only customers do not send credentials to a background Sheets bridge", () => {
+  const bootstrap={data:{currentUser:{role:"CLIENT_VIEWER"},projects:[{allowed_pages:["progress"]}]}};
+  assert.equal(needsLegacyPages(bootstrap),false);
+  assert.equal(needsLegacyPages({data:{...bootstrap.data,projects:[{allowed_pages:["files"]}]}}),true);
+  assert.equal(needsLegacyPages({data:{...bootstrap.data,currentUser:{role:"EXECUTOR_EDITOR"}}}),true);
+});
+
+test("retired hidden pages fail explicitly without contacting Sheets", async t => {
+  const f=fixture(t);
+  await assert.rejects(f.api.contents({}),{code:"unsupported_action"});
+  await assert.rejects(f.api.tracking({}),{code:"unsupported_action"});
+  assert.equal(f.requests.length,0);
+});
 
 const deferred = () => {
   let resolve;
