@@ -2,11 +2,15 @@
 
 ## 현재 결론
 
-### 2026-09-08 17:18 KST 고객용 진행상황 운영 배포 진행
+### 2026-09-08 17:22 KST 고객용 진행상황 운영 배포 완료
 
 - 사용자 승인에 따라 `pocket-mkt.github.io`에 고객용 진행상황과 앞선 로컬 코드 점검 변경을 함께 배포한다. 백업 스크립트·복구키·시안·로컬 산출물은 커밋 대상에서 제외한다.
 - 운영 DB에 `client_progress_safe_projection`, `ensure_client_progress_grant_allowed` 적용 완료. 운영의 페이지 제약에 `progress`가 누락되어 별도 호환 마이그레이션을 추가했다. 기존 데이터 및 기타 페이지 코드는 보존한다.
-- UND 고객 계정만 고객용 `progress` 단독 READ_ONLY 권한으로 변경할 예정이다. 테스트·NS·포켓 계정은 유지한다. 결과는 아래 검증 기록으로 갱신한다.
+- UND 고객 계정만 고객용 `progress` 단독 READ_ONLY 권한으로 변경했다. 기존 `tasks` 권한을 제거했으며 프로젝트 연결은 그대로 유지한다. 테스트·NS·포켓 계정은 변경하지 않았다. 비밀번호 변경 없음.
+- 프런트 배포 커밋 `9456386e25abb430aa5bff45b0c481531797863d`, [GitHub Pages 작업 34203717065](https://github.com/pocket-mkt/pocket-mkt.github.io/actions/runs/34203717065) 성공. 실제 사이트의 `/assets/index-B1bjOooB.js`에서 고객용 route 및 chunk 확인.
+- 운영 DB에서 `authenticated` 역할과 UND 사용자 컨텍스트로 실제 RPC 검증: 공개 업무 43건 조회, 내부 메모/담당자 필드 및 이슈/회의/멤버 응답 없음. 내부 task workspace·회의록·통합관리·계정대장·타 프로젝트 RPC 차단 확인. NS/포켓 및 test 권한 유지 확인. 로컬 259개 테스트와 27개 마이그레이션 QA 통과.
+- 브라우저 실로그인 검증은 과거 제공된 test 비밀번호가 거부되어 미완료다. 비밀번호를 재설정하거나 인증을 우회하지 않았다. 앞선 1440px·390px fixture UI QA 및 운영 UND 권한 RPC 검증과 구분한다.
+- 배포 전후 보안 advisor 차이 없음. 기존 [공개 SECURITY DEFINER 함수 9개 경고](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable) 및 [유출 비밀번호 보호 비활성 경고](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)는 기존 점검 과제로 남으며 이번 고객용 RPC는 추가 경고를 만들지 않았다.
 
 ### 2026-09-08 17:00 KST 고객용 진행상황 분리 — 로컬 검증 완료, 미배포
 
