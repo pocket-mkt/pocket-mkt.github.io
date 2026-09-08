@@ -23,6 +23,7 @@ import WorkspaceNotifications from './src/WorkspaceNotifications.jsx';
 import { OperationsDashboardView } from './src/OperationsDashboardView.jsx';
 import { ProgressView } from './src/ProgressView.jsx';
 import { TaskColumn } from './src/ProgressFlow.jsx';
+import InternalPreviewTaskEditor from './src/InternalPreviewTaskEditor.jsx';
 import { tasksViewModel } from './src/api/viewModel.js';
 import './src/styles.css';
 import './src/sidebarWorkspace.css';
@@ -38,6 +39,7 @@ const overviewCalls = [];
 const source = {overview: params => { const pending=deferred(); overviewCalls.push({...params,...pending}); return pending.promise; }};
 window.benchmarkQa = async () => {
  const results=[];
+
 
 
  for(const count of [100,500,1000]) for(const mode of ['table','gantt']) {
@@ -101,6 +103,20 @@ function IssueTabsQa() {
 }
 window.runQa = async () => {
  const results=[];
+ const previewTask={id:'91',title:'미리보기 업무',statusCode:'IN_PROGRESS',description:'공개 내용'};const previewCalls=[];const previewWrites=[];
+ const previewSource={tasks:async params=>{previewCalls.push(params);return {data:{items:[{task_id:91,title:'미리보기 업무',project_id:1,status_code:'IN_PROGRESS',progress_percent:40,responsible_org_code:'NS',remarks:'내부 원본 비고',row_version:7}]}};}};
+ const previewPage=<ProjectClientProgressView project={{id:'1',name:'QA',clientName:'QA'}} taskPage={{items:[previewTask]}}/>;
+ await render(<InternalPreviewTaskEditor project={{id:'1',clientName:'QA'}} role="pocket" canWrite source={previewSource} onUpdate={async(task,fields)=>previewWrites.push({task,fields})}>{previewPage}</InternalPreviewTaskEditor>);
+ for(let attempt=0;attempt<50&&!document.querySelector('.pb-flow-summary');attempt++)await tick();
+ document.querySelector('.pb-flow-summary').click();
+ for(let attempt=0;attempt<50&&!document.querySelector('.task-edit-modal');attempt++)await tick();
+ check(previewCalls.length===1&&document.querySelector('.task-edit-modal'),'internal customer-preview row must fetch canonical task and open modal');
+ document.querySelector('.task-edit-modal form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await tick();
+ check(previewWrites.length===1&&previewWrites[0].fields.remarks==='내부 원본 비고'&&previewWrites[0].fields.responsible_org_code==='NS','public projection must not erase canonical private fields');
+ await render(<InternalPreviewTaskEditor project={{id:'1'}} role="client" canWrite source={previewSource} onUpdate={()=>{throw Error('customer write');}}>{previewPage}</InternalPreviewTaskEditor>);
+ document.querySelector('.pb-flow-summary').click();await tick();
+ check(previewCalls.length===1&&!document.querySelector('.task-edit-modal'),'customer must never fetch internal tasks or edit');
+ results.push('client-preview real page: internal editor uses canonical fields; customer cannot fetch/edit');
  const flowWrites=[];
  const flowTask={id:'flow-1',title:'흐름 수정 QA',statusCode:'IN_PROGRESS',progressPercent:30,description:'수정 전',priorityCode:'NORMAL',responsibleOrgCode:'POCKET',plannedStartDate:'2026-09-01',dueDate:'2026-09-30'};
  await render(<ProgressView project={{id:'1',name:'QA',clientName:'QA'}} role="pocket" canWrite taskPage={{items:[flowTask],issues:[]}} source={{dailyMeetings:async()=>({data:{items:[]}})}} onTaskUpdate={async(task,fields)=>flowWrites.push({task,fields})} onNavigate={()=>{}}/>);

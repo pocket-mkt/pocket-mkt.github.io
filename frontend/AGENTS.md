@@ -27,6 +27,8 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Pocket Marketing Hub design decisions
 
+- The client-progress page remains a pure safe projection, but Pocket/NS writable previews wrap it with InternalPreviewTaskEditor. Capture flow-row clicks (not completion links), fetch the canonical task through the authorized source.tasks before opening the existing editor, and preserve private fields/row version. Never edit using the masked client task. Actual clients and non-writers must not fetch internal tasks or receive an editor. Abort superseded/project-changed reads.
+
 - Internal writable progress flow rows open the existing lazy TaskEditModal and reuse App's canonical onTaskUpdate callback. Completion links retain their own navigation. Client/read-only flow rows keep disclosure-only behavior; no edit handler or modal on customer progress. Do not navigate away merely to edit a flow task.
 
 - Detail logs default to all activity, including CREATED task/request events. Actor, action and entity filters combine on the server before pagination. Creation rows show initial values without a before-arrow; separate task/request creation counts are current-page only. Request content is loaded on explicit click via authorized read_task_workspace, projecting only the selected issue. Label it current content, never imply it is the historical creation snapshot; deleted/inaccessible requests keep their audit row with a clear error.

@@ -38,7 +38,7 @@ export function TaskColumn({ title, subtitle, items, planned, client, onEdit, to
     {items.length ? <div className="pb-task-list">{visible.map(task => {
       const href = publicHttpLink(task.completionUrl);
       const secondaryText = planned ? `마감 ${shortDate(task.dueDate)}` : task.description || "세부내용 없음";
-      return <details key={task.id} className="pb-task">
+      return <details key={task.id} className="pb-task" data-flow-task-id={task.id}>
         <summary className={`pb-flow-summary${planned ? "" : " has-description"}`} title={`${task.title} · ${!client && onEdit ? "클릭하여 업무 수정" : secondaryText}`} onClick={event=>{if(!client && onEdit && !event.target.closest('a')){event.preventDefault();onEdit(task);}}}>
           <ChevronRight className="pb-flow-chevron" size={12} aria-hidden="true" />
           <Tag code={task.statusCode} />
