@@ -37,14 +37,13 @@ export function TaskColumn({ title, subtitle, items, planned, client, tone = "ac
   return <section className={`pb-flow-column is-${tone}`}><header><span className="pb-flow-dot" /><div><h3>{title}</h3><small>{subtitle}</small></div><strong>{items.length}</strong></header>
     {items.length ? <div className="pb-task-list">{visible.map(task => {
       const href = publicHttpLink(task.completionUrl);
-      const date = planned ? task.dueDate : task.updatedAt;
-      const dateLabel = planned ? "마감" : "갱신";
+      const secondaryText = planned ? `마감 ${shortDate(task.dueDate)}` : task.description || "세부내용 없음";
       return <details key={task.id} className="pb-task">
-        <summary className="pb-flow-summary" title={`${task.title} · ${dateLabel} ${shortDate(date)}`}>
+        <summary className={`pb-flow-summary${planned ? "" : " has-description"}`} title={`${task.title} · ${secondaryText}`}>
           <ChevronRight className="pb-flow-chevron" size={12} aria-hidden="true" />
           <Tag code={task.statusCode} />
           <span className="pb-flow-title">{task.title}</span>
-          <span className="pb-flow-date">{dateLabel} {shortDate(date)}</span>
+          <span className={planned ? "pb-flow-date" : "pb-flow-description"} title={secondaryText}>{secondaryText}</span>
           {href ? <a className="pb-flow-link" href={href} target="_blank" rel="noopener noreferrer" aria-label={`${task.title} 완료 자료 열기`} title="완료 자료 열기"><ArrowUpRight size={14} /></a> : <span aria-hidden="true" />}
         </summary>
         <div className="pb-flow-detail"><strong>{task.title}</strong>{task.description && <p>{task.description}</p>}

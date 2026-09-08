@@ -94,6 +94,8 @@
 .pb-flow-summary:focus-visible, .pb-flow-link:focus-visible { outline:2px solid #315fbb; outline-offset:-2px; }
 .pb-flow-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#172238; font-size:12px; font-weight:700; line-height:1.4; }
 .pb-flow-date { color:#52617a; font-size:10px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.pb-flow-summary.has-description { grid-template-columns:12px auto minmax(0,1.25fr) minmax(0,1fr) 24px; }
+.pb-flow-description { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#52617a; font-size:11px; line-height:1.4; }
 .pb-flow-chevron { color:#7a8aa4; }
 .pb-task[open] > summary .pb-flow-chevron { transform:rotate(90deg); }
 .pb-flow-summary .pb-tag { padding:3px 5px; border-radius:4px; }

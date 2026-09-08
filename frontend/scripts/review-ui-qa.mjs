@@ -144,7 +144,11 @@ window.runQa = async () => {
  const taskRow=document.querySelector('.pb-task');
  const rowHeight=taskRow.getBoundingClientRect().height;
  check(rowHeight<=45,'workflow row is not compact: '+rowHeight);
- const summary=taskRow.querySelector('summary');summary.click();await tick();
+ const summary=taskRow.querySelector('summary');
+ check(summary.querySelector('.pb-flow-description')?.textContent==='고객에게 공개된 업무 내용','collapsed flow must show task description instead of refresh date');
+ check(!summary.textContent.includes('갱신'),'refresh date still shown in work flow');
+ check(document.querySelector('.pb-flow-column.is-planned .pb-flow-date')?.textContent.includes('마감'),'planned deadline must remain visible');
+ summary.click();await tick();
  check(taskRow.open && taskRow.querySelector('.pb-flow-detail').getBoundingClientRect().height>0,'task details cannot be expanded');
  check(!taskRow.querySelector('.pb-flow-detail').textContent.includes('NS'),'customer detail exposes internal owner');
  summary.click();await tick();check(!taskRow.open,'task details cannot be collapsed');
