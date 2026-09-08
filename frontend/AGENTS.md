@@ -27,6 +27,8 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Pocket Marketing Hub design decisions
 
+- Sidebar-only blue symbol is 15px wide (50% of its original 30px); do not shrink the separate horizontal topbar logo with it.
+
 - Workspace navigation order is 통합 관리 → 권한 관리 → 세부 로그, above project choices. These views do not highlight an active project or show project-only search/notifications; preserve Pocket/NS access and deny customers. Detail logs use explicitly granted Supabase activity metadata with RLS, never Sheets or raw before/after JSON. Account filters use immutable actor_user_id, not names; keyset pagination covers older rows. Distinguish account activity from login/logout events, which are not included.
 
 - Expanded sidebar: place the supplied blue Pocket symbol immediately left of “프로젝트 · 메뉴”. Hide the symbol/title together in the collapsed rail, retaining the navigation toggle. Keep the horizontal topbar logo unchanged.

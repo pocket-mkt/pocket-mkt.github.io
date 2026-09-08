@@ -49,7 +49,7 @@
 }
 .sidebar-menu-brand { display:flex; align-items:center; gap:9px; min-width:0; }
 .sidebar-menu-brand strong { white-space:nowrap; }
-.sidebar-company-symbol { position:relative; display:block; flex:0 0 30px; width:30px; aspect-ratio:200 / 192; overflow:hidden; }
+.sidebar-company-symbol { position:relative; display:block; flex:0 0 15px; width:15px; aspect-ratio:200 / 192; overflow:hidden; }
 .sidebar-company-symbol img { position:absolute; width:194%; max-width:none; height:auto; left:-49.5%; top:-31.25%; user-select:none; }
 .sidebar-toggle:hover { background: #edf1fa; border-color: #abbadb; }
 .sidebar-workspace-content { display: flex; flex: 1; flex-direction: column; min-height: 0; }
