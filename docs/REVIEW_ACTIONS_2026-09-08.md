@@ -2,6 +2,8 @@
 
 작성: 2026-09-08 19:03 KST
 
+배포 확인: 2026-09-08 19:14 KST. `pocket-mkt.github.io`, 커밋 `e7a9b36`, [GitHub Pages 실행](https://github.com/pocket-mkt/pocket-mkt.github.io/actions/runs/34214178204) 빌드·단위·로컬 DB·PC/모바일 브라우저 QA·배포 성공. 실제 주소 HTTP 200 및 새 번들 확인. legacy hjs에는 배포하지 않았다.
+
 대상: `CODE_REVIEW_2026-09-08.md`의 미완료 항목. 이미 배포된 세션/캐시 수정은 보존했다. **운영 DB 인증이 막혀 있어 전체 완료가 아니다.** 데이터 삭제·인덱스 삭제·계정 비밀번호 변경·유료 플랜 전환은 하지 않았다.
 
 ## 실행 항목
