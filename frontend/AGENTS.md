@@ -27,6 +27,8 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Pocket Marketing Hub design decisions
 
+- The tasks confirmation panel is card-only: no card/ledger toggle. Split requests into 확인요청 and 확인완료 with live counts (DONE/CLOSED/COMPLETED), newest-created first. Preserve add/reply/deadline/archive and reopening completed requests; changing projects resets to open requests.
+
 - Shared confirmation cards prioritize legibility: 18px near-black title, 15px body/replies, 12px labelled author/time, 13px deadline/actions. Separate request type/assignee, deadline and action footer; make reply the navy primary action. Reuse across tasks, progress and integrated management, preserving mobile wrapping/touch sizes.
 
 - All authenticated pages share the supplied POCKET COMPANY horizontal CI at the left of the topbar, before project/workspace context. Preserve the artwork and only clip its outer whitespace. Keep project context to its right with a subtle divider; reduce logo width on mobile without dropping project identity or overlapping notifications/account controls.

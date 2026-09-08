@@ -1,4 +1,5 @@
 import { useWindowedRows } from "./useWindowedRows.js";
+import { newestIssuesFirst } from "./issueOrder.js";
 import { statusClass, formatSyncTime, EmptyState, LoadingState, ErrorState, FormSelect, trackerStatusOptions, trackerStatusLabels, trackerDate, localDateValue } from "./TaskUiPrimitives.jsx";
 import { AlertCircle, ArrowRight, CalendarDays, Check, GripVertical, History, LoaderCircle, LockKeyhole, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
 
@@ -509,14 +510,16 @@ function ProjectIssueRow({ issue, index, canWrite, onUpdate, onArchive }) {
 
 function ProjectIssuePanel({ issues, project, canWrite, actorName, onCreate, onUpdate, onArchive }) {
   const [composeOpen, setComposeOpen] = useState(false);
-  const [ledgerOpen, setLedgerOpen] = useState(false);
+  const [issueFilter, setIssueFilter] = useState("open");
+  useEffect(() => { setIssueFilter("open"); setComposeOpen(false); }, [project?.id]);
+  const isDone = (issue) => ["DONE", "CLOSED", "COMPLETED"].includes(issue.statusCode);
+  const doneCount = issues.filter(isDone).length;
+  const visibleIssues = newestIssuesFirst(issues.filter((issue) => issueFilter === "done" ? isDone(issue) : !isDone(issue)));
   const owners = [...new Set([project?.clientName || "고객사", "포켓컴퍼니", "NS"])];
   return <section className="panel project-issue-panel" aria-label="확인 요청">
-    <header className="panel-head reference-panel-head"><div><h2>확인 요청</h2><span className="hint">요청을 열지 않고 답변·마감일·확인 상태를 바로 처리합니다</span></div>{canWrite && <button type="button" className="project-issue-ledger-toggle" aria-expanded={ledgerOpen} onClick={() => setLedgerOpen((value) => !value)}>{ledgerOpen ? "카드로 보기" : "원장 편집"}</button>}</header>
-    {issues.length ? <div className="project-issue-card-list">{issues.map((issue) => <IssueRequestCard key={issue.id} issue={issue} canWrite={canWrite} actorName={actorName} onUpdate={onUpdate} onArchive={onArchive} />)}</div> : <div className="project-issue-card-empty">등록된 확인 요청이 없습니다.</div>}
-    {ledgerOpen && <div className="project-issue-scroll"><table id="issueTable"><thead><tr><th>No</th><th>등록일</th><th>구분</th><th>관련 업무</th><th>내용</th><th>담당자</th><th>상태</th><th>완료링크</th><th>비고</th>{canWrite && <th aria-label="행 작업" />}</tr></thead><tbody>
-      {issues.length ? issues.map((issue, index) => <ProjectIssueRow key={issue.id} issue={issue} index={index} canWrite={canWrite} onUpdate={onUpdate} onArchive={onArchive} />) : <tr><td colSpan={canWrite ? 10 : 9} className="project-issue-empty">기록된 이슈가 없습니다.</td></tr>}
-    </tbody></table></div>}
+    <header className="panel-head reference-panel-head"><div><h2>확인 요청</h2><span className="hint">요청을 열지 않고 답변·마감일·확인 상태를 바로 처리합니다</span></div></header>
+    <nav className="project-issue-status-tabs" aria-label="확인 요청 상태"><button type="button" aria-pressed={issueFilter === "open"} onClick={() => setIssueFilter("open")}>확인요청 <b>{issues.length - doneCount}</b></button><button type="button" aria-pressed={issueFilter === "done"} onClick={() => setIssueFilter("done")}>확인완료 <b>{doneCount}</b></button></nav>
+    {visibleIssues.length ? <div className="project-issue-card-list">{visibleIssues.map((issue) => <IssueRequestCard key={issue.id} issue={issue} canWrite={canWrite} actorName={actorName} onUpdate={onUpdate} onArchive={onArchive} />)}</div> : <div className="project-issue-card-empty">{issueFilter === "done" ? "완료된 확인 요청이 없습니다." : "대기 중인 확인 요청이 없습니다."}</div>}
     {canWrite && <footer className="project-issue-footer"><button type="button" className="project-issue-add" onClick={() => setComposeOpen(true)}><Plus size={14} />확인 요청 추가</button></footer>}
     {composeOpen && <Suspense fallback={<LoadingState label="확인요청 작성 화면을 여는 중입니다." />}><IssueRequestCreateModal projects={[project]} initialProjectId={project?.id} owners={owners} actorName={actorName} onCreate={onCreate} onClose={() => setComposeOpen(false)} /></Suspense>}
   </section>;

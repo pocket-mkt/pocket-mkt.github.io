@@ -87,8 +87,26 @@ window.showIssueQa = async () => {
  check(parseFloat(getComputedStyle(card.querySelector(':scope>p')).fontSize)>=15,'request body too small');
  check(document.documentElement.scrollWidth<=window.innerWidth+1,'request card overflows viewport');
 };
+function IssueTabsQa() {
+ const [issues,setIssues]=useState([{id:1,relatedTask:'대기 요청',body:'확인해주세요',statusCode:'IN_PROGRESS',createdAt:'2026-09-08T03:00:00Z'},{id:2,relatedTask:'기존 완료',statusCode:'DONE',createdAt:'2026-09-07T03:00:00Z'}]);
+ return <ProjectIssuePanel issues={issues} project={{id:'QA',clientName:'QA'}} canWrite actorName="QA" onUpdate={async(issue,fields)=>{const next={...issue,statusCode:fields.status_code||issue.statusCode};setIssues(items=>items.map(item=>item.id===issue.id?next:item));return next;}} onArchive={async(issue)=>setIssues(items=>items.filter(item=>item.id!==issue.id))} onCreate={async()=>{}}/>;
+}
 window.runQa = async () => {
  const results=[];
+ await render(<IssueTabsQa/>);
+ check(document.querySelectorAll('.issue-request-card').length===1,'open requests mixed with completed');
+ check(!/원장 편집|카드로 보기/.test(document.body.textContent),'legacy ledger toggle still visible');
+ const cardAction=(text)=>[...document.querySelectorAll('.issue-request-actions button')].find(button=>button.textContent.includes(text));
+ cardAction('확인 완료').click();await tick();
+ check(!document.querySelector('.issue-request-card'),'completed request did not leave open list');
+ document.querySelectorAll('.project-issue-status-tabs button')[1].click();await tick();
+ check(document.querySelectorAll('.issue-request-card').length===2,'completed tab missing saved request');
+ check(document.querySelector('.issue-request-card h3').textContent==='대기 요청','newest request must be first');
+ cardAction('다시 확인 요청').click();await tick();
+ check(document.querySelectorAll('.issue-request-card').length===1,'reopened request remained completed');
+ document.querySelectorAll('.project-issue-status-tabs button')[0].click();await tick();
+ check(document.querySelector('.issue-request-card h3').textContent==='대기 요청','reopened request missing');
+ results.push('task confirmation tabs: open/completed filtering, save moves rows, reopen, counts and newest order');
  await window.showIssueQa();
  document.querySelector('.issue-request-reply-action').click();await tick();
  check(document.querySelector('.issue-request-reply-form textarea'),'reply editor missing');

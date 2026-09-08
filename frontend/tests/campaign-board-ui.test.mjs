@@ -173,11 +173,12 @@ test("기한이 지난 보류 업무는 간트에 실시간·고정 지연 구�
   assert.match(styleSource, /\.g-c\.overdue-hold\.is-frozen::before[\s\S]*background:\s*#687282/);
 });
 
-test("일정표 아래 확인 요청은 공통 처리 카드를 기본으로, 전체 원장 편집을 보조로 제공한다", () => {
+test("일정표 아래 확인 요청은 카드형 상태 탭을 제공하고 원장 전환을 제거한다", () => {
   assert.match(appSource, /function ProjectIssuePanel/);
   assert.match(appSource, /<IssueRequestCard key=\{issue\.id\}/);
-  assert.match(appSource, /원장 편집/);
-  assert.match(appSource, /<th>No<\/th><th>등록일<\/th><th>구분<\/th><th>관련 업무<\/th><th>내용<\/th><th>담당자<\/th><th>상태<\/th><th>완료링크<\/th><th>비고<\/th>/);
+  assert.doesNotMatch(appSource, /원장 편집|카드로 보기|ledgerOpen/);
+  assert.match(appSource, /project-issue-status-tabs/);
+  assert.match(appSource, /확인완료 <b>\{doneCount\}/);
   assert.match(appSource, /issueStatusOrder = \["NOT_STARTED", "IN_PROGRESS", "DONE", "ON_HOLD"\]/);
   assert.match(appSource, /deleteArmed \? "삭제\?" : "×"/);
   assert.match(appSource, /onBlur=\{\(event\) => void commitField\("body_text"/);
