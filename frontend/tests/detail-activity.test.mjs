@@ -2,6 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDetailActivityReader, readDetailTaskEvent } from '../src/supabase/detailActivityRead.js';
 
+test('통합 알림은 프로젝트 제한 없이 최근 24시간 생성 완료 업무만 서버 조회한다',async()=>{
+ const f=fixture();await f.read({workspaceNotifications:true});
+ for(const [field,value] of [['entity_type','TASK'],['action_code','CREATED'],['event_status_code','COMMIT']])assert.ok(f.calls.some(c=>c[1]==='eq'&&c[2]===field&&c[3]===value));
+ assert.ok(f.calls.some(c=>c[1]==='gte'&&c[2]==='created_at'));
+ assert.equal(f.calls.some(c=>c[1]==='eq'&&c[2]==='project_id'),false);
+});
+
 test('프로젝트·한국시간 기간 필터는 서버에 적용되며 잘못된 기간을 거부한다',async()=>{
  const f=fixture();await f.read({projectId:'7',fromDate:'2026-09-08',toDate:'2026-09-08'});
  assert.ok(f.calls.some(c=>c[1]==='gte'&&c[3]==='2026-09-07T15:00:00.000Z'));

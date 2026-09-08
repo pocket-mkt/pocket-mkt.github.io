@@ -19,6 +19,7 @@ import PermissionsView from './src/PermissionsView.jsx';
 import IssueRequestCard from './src/IssueRequestCard.jsx';
 import DetailLogView from './src/DetailLogView.jsx';
 import ScreenBoundary from './src/ScreenBoundary.jsx';
+import WorkspaceNotifications from './src/WorkspaceNotifications.jsx';
 import { tasksViewModel } from './src/api/viewModel.js';
 import './src/styles.css';
 import './src/sidebarWorkspace.css';
@@ -96,6 +97,15 @@ function IssueTabsQa() {
 }
 window.runQa = async () => {
  const results=[];
+ let notificationSelection=null;const notificationCalls=[];
+ const notificationSource={activity:async params=>{notificationCalls.push(params);return {data:{items:[{id:9001,entity_id:11,project_id:1,created_at:new Date().toISOString(),project:{project_name:'UND'},task_detail:{task_title:'QA 신규 업무'}},{id:9002,entity_id:22,project_id:2,created_at:new Date().toISOString(),project:{project_name:'무극'},task_detail:{task_title:'QA 다른 프로젝트 업무'}}],nextCursor:null}};}};
+ await render(<WorkspaceNotifications source={notificationSource} actorId={'qa-'+window.innerWidth} onSelect={item=>notificationSelection=item}/>);await tick();
+ document.querySelector('.notification-trigger').click();await tick();
+ check(document.querySelector('.notification-list').textContent.includes('UND')&&document.querySelector('.notification-list').textContent.includes('무극'),'all-project notifications missing project labels');
+ document.querySelectorAll('.notification-item')[1].click();await tick();
+ check(notificationSelection?.projectId==='2'&&notificationSelection?.title==='QA 다른 프로젝트 업무','notification must select its own project');
+ check(notificationCalls[0]?.workspaceNotifications===true,'workspace notification scope missing');
+ results.push('portfolio notifications: multiple projects, project labels, cross-project selection');
  const FailedLazy = lazy(()=>Promise.reject(new TypeError('Failed to fetch dynamically imported module: test-only')));
  await render(<div><nav id="qa-surviving-menu">메뉴 유지</nav><ScreenBoundary key="failed-chunk"><Suspense fallback={<span>loading</span>}><FailedLazy/></Suspense></ScreenBoundary></div>);
  for(let attempt=0;attempt<50 && !document.querySelector('.screen-recovery');attempt++) await tick();

@@ -1,7 +1,7 @@
 import { HubApiError } from '../api/errors.js';
 
 export function createDetailActivityReader(client) {
-  return async ({ actorId = '', projectId = '', fromDate = '', toDate = '', cursor, signal, limit = 100 } = {}) => {
+  return async ({ actorId = '', projectId = '', fromDate = '', toDate = '', cursor, signal, limit = 100, workspaceNotifications = false } = {}) => {
     if (actorId && actorId !== 'system' && !/^[0-9a-f-]{36}$/i.test(actorId)) throw new HubApiError('계정 필터가 올바르지 않습니다.', {code:'invalid_filter'});
     if (cursor && (!/^\d+$/.test(String(cursor.id)) || !/^\d{4}-\d{2}-\d{2}T[\d:.]+(?:Z|[+-]\d{2}:\d{2})$/.test(cursor.createdAt) || !Number.isFinite(Date.parse(cursor.createdAt)))) throw new HubApiError('조회 위치가 올바르지 않습니다.', {code:'invalid_cursor'});
     if (projectId && !/^[1-9]\d*$/.test(String(projectId))) throw new HubApiError('프로젝트 필터가 올바르지 않습니다.', {code:'invalid_filter'});
@@ -13,6 +13,7 @@ export function createDetailActivityReader(client) {
       .order('created_at', {ascending:false}).order('id', {ascending:false}).limit(count + 1);
     if (actorId === 'system') query = query.is('actor_user_id', null);
     else if (actorId) query = query.eq('actor_user_id', actorId);
+    if(workspaceNotifications) query=query.eq('entity_type','TASK').eq('action_code','CREATED').eq('event_status_code','COMMIT').gte('created_at',new Date(Date.now()-86400000).toISOString());
     if (projectId) query = query.eq('project_id',projectId);
     if (fromDate) query = query.gte('created_at',new Date(`${fromDate}T00:00:00+09:00`).toISOString());
     if (toDate) query = query.lt('created_at',new Date(Date.parse(`${toDate}T00:00:00+09:00`)+86400000).toISOString());
