@@ -3,6 +3,7 @@ import { AlertCircle, ArrowRight, CalendarDays, CheckCircle2, ChevronDown, Circl
 import IssueRequestCard from "./IssueRequestCard.jsx";
 import IssueRequestCreateModal from "./IssueRequestCreateModal.jsx";
 import { requestCreatedLabel } from "./progressBrief.js";
+import { newestIssuesFirst } from "./issueOrder.js";
 import "./operationsDashboard.css";
 import "./operationsDashboardEnhancements.css";
 import "./operationsIssueEnhancements.css";
@@ -161,7 +162,7 @@ export function OperationsDashboardView({ dashboard, canWrite, actorName, onIssu
   const [selectedWeek, setSelectedWeek] = useState(() => workWeek()); const [loadedWeek, setLoadedWeek] = useState(null); const [weekLoading, setWeekLoading] = useState(false); const [weekError, setWeekError] = useState("");
   const visibleProjects = projectFilter === "all" ? dashboard.projects : dashboard.projects.filter((item) => item.id === projectFilter);
   const effectiveIssues = useMemo(() => [...createdIssues, ...dashboard.issues].filter((item, index, items) => items.findIndex((candidate) => candidate.id === item.id) === index && !archivedIssueIds.has(item.id)).map((item) => issueOverrides[item.id] || item), [dashboard.issues, createdIssues, archivedIssueIds, issueOverrides]);
-  const filteredIssues = effectiveIssues.filter((item) => (issueFilter === "done" ? ["DONE", "CLOSED", "COMPLETED"].includes(item.statusCode) : !["DONE", "CLOSED", "COMPLETED"].includes(item.statusCode)) && (projectFilter === "all" || item.projectId === projectFilter));
+  const filteredIssues = newestIssuesFirst(effectiveIssues.filter((item) => (issueFilter === "done" ? ["DONE", "CLOSED", "COMPLETED"].includes(item.statusCode) : !["DONE", "CLOSED", "COMPLETED"].includes(item.statusCode)) && (projectFilter === "all" || item.projectId === projectFilter)));
   const meetingDates = [...new Set(dashboard.meetings.filter((item) => projectFilter === "all" || item.projectId === projectFilter).map((item) => item.date))].slice(0, 7);
   const effectiveMeetingDate = meetingDates.includes(meetingDate) ? meetingDate : meetingDates[0] || meetingDate;
   const filteredMeetings = dashboard.meetings.filter((item) => (projectFilter === "all" || item.projectId === projectFilter) && item.date === effectiveMeetingDate);
