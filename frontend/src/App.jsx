@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CompanyBrand from "./CompanyBrand.jsx";
+import CompanySymbol from "./CompanySymbol.jsx";
 import { statusClass, formatSyncTime, EmptyState, LoadingState, ErrorState, FormSelect, trackerStatusOptions, trackerStatusLabels, trackerDate, localDateValue } from "./TaskUiPrimitives.jsx";
 const TaskScheduleTimeline = lazy(() => import("./TaskWorkspace.jsx").then(module => ({ default: module.TaskScheduleTimeline })));
 import { Activity, AlertCircle, ArrowRight, BarChart3, Bell, BookOpenText, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleDot, ClipboardCheck, FolderOpen, FileUp, LayoutDashboard, KeyRound, ListFilter, LoaderCircle, LockKeyhole, LogOut, MoreHorizontal, MousePointerClick, NotebookPen, Pencil, Plus, Search, Settings2, ShieldCheck, TrendingUp, Trash2, Video, WifiOff, X } from "lucide-react";
@@ -163,7 +164,7 @@ export function ProjectSidebar({ project, role, activeView, activePlanVariant, o
 
   return (
     <aside id="project-navigation" className={`project-sidebar ${open ? "is-open" : ""}`} aria-label="프로젝트 탐색">
-      <div className="sidebar-menu-header">{visible && <strong>프로젝트 · 메뉴</strong>}<button className="sidebar-toggle" type="button" onClick={onToggleNavigation} aria-label={navigation.actionLabel} title={navigation.actionLabel} aria-expanded={visible} aria-controls={navigation.controlledIds}>{visible ? <ChevronLeft size={20} strokeWidth={2.5} /> : <ChevronRight size={20} strokeWidth={2.5} />}</button></div>
+      <div className="sidebar-menu-header">{visible && <div className="sidebar-menu-brand"><CompanySymbol /><strong>프로젝트 · 메뉴</strong></div>}<button className="sidebar-toggle" type="button" onClick={onToggleNavigation} aria-label={navigation.actionLabel} title={navigation.actionLabel} aria-expanded={visible} aria-controls={navigation.controlledIds}>{visible ? <ChevronLeft size={20} strokeWidth={2.5} /> : <ChevronRight size={20} strokeWidth={2.5} />}</button></div>
       <div id="project-navigation-content" className="sidebar-workspace-content" hidden={!visible}>
       <div className="sidebar-workspace-scroll">
       {workspaceNavItem && <nav className="sidebar-global-nav" aria-label="전체 프로젝트"><button type="button" className={activeView === "portfolio" ? "is-active" : ""} aria-current={activeView === "portfolio" ? "page" : undefined} onClick={() => { onView("portfolio"); onClose(); }}><FolderOpen size={18} strokeWidth={1.9} /><span><strong>통합 관리</strong><small>전체 프로젝트 운영 현황</small></span><ChevronRight size={15} /></button></nav>}

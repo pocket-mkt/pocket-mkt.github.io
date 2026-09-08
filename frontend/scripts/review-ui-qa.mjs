@@ -13,7 +13,7 @@ import React, { lazy, Suspense, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CredentialLedgerView } from './src/CredentialLedgerView.jsx';
 import { useOverviewResource } from './src/useOverviewResource.js';
-import { ProjectClientProgressView, Topbar } from './src/App.jsx';
+import { ProjectClientProgressView, Topbar, ProjectSidebar } from './src/App.jsx';
 import { ProjectIssuePanel, TaskScheduleTimeline } from './src/TaskWorkspace.jsx';
 import PermissionsView from './src/PermissionsView.jsx';
 import IssueRequestCard from './src/IssueRequestCard.jsx';
@@ -93,6 +93,13 @@ function IssueTabsQa() {
 }
 window.runQa = async () => {
  const results=[];
+ for(const visible of [true,false]) {
+  await render(<div className="has-sidebar-workspace" style={{width:visible?264:56}}><ProjectSidebar project={{id:1,name:'QA',allowedPages:['progress']}} role="client" activeView="client-progress" visible={visible} navigation={{actionLabel:'메뉴',controlledIds:'project-navigation-content'}} onToggleNavigation={()=>{}} onClose={()=>{}} onView={()=>{}}/></div>);
+  const mark=document.querySelector('.sidebar-company-symbol');
+  check(Boolean(mark)===visible,'sidebar symbol must only appear when expanded');
+  if(visible) { const title=document.querySelector('.sidebar-menu-brand strong');const toggle=document.querySelector('.sidebar-toggle');check(mark.getBoundingClientRect().right<=title.getBoundingClientRect().left,'symbol overlaps sidebar title');check(title.getBoundingClientRect().right<=toggle.getBoundingClientRect().left,'sidebar title overlaps toggle'); }
+ }
+ results.push('sidebar symbol: expanded only, title/toggle do not overlap');
  await render(<IssueTabsQa/>);
  check(document.querySelectorAll('.issue-request-card').length===1,'open requests mixed with completed');
  check(!/원장 편집|카드로 보기/.test(document.body.textContent),'legacy ledger toggle still visible');
