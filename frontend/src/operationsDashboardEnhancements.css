@@ -2,6 +2,32 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.ops-progress-reading {
+  display: inline-flex;
+  min-width: 40px;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.ops-progress-reading > strong {
+  color: #263650;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.ops-progress-delta {
+  margin-top: -5px;
+  color: #d92d2a;
+  font-size: 8px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.025em;
+  line-height: 1;
+}
+
 .ops-deadline-tabs,
 .ops-date-nav-actions,
 .ops-recent-dates {

@@ -7,7 +7,7 @@ import { OfflineMutationError } from "../src/api/errors.js";
 import { HubApiError } from "../src/api/errors.js";
 import { createHubApi } from "../src/api/hubApi.js";
 import { createSessionStore } from "../src/api/session.js";
-import { activityListViewModel, bootstrapViewModel, overviewViewModel, performanceTrackingViewModel, tasksViewModel, workspaceViewModel } from "../src/api/viewModel.js";
+import { activityListViewModel, bootstrapViewModel, operationsDashboardViewModel, overviewViewModel, performanceTrackingViewModel, tasksViewModel, workspaceViewModel } from "../src/api/viewModel.js";
 
 test("API URL이 없으면 설정 오류를 명확히 반환한다", async () => {
   const config = readApiConfig({ VITE_POCKET_API_MODE: "auto" });
@@ -25,6 +25,20 @@ test("로그인 비활성화 설정을 명시적으로 읽는다", () => {
     VITE_POCKET_LOGIN_ENABLED: "false",
   });
   assert.equal(config.loginEnabled, false);
+});
+
+test("통합 업무 체크는 전일 대비 진행률 상승분을 퍼센트포인트로 보존한다", () => {
+  const dashboard = operationsDashboardViewModel({
+    data: {
+      weekly_tasks: [
+        { task_id: 1, project_id: 2, progress_percent: 50, progress_delta_today: 15 },
+        { task_id: 2, project_id: 2, progress_percent: 40 },
+      ],
+    },
+  });
+
+  assert.equal(dashboard.weeklyTasks[0].progressDeltaToday, 15);
+  assert.equal(dashboard.weeklyTasks[1].progressDeltaToday, 0);
 });
 
 test("API가 없을 때 쓰기는 저장 성공처럼 처리하지 않는다", async () => {

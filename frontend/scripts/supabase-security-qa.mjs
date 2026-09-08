@@ -129,6 +129,7 @@ await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub'
 const { rows: [operationsDashboard] } = await db.query("select public.read_operations_dashboard(null, null) as response");
 assert(Array.isArray(operationsDashboard.response?.projects) && operationsDashboard.response.projects.length === 2, "operations dashboard project aggregation mismatch");
 assert(Array.isArray(operationsDashboard.response?.weekly_tasks), "operations dashboard weekly task contract mismatch");
+assert(operationsDashboard.response.weekly_tasks.every((task) => Object.hasOwn(task, "progress_delta_today") && task.progress_delta_today >= 0), "operations dashboard progress delta contract mismatch");
 await db.exec("reset role");
 
 await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub', '${userIds.client}', false);`);

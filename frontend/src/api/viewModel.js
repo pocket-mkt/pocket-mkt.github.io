@@ -546,7 +546,7 @@ export function operationsDashboardViewModel(envelope) {
       id: String(row.task_id), projectId: String(row.project_id), clientName: row.client_name || "고객사", projectName: row.project_name || "프로젝트",
       title: row.title || "제목 없는 업무", description: row.description || "", workstreamCode: String(row.workstream_code || "").toUpperCase(),
       responsibleOrgCode: String(row.responsible_org_code || "").toUpperCase(), statusCode: String(row.status_code || "NOT_STARTED").toUpperCase(),
-      progressPercent: Number(row.progress_percent || 0), plannedStartDate: row.planned_start_date ? String(row.planned_start_date).slice(0, 10) : null,
+      progressPercent: Number(row.progress_percent || 0), progressDeltaToday: Math.max(0, Number(row.progress_delta_today) || 0), plannedStartDate: row.planned_start_date ? String(row.planned_start_date).slice(0, 10) : null,
       dueDate: row.due_date ? String(row.due_date).slice(0, 10) : null, updatedAt: row.updated_at || null,
     })),
     issues: (data.issues || []).map((row) => ({
