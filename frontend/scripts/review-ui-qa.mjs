@@ -109,11 +109,15 @@ window.runQa = async () => {
  check(!document.querySelector('.screen-recovery').textContent.includes('test-only-render-failure'),'raw error text exposed');
  results.push('white-screen recovery: rejected lazy import retains shell, route change recovers, runtime fallback hides raw errors');
  const logActor='12345678-1234-1234-1234-123456789abc';
- const logData={actors:[{id:logActor,display_name:'QA 계정',organization_code:'NS'}],items:[{id:1,created_at:'2026-09-08T01:00:00Z',actor_user_id:logActor,project:{project_name:'QA 프로젝트'},entity_type:'TASK',action_code:'UPDATED',event_status_code:'COMMIT'}],nextCursor:null};
+ const logData={projects:[{id:7,project_name:'QA 프로젝트'}],actors:[{id:logActor,display_name:'QA 계정',organization_code:'NS'}],items:[{id:1,entity_id:12,project_id:7,created_at:'2026-09-08T01:00:00Z',actor_user_id:logActor,project:{project_name:'QA 프로젝트'},entity_type:'TASK',action_code:'UPDATED',event_status_code:'COMMIT',task_detail:{task_title:'블로그 원고 제작',changes:[{field:'progress_percent',before:30,after:60},{field:'status_code',before:'NOT_STARTED',after:'IN_PROGRESS'}]}}],nextCursor:null};
  const logCalls=[];const logSource={activity:async params=>{logCalls.push(params);return {data:{...logData,items:[]}};}};
  window.showLogQa=()=>render(<div style={{padding:16}}><DetailLogView initialData={logData} source={logSource}/></div>);
  await window.showLogQa();
  check(document.querySelector('.detail-log-view').textContent.includes('QA 계정'),'detail log account label missing');
+ check(document.querySelector('.detail-log-task').textContent.includes('블로그 원고 제작'),'historical task name missing');
+ check(document.querySelector('.detail-log-changes').textContent.includes('30%')&&document.querySelector('.detail-log-changes').textContent.includes('60%'),'before/after progress missing');
+ check(document.querySelector('.detail-log-work-summary').textContent.includes('1개 업무 / 1회 저장'),'task work summary missing');
+ check(document.documentElement.scrollWidth<=window.innerWidth+1,'detail log viewport overflow');
  const accountSelect=document.querySelector('.detail-log-toolbar select');accountSelect.value=logActor;accountSelect.dispatchEvent(new Event('change',{bubbles:true}));await tick();
  check(logCalls[0]?.actorId===logActor,'account filter was not sent to data source');
  check(document.querySelector('.detail-log-empty').textContent.includes('없습니다'),'filtered empty state missing');

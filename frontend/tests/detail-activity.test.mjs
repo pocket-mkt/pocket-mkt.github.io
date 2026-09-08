@@ -1,9 +1,31 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createDetailActivityReader } from '../src/supabase/detailActivityRead.js';
+import { createDetailActivityReader, readDetailTaskEvent } from '../src/supabase/detailActivityRead.js';
+
+test('프로젝트·한국시간 기간 필터는 서버에 적용되며 잘못된 기간을 거부한다',async()=>{
+ const f=fixture();await f.read({projectId:'7',fromDate:'2026-09-08',toDate:'2026-09-08'});
+ assert.ok(f.calls.some(c=>c[1]==='gte'&&c[3]==='2026-09-07T15:00:00.000Z'));
+ assert.ok(f.calls.some(c=>c[1]==='lt'&&c[3]==='2026-09-08T15:00:00.000Z'));
+ assert.ok(f.calls.some(c=>c[1]==='eq'&&c[2]==='project_id'&&c[3]==='7'));
+ await assert.rejects(f.read({fromDate:'2026-09-09',toDate:'2026-09-08'}),{code:'invalid_filter'});
+});
+
+test('업무 상세는 허용 RPC로 프로젝트별 묶음 조회하고 event_id로만 연결한다',async()=>{
+ const events=[{id:8,event_id:'e8',project_id:7,entity_id:1,entity_type:'TASK',event_status_code:'COMMIT',created_at:'2026-09-08T00:00:00.123456Z'}, {id:7,event_id:'e7',project_id:7,entity_type:'TASK',event_status_code:'COMMIT',created_at:'2026-09-08T00:00:00Z'}, {id:6,event_id:'secret',project_id:7,entity_type:'PROJECT_CREDENTIAL',event_status_code:'COMMIT'}];
+ const rpcCalls=[];
+ const client={from(table){const q={then:resolve=>Promise.resolve({data:table==='activity_events'?events:[]}).then(resolve)};for(const method of ['select','order','limit'])q[method]=()=>q;return q;},rpc(name,args){rpcCalls.push({name,args});return Promise.resolve({data:{items:[{event_id:'e8',task_title:'블로그',changes:[{field:'progress_percent',before:30,after:60}]}]}});}};
+ const result=await createDetailActivityReader(client)();
+ assert.equal(rpcCalls.length,1);assert.equal(rpcCalls[0].args.p_before_id,'9');assert.equal(rpcCalls[0].args.p_before_created_at,events[0].created_at);
+ assert.equal(result.data.items[0].task_detail.task_title,'블로그');assert.equal(result.data.items[1].task_detail,null);assert.equal(result.data.items[2].task_detail,undefined);
+ const single=await readDetailTaskEvent(client,events[0]);assert.equal(single.data.event_id,'e8');assert.equal(rpcCalls[1].args.p_limit,1);
+ await assert.rejects(readDetailTaskEvent(client,events[2]),{code:'invalid_filter'});
+ await assert.rejects(readDetailTaskEvent(client,events[1]),{code:'detail_log_unavailable'});
+ client.rpc=()=>Promise.resolve({error:{code:'42501'}});
+ const denied=await createDetailActivityReader(client)();assert.equal(denied.data.items[0].detail_unavailable,true);
+});
 function fixture(error=null) {
  const calls=[];
- const client={from(table){const q={then(resolve){return Promise.resolve({data:table==='profiles'?[]:[{id:2,created_at:'2026-09-08T00:00:00Z'},{id:1,created_at:'2026-09-07T00:00:00Z'}],error}).then(resolve);}};for(const key of ['select','order','limit','eq','is','or','abortSignal'])q[key]=(...args)=>{calls.push([table,key,...args]);return q;};return q;}};
+ const client={from(table){const q={then(resolve){return Promise.resolve({data:table!=='activity_events'?[]:[{id:2,created_at:'2026-09-08T00:00:00Z'},{id:1,created_at:'2026-09-07T00:00:00Z'}],error}).then(resolve);}};for(const key of ['select','order','limit','eq','is','or','gte','lt','abortSignal'])q[key]=(...args)=>{calls.push([table,key,...args]);return q;};return q;}};
  return {read:createDetailActivityReader(client),calls};
 }
 test('세부로그는 안전한 허용 컬럼만 조회하고 계정별 필터와 서버 페이지 경계를 적용한다',async()=>{

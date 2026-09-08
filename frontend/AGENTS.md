@@ -27,6 +27,8 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Pocket Marketing Hub design decisions
 
+- Detail logs show historical task titles and allowlisted before/after changes via the existing read_task_activity RPC, never raw activity JSON. Filter actor/project/Korea date range on the server; keep exact timestamp precision in keyset cursors. Enrich only projects represented on the current page, max three concurrent requests and 200 events per project; sparse older matches have explicit one-event retry. Workload counts are current-page task saves/distinct tasks, not elapsed labor time or period totals. Non-task types retain metadata until a safe projection exists.
+
 - Protect both the React root and each project/route content area with ScreenBoundary. Lazy chunk failures after deployment must show explicit latest-version reload, not unmount the shell; ordinary render failures have retry. Route/project changes remount the boundary. Never auto-reload or store credential drafts, and never expose/log raw error payloads. Keep static startup recovery when the initial module itself cannot load.
 
 - Sidebar-only blue symbol is 15px wide (50% of its original 30px); do not shrink the separate horizontal topbar logo with it.
