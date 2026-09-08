@@ -89,8 +89,16 @@ window.runQa = async () => {
  check(!document.querySelector('.client-progress-view select, .client-progress-view input, .client-progress-view textarea'),'customer page has edit controls');
  const more=document.querySelector('.client-progress-view .pb-more');check(more,'completed list expansion missing');more.click();await tick();
  check(document.querySelectorAll('.pb-flow-column.is-done .pb-task').length===6,'expand does not reveal completed tasks');
+ const taskRow=document.querySelector('.pb-task');
+ const rowHeight=taskRow.getBoundingClientRect().height;
+ check(rowHeight<=45,'workflow row is not compact: '+rowHeight);
+ const summary=taskRow.querySelector('summary');summary.click();await tick();
+ check(taskRow.open && taskRow.querySelector('.pb-flow-detail').getBoundingClientRect().height>0,'task details cannot be expanded');
+ check(!taskRow.querySelector('.pb-flow-detail').textContent.includes('NS'),'customer detail exposes internal owner');
+ summary.click();await tick();check(!taskRow.open,'task details cannot be collapsed');
+ check(taskRow.querySelector('.pb-flow-link')?.href==='https://example.com/result','completion link missing in compact row');
  check(document.documentElement.scrollWidth<=window.innerWidth+1,'customer page overflows viewport');
- results.push('client progress: actual read-only Gantt, three flow columns, expand, no internal panels/editors, no viewport overflow');
+ results.push('client progress: actual read-only Gantt, compact rows '+rowHeight+'px, expand/collapse details, completion links, no internal panels/editors, no viewport overflow');
  return results;
 };
 `, resolveDir: process.cwd(), loader: "jsx" },
