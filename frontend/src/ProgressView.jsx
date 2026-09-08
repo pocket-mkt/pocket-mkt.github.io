@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, CalendarDays, CheckCircle2, CircleAlert, CircleDot, Plus, RefreshCw, X } from "lucide-react";
 import { dailyMeetingsViewModel } from "./api/viewModel.js";
 import { isViewAllowed } from "./accessPermissions.js";
@@ -7,6 +7,7 @@ import IssueRequestCreateModal from "./IssueRequestCreateModal.jsx";
 import { latestBriefMeeting, progressBriefTasks } from "./progressBrief.js";
 import "./progressView.css";
 import { DeferredSchedule, TaskColumn } from "./ProgressFlow.jsx";
+const TaskEditModal = lazy(()=>import('./TaskWorkspace.jsx').then(module=>({default:module.TaskEditModal})));
 
 const shortDate = value => value ? String(value).slice(5, 10).replace("-", ".") : "미정";
 const statusLabels = { NOT_STARTED: "미착수", IN_PROGRESS: "진행 중", DONE: "완료", COMPLETED: "완료", REVIEW: "검토 중", INTERNAL_REVIEW: "검토 중", WAITING_CLIENT: "고객 확인", REVISION: "수정 중", BLOCKED: "차단", ON_HOLD: "보류" };
@@ -36,7 +37,10 @@ function MeetingFocus({ latest, state, client, canRead, onRetry, onOpen }) {
   const actions = splitPoints(latest.actionItems);
   return <div className="pb-meeting-focus"><div className="pb-meeting-title"><span>{shortDate(latest.date)} · {latest.visibilityCode === "CLIENT" ? "고객 공개" : latest.visibilityCode === "POCKET_ONLY" ? "포켓 전용" : "프로젝트 팀"}</span><h3>{latest.title}</h3>{latest.attendees && <small>참석 · {latest.attendees}</small>}</div><div className="pb-meeting-points"><section><h4><CheckCircle2 size={14} />결정사항</h4>{decisions.length ? <ul>{decisions.slice(0, 4).map((item, index) => <li key={index}>{item}</li>)}</ul> : <p>기록된 결정사항이 없습니다.</p>}</section><section><h4><CircleDot size={14} />후속업무</h4>{actions.length ? <ul>{actions.slice(0, 4).map((item, index) => <li key={index}>{item}</li>)}</ul> : <p>기록된 후속업무가 없습니다.</p>}</section></div>{latest.discussion && <details className="pb-meeting-discussion"><summary>전체 회의 내용 보기</summary><p>{latest.discussion}</p></details>}{canRead && <button className="pb-meeting-open" type="button" onClick={onOpen}>회의록 전체 보기 <ArrowUpRight size={13} /></button>}</div>;
 }
-export function ProgressView({ project, role, taskPage, source, actorName, canWrite, onIssueCreate, onIssueUpdate, onIssueArchive, onNavigate, schedule }) {
+export function ProgressView({ project, role, taskPage, source, actorName, canWrite, onTaskUpdate, onIssueCreate, onIssueUpdate, onIssueArchive, onNavigate, schedule }) {
+  const [editingTask,setEditingTask]=useState(null);
+  const canEditTask=role!=='client' && canWrite && typeof onTaskUpdate==='function';
+  const openEditor=canEditTask?setEditingTask:undefined;
   const [now, setNow] = useState(() => new Date());
   const [meetingState, setMeetingState] = useState({ status: "loading", items: [] });
   const [meetingRetry, setMeetingRetry] = useState(0);
@@ -84,7 +88,8 @@ export function ProgressView({ project, role, taskPage, source, actorName, canWr
         {requests.length > 3 && <button className="pb-more" onClick={() => setAllRequests(value => !value)}>{allRequests ? "간단히 보기" : `나머지 ${requests.length - 3}건 더 보기`}</button>}
       </section>
     </div>
-    <section className="pb-flow-section"><div className="pb-section-heading"><div><h2>업무 흐름</h2><p>완료된 결과, 현재 실행 중인 일, 다음 순서를 분리해 봅니다.</p></div><button type="button" onClick={() => onNavigate("tasks")}>전체 업무 보기 <ArrowUpRight size={13} /></button></div><div className="pb-work-grid"><TaskColumn title="최근 완료" subtitle="결과와 완료 자료" items={completedTasks} tone="done" client={client} /><TaskColumn title="현재 진행" subtitle="실행·검토·보류" items={activeTasks} tone="active" client={client} /><TaskColumn title="이번 주 예정" subtitle={`${shortDate(week.start)}–${shortDate(week.end)}`} items={upcomingTasks} tone="planned" planned client={client} /></div></section>
+    <section className="pb-flow-section"><div className="pb-section-heading"><div><h2>업무 흐름</h2><p>완료된 결과, 현재 실행 중인 일, 다음 순서를 분리해 봅니다.</p></div><button type="button" onClick={() => onNavigate("tasks")}>전체 업무 보기 <ArrowUpRight size={13} /></button></div><div className="pb-work-grid"><TaskColumn title="최근 완료" subtitle="결과와 완료 자료" items={completedTasks} tone="done" client={client} onEdit={openEditor} /><TaskColumn title="현재 진행" subtitle="실행·검토·보류" items={activeTasks} tone="active" client={client} onEdit={openEditor} /><TaskColumn title="이번 주 예정" subtitle={`${shortDate(week.start)}–${shortDate(week.end)}`} items={upcomingTasks} tone="planned" planned client={client} onEdit={openEditor} /></div></section>
+    {editingTask && canEditTask && <Suspense fallback={<p role="status">업무 수정 화면을 불러오는 중입니다.</p>}><TaskEditModal key={editingTask.id} task={editingTask} clientName={project.clientName} onUpdate={onTaskUpdate} onClose={()=>setEditingTask(null)} /></Suspense>}
     {schedule && <section className="pb-schedule" aria-label="프로젝트 전체 간트 일정"><div className="pb-section-heading pb-schedule-heading"><div><h2>전체 일정 흐름</h2><p>업무별 기간과 겹치는 구간을 간트로 확인합니다.</p></div><button type="button" onClick={() => onNavigate("tasks")}>{canWrite ? "업무에서 수정" : "업무 보기"} <ArrowUpRight size={13} /></button></div><DeferredSchedule>{schedule}</DeferredSchedule></section>}
   </div>;
 }

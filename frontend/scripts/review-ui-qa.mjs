@@ -21,6 +21,8 @@ import DetailLogView from './src/DetailLogView.jsx';
 import ScreenBoundary from './src/ScreenBoundary.jsx';
 import WorkspaceNotifications from './src/WorkspaceNotifications.jsx';
 import { OperationsDashboardView } from './src/OperationsDashboardView.jsx';
+import { ProgressView } from './src/ProgressView.jsx';
+import { TaskColumn } from './src/ProgressFlow.jsx';
 import { tasksViewModel } from './src/api/viewModel.js';
 import './src/styles.css';
 import './src/sidebarWorkspace.css';
@@ -99,6 +101,17 @@ function IssueTabsQa() {
 }
 window.runQa = async () => {
  const results=[];
+ const flowWrites=[];
+ const flowTask={id:'flow-1',title:'흐름 수정 QA',statusCode:'IN_PROGRESS',progressPercent:30,description:'수정 전',priorityCode:'NORMAL',responsibleOrgCode:'POCKET',plannedStartDate:'2026-09-01',dueDate:'2026-09-30'};
+ await render(<ProgressView project={{id:'1',name:'QA',clientName:'QA'}} role="pocket" canWrite taskPage={{items:[flowTask],issues:[]}} source={{dailyMeetings:async()=>({data:{items:[]}})}} onTaskUpdate={async(task,fields)=>flowWrites.push({task,fields})} onNavigate={()=>{}}/>);
+ document.querySelector('.pb-flow-summary').click();
+ for(let attempt=0;attempt<50&&!document.querySelector('.task-edit-modal');attempt++)await tick();
+ check(document.querySelector('.task-edit-modal input')?.value==='흐름 수정 QA','flow click did not open task editor');
+ document.querySelector('.task-edit-modal form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await tick();
+ check(flowWrites.length===1&&flowWrites[0].task.id==='flow-1'&&!document.querySelector('.task-edit-modal'),'flow save must use canonical task callback and close');
+ await render(<TaskColumn title="QA" items={[flowTask]} client onEdit={()=>{throw Error('client editing allowed');}}/>);
+ document.querySelector('.pb-flow-summary').click();await tick();check(document.querySelector('details').open&&!document.querySelector('.task-edit-modal'),'client flow must stay read-only');
+ results.push('flow task edit: existing modal, one canonical save, client read-only disclosure');
  const qaMonday=new Date();qaMonday.setDate(qaMonday.getDate()-((qaMonday.getDay()+6)%7));const qaDue=qaMonday.getFullYear()+'-'+String(qaMonday.getMonth()+1).padStart(2,'0')+'-'+String(qaMonday.getDate()).padStart(2,'0');
  const deltaDashboard={range:{from:qaDue,to:qaDue},projects:[{id:'1',name:'QA',clientName:'QA',totalTasks:1}],meetings:[],issues:[],weeklyTasks:[{id:'1',projectId:'1',title:'QA 상승 업무',dueDate:qaDue,statusCode:'IN_PROGRESS',progressPercent:60,progressDeltaToday:30}]};
  await render(<OperationsDashboardView dashboard={deltaDashboard} canWrite={false} onOpenProject={()=>{}} onLoadWeek={async()=>deltaDashboard}/>);

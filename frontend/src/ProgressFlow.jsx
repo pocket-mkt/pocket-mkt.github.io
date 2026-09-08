@@ -31,7 +31,7 @@ export function DeferredSchedule({ children }) {
   }, [ready]);
   return <div ref={hostRef} className="pb-deferred-schedule" aria-busy={!ready}>{ready ? children : <div className="pb-schedule-skeleton"><span /><strong>전체 일정을 준비하고 있습니다.</strong><small>화면의 나머지 내용을 먼저 표시합니다.</small></div>}</div>;
 }
-export function TaskColumn({ title, subtitle, items, planned, client, tone = "active" }) {
+export function TaskColumn({ title, subtitle, items, planned, client, onEdit, tone = "active" }) {
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? items : items.slice(0, 5);
   return <section className={`pb-flow-column is-${tone}`}><header><span className="pb-flow-dot" /><div><h3>{title}</h3><small>{subtitle}</small></div><strong>{items.length}</strong></header>
@@ -39,7 +39,7 @@ export function TaskColumn({ title, subtitle, items, planned, client, tone = "ac
       const href = publicHttpLink(task.completionUrl);
       const secondaryText = planned ? `마감 ${shortDate(task.dueDate)}` : task.description || "세부내용 없음";
       return <details key={task.id} className="pb-task">
-        <summary className={`pb-flow-summary${planned ? "" : " has-description"}`} title={`${task.title} · ${secondaryText}`}>
+        <summary className={`pb-flow-summary${planned ? "" : " has-description"}`} title={`${task.title} · ${!client && onEdit ? "클릭하여 업무 수정" : secondaryText}`} onClick={event=>{if(!client && onEdit && !event.target.closest('a')){event.preventDefault();onEdit(task);}}}>
           <ChevronRight className="pb-flow-chevron" size={12} aria-hidden="true" />
           <Tag code={task.statusCode} />
           <span className="pb-flow-title">{task.title}</span>
