@@ -223,13 +223,17 @@ const chromePath=process.env.CHROME_PATH || (process.platform==='win32' ? 'C:\\P
 if(!chromePath)throw Error('Chrome not found; set CHROME_PATH');
 const chrome=spawn(chromePath,[
   '--headless=new','--disable-gpu','--disable-dev-shm-usage',...(process.env.CI ? ['--no-sandbox'] : []),`--remote-debugging-port=${debugPort}`,`--user-data-dir=${profile}`,'about:blank',
-],{stdio:'ignore',windowsHide:true});
+],{stdio:['ignore','ignore','pipe'],windowsHide:true});
+let chromeStartupError='';
+chrome.stderr.on('data',chunk=>{chromeStartupError=(chromeStartupError+chunk.toString()).slice(-4000);});
+chrome.on('error',error=>{chromeStartupError=error.message;});
 let socket;
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 try {
   let ready=false;
-  for(let i=0;i<80;i++) { try { ready=(await fetch(`http://127.0.0.1:${debugPort}/json/version`)).ok; } catch {} if(ready)break;await delay(100); }
-  if(!ready)throw Error('headless Chrome failed to start');
+  const startupDeadline=Date.now()+30000;
+  while(Date.now()<startupDeadline) { try { ready=(await fetch(`http://127.0.0.1:${debugPort}/json/version`,{signal:AbortSignal.timeout(1000)})).ok; } catch {} if(ready||chrome.exitCode!==null)break;await delay(100); }
+  if(!ready)throw Error('headless Chrome failed to start within 30s: '+chromeStartupError);
   const target=await (await fetch(`http://127.0.0.1:${debugPort}/json/new?about:blank`,{method:'PUT'})).json();
   socket=new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((resolve,reject)=>{socket.addEventListener('open',resolve,{once:true});socket.addEventListener('error',reject,{once:true});});
