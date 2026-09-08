@@ -13,11 +13,12 @@ import React, { lazy, Suspense, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CredentialLedgerView } from './src/CredentialLedgerView.jsx';
 import { useOverviewResource } from './src/useOverviewResource.js';
-import { ProjectClientProgressView } from './src/App.jsx';
+import { ProjectClientProgressView, Topbar } from './src/App.jsx';
 import { ProjectIssuePanel, TaskScheduleTimeline } from './src/TaskWorkspace.jsx';
 import PermissionsView from './src/PermissionsView.jsx';
 import { tasksViewModel } from './src/api/viewModel.js';
 import './src/styles.css';
+import './src/sidebarWorkspace.css';
 const QuoteImportModal = lazy(() => import('./src/QuoteImportModal.jsx'));
 const root = createRoot(document.getElementById('root'));
 const tick = () => new Promise(resolve => setTimeout(resolve, 40));
@@ -80,6 +81,16 @@ function Overview({projectId}) {
 }
 window.runQa = async () => {
  const results=[];
+ for(const activeView of ['tasks','portfolio','daily','client-progress']) {
+await render(<div className="has-sidebar-workspace" style={{width:'calc(100vw - 56px)'}}><Topbar project={{id:1,clientName:'UND',name:'UND 통합 마케팅 운영 프로젝트'}} activeView={activeView} actor={{name:'포켓컴퍼니',organization:'POCKET'}} search="" setSearch={()=>{}} notificationTasks={[]} notificationsLoaded={true} onNotificationSelect={()=>{}} onLogout={()=>{}} live={true}/></div>);
+  const brand=document.querySelector('.topbar-company-brand'); const context=document.querySelector('.topbar-project-context'); const actions=document.querySelector('.topbar-actions');
+  for(let attempt=0;attempt<50&&!brand.querySelector('img').complete;attempt++) await tick();
+  check(brand.querySelector('img').naturalWidth>0,'company logo failed to load');
+  check(brand.getBoundingClientRect().right<=context.getBoundingClientRect().left,'logo overlaps project context');
+  check(context.getBoundingClientRect().right<=actions.getBoundingClientRect().left,'project overlaps header actions');
+  check(document.documentElement.scrollWidth<=window.innerWidth+1,'branded topbar overflows viewport');
+ }
+ results.push('shared branded topbar: image loaded, project to right, no overlap on task/portfolio/daily/client routes');
  await render(<Overview projectId="A"/>);
  await tick();
  check(overviewCalls.length===1 && !overviewCalls[0].signal.aborted,'loading state must not restart overview request');
@@ -157,8 +168,12 @@ window.runQa = async () => {
  results.push('client progress: actual read-only Gantt, compact rows '+rowHeight+'px, expand/collapse details, completion links, no internal panels/editors, no viewport overflow');
  return results;
 };
+window.showBrandQa = async () => {
+ await render(<div className="has-sidebar-workspace" style={{width:'calc(100vw - 56px)',marginLeft:56,background:'white'}}><Topbar project={{id:1,clientName:'UND',name:'UND 통합 마케팅 운영'}} activeView="tasks" actor={{name:'포켓컴퍼니',role:'pocket'}} search="" setSearch={()=>{}} notificationTasks={[]} notificationsLoaded={true} onNotificationSelect={()=>{}} onLogout={()=>{}} live={true}/></div>);
+ await tick();
+};
 `, resolveDir: process.cwd(), loader: "jsx" },
-  bundle: true, write: false, outfile: "qa.js", format: "esm", jsx: "automatic",
+  bundle: true, write: false, outfile: "qa.js", format: "esm", jsx: "automatic", loader: { '.png': 'dataurl' },
   define: { "process.env.NODE_ENV": '"production"' }, logLevel: "silent",
 });
 const assets = new Map(bundle.outputFiles.map(file => [`/${path.basename(file.path)}`, file.contents]));
@@ -212,6 +227,9 @@ try {
     await mkdir('../artifacts/client-progress',{recursive:true});
     await writeFile(`../artifacts/client-progress/qa-${width}.png`,Buffer.from(screenshot.data,'base64'));
     console.log(JSON.stringify({viewport:width,checks:result}));
+    await evaluate('window.showBrandQa()');
+    const brandShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await writeFile(`../artifacts/client-progress/brand-${width}.png`,Buffer.from(brandShot.data,'base64'));
   }
   if(errors.length)throw Error(errors.join('; '));
 } finally {

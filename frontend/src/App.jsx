@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import CompanyBrand from "./CompanyBrand.jsx";
 import { statusClass, formatSyncTime, EmptyState, LoadingState, ErrorState, FormSelect, trackerStatusOptions, trackerStatusLabels, trackerDate, localDateValue } from "./TaskUiPrimitives.jsx";
 const TaskScheduleTimeline = lazy(() => import("./TaskWorkspace.jsx").then(module => ({ default: module.TaskScheduleTimeline })));
 import { Activity, AlertCircle, ArrowRight, BarChart3, Bell, BookOpenText, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleDot, ClipboardCheck, FolderOpen, FileUp, LayoutDashboard, KeyRound, ListFilter, LoaderCircle, LockKeyhole, LogOut, MoreHorizontal, MousePointerClick, NotebookPen, Pencil, Plus, Search, Settings2, ShieldCheck, TrendingUp, Trash2, Video, WifiOff, X } from "lucide-react";
@@ -304,7 +305,7 @@ function TaskNotificationCenter({ projectId, tasks, loaded, onSelect }) {
 
 export function Topbar({ project, activeView, actor, onLogout, live, search, setSearch, notificationTasks, notificationsLoaded, onNotificationSelect }) {
   const workspaceMode = activeView === "portfolio";
-  return <header className="topbar"><div className="topbar-leading"><div className={`topbar-project-context${workspaceMode ? " is-workspace" : ""}`}><small>{workspaceMode ? "전체 프로젝트" : project.clientName}</small><strong title={workspaceMode ? "통합 관리" : project.name}>{workspaceMode ? "통합 관리" : project.name}</strong></div></div><div className="topbar-actions">{!workspaceMode && <><label className="global-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="업무 검색" /></label><TaskNotificationCenter projectId={project.id} tasks={notificationTasks} loaded={notificationsLoaded} onSelect={onNotificationSelect} /></>}<ActorBadge actor={actor} onLogout={onLogout} live={live} /></div></header>;
+return <header className="topbar"><div className="topbar-leading"><CompanyBrand /><div className={`topbar-project-context${workspaceMode ? " is-workspace" : ""}`}><small>{workspaceMode ? "전체 프로젝트" : project.clientName}</small><strong title={workspaceMode ? "통합 관리" : project.name}>{workspaceMode ? "통합 관리" : project.name}</strong></div></div><div className="topbar-actions">{!workspaceMode && <><label className="global-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="업무 검색" /></label><TaskNotificationCenter projectId={project.id} tasks={notificationTasks} loaded={notificationsLoaded} onSelect={onNotificationSelect} /></>}<ActorBadge actor={actor} onLogout={onLogout} live={live} /></div></header>;
 }
 
 function ProjectCreateModal({ onClose, onSubmit }) {

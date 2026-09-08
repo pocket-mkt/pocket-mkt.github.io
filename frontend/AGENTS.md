@@ -27,6 +27,8 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Pocket Marketing Hub design decisions
 
+- All authenticated pages share the supplied POCKET COMPANY horizontal CI at the left of the topbar, before project/workspace context. Preserve the artwork and only clip its outer whitespace. Keep project context to its right with a subtle divider; reduce logo width on mobile without dropping project identity or overlapping notifications/account controls.
+
 - Integrated management confirmation lists sort by creation timestamp descending before display limits, across both open/completed and project filters. Legacy rows fall back to registration date; edits and deadlines must not bump old requests above newly created ones.
 
 - The `프로젝트` folder includes an internal-only `아이디 관리대장` after `데일리 회의록`. Pocket and NS editors may manage only projects where they have active ADMIN/EDIT access; client accounts must never see the menu, select it in access management, or call its RPCs. Store login metadata in `project_credentials`, but store passwords only in Supabase Vault. List RPCs must never return plaintext passwords or Vault secret IDs. Reveal exactly one password on explicit user action, audit every reveal, keep the value only in component memory, clear it on hide/project change/unmount, and never put credential resources in sessionStorage. Archiving credential metadata deletes the Vault secret.
