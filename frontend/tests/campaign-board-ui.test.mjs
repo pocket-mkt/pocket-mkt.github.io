@@ -171,9 +171,10 @@ test("기한이 지난 보류 업무는 간트에 실시간·고정 지연 구�
   assert.match(styleSource, /\.g-c\.overdue-hold\.is-frozen::before[\s\S]*background:\s*#687282/);
 });
 
-test("일정표 아래 이슈사항·추가요청 원장은 기준 HTML의 열과 직접 저장 동작을 유지한다", () => {
+test("일정표 아래 확인 요청은 공통 처리 카드를 기본으로, 전체 원장 편집을 보조로 제공한다", () => {
   assert.match(appSource, /function ProjectIssuePanel/);
-  assert.match(appSource, /이슈사항 · 추가요청 기록/);
+  assert.match(appSource, /<IssueRequestCard key=\{issue\.id\}/);
+  assert.match(appSource, /원장 편집/);
   assert.match(appSource, /<th>No<\/th><th>등록일<\/th><th>구분<\/th><th>관련 업무<\/th><th>내용<\/th><th>담당자<\/th><th>상태<\/th><th>완료링크<\/th><th>비고<\/th>/);
   assert.match(appSource, /issueStatusOrder = \["NOT_STARTED", "IN_PROGRESS", "DONE", "ON_HOLD"\]/);
   assert.match(appSource, /deleteArmed \? "삭제\?" : "×"/);

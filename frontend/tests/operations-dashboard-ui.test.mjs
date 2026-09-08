@@ -4,12 +4,16 @@ import test from "node:test";
 
 const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 const dashboardSource = readFileSync(new URL("../src/OperationsDashboardView.jsx", import.meta.url), "utf8");
+const requestCardSource = readFileSync(new URL("../src/IssueRequestCard.jsx", import.meta.url), "utf8");
+const viewModelSource = readFileSync(new URL("../src/api/viewModel.js", import.meta.url), "utf8");
 const progressDeltaMigration = readFileSync(new URL("../../supabase/migrations/20260908002729_add_operations_progress_daily_delta.sql", import.meta.url), "utf8");
+const issueInteractionMigration = readFileSync(new URL("../../supabase/migrations/20260908094500_expose_operations_issue_interaction_fields.sql", import.meta.url), "utf8");
 
-test("통합 관리는 확인 요청 원장과 이동 가능한 평일 마감 업무를 프로젝트별로 보여준다", () => {
+test("통합 관리는 처리 가능한 확인 요청과 이동 가능한 평일 마감 업무를 프로젝트별로 보여준다", () => {
   assert.match(dashboardSource, /import \{[^}]*ArrowRight[^}]*\} from "lucide-react"/);
   assert.match(dashboardSource, /확인 요청 상세/);
-  assert.match(dashboardSource, /이슈사항 · 추가요청 기록/);
+  assert.match(dashboardSource, /<IssueRequestCard issue=\{current\}/);
+  assert.match(dashboardSource, /onIssueUpdate/);
   assert.match(dashboardSource, /이전 주차/);
   assert.match(dashboardSource, /다음 주차/);
   assert.match(dashboardSource, /weekLabel/);
@@ -17,6 +21,17 @@ test("통합 관리는 확인 요청 원장과 이동 가능한 평일 마감 �
   assert.doesNotMatch(dashboardSource, /관련 업무 열기/);
   assert.match(dashboardSource, /ProjectTabs projects=\{dashboard\.projects\}/);
   assert.match(appSource, /onLoadWeek=\{\(startDate, endDate\)/);
+});
+
+test("진행상황·업무 하단·통합관리는 같은 확인요청 카드와 Supabase 행 버전을 사용한다", () => {
+  assert.match(requestCardSource, /답변 작성/);
+  assert.match(requestCardSource, /마감일 변경/);
+  assert.match(requestCardSource, /확인 완료/);
+  assert.match(requestCardSource, /appendBriefReply\(current, reply, actorName\)/);
+  assert.match(appSource, /<OperationsDashboardView[^>]*actorName=\{actorName\}[^>]*onIssueUpdate=\{onIssueUpdate\}/);
+  assert.match(viewModelSource, /rowVersion: Number\(row\.row_version \|\| 0\)/);
+  assert.match(issueInteractionMigration, /'remarks', source\.remarks/);
+  assert.match(issueInteractionMigration, /'row_version', source\.row_version/);
 });
 
 test("업무 체크는 실제 당일 변경 이력에서 계산한 상승분만 작은 빨간 지표로 보여준다", () => {

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, CalendarDays, Check, CheckCircle2, CircleAlert, CircleDot, MessageSquare, Plus, RefreshCw, X } from "lucide-react";
+import { ArrowUpRight, CalendarDays, CheckCircle2, CircleAlert, CircleDot, Plus, RefreshCw, X } from "lucide-react";
 import { dailyMeetingsViewModel } from "./api/viewModel.js";
 import { isViewAllowed } from "./accessPermissions.js";
-import { appendBriefReply, briefRequestFields, latestBriefMeeting, progressBriefTasks, publicHttpLink, requestDeadlineFields, requestDeadlineLabel } from "./progressBrief.js";
+import IssueRequestCard from "./IssueRequestCard.jsx";
+import { briefRequestFields, latestBriefMeeting, progressBriefTasks, publicHttpLink } from "./progressBrief.js";
 import "./progressView.css";
 
 const shortDate = value => value ? String(value).slice(5, 10).replace("-", ".") : "미정";
@@ -93,38 +94,6 @@ function RequestForm({ owners, onCreate, onClose }) {
     <footer><small>고객에게 공유되는 요청입니다. 작성 이력은 로그인 계정으로 기록됩니다.</small><button type="button" onClick={onClose} disabled={saving}>취소</button><button className="pb-primary" disabled={saving}>{saving ? "저장 중…" : "요청 등록"}</button></footer>
   </form>;
 }
-function RequestCard({ issue, canWrite, actorName, onUpdate, today }) {
-  const [replyOpen, setReplyOpen] = useState(false);
-  const [reply, setReply] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [editingDeadline, setEditingDeadline] = useState(false);
-  const [deadline, setDeadline] = useState(issue.dueDate || "");
-  const done = issue.statusCode === "DONE";
-  const save = async fields => {
-    setSaving(true); setError("");
-    try { await onUpdate(issue, fields); return true; }
-    catch (err) { setError(err.code === "conflict" ? "다른 사용자가 먼저 변경했습니다. 최신 내용으로 갱신한 뒤 다시 저장해 주세요. 입력한 답변은 유지됩니다." : err.message || "저장하지 못했습니다."); return false; }
-    finally { setSaving(false); }
-  };
-  const submitReply = async event => {
-    event.preventDefault();
-    try {
-      if (await save(appendBriefReply(issue, reply, actorName))) { setReply(""); setReplyOpen(false); }
-    } catch (err) { setError(err.message); }
-  };
-  return <article className="pb-request"><div className="pb-request-meta"><span>{issue.kind || "확인 요청"} · 확인 담당 {issue.owner || "미지정"} · {shortDate(issue.date)}</span><Tag code={done ? "DONE" : "ON_HOLD"}>{done ? "확인 완료" : "확인 필요"}</Tag></div>
-    <h3>{issue.relatedTask || "확인 요청"}</h3><p>{issue.body || "등록된 내용이 없습니다."}</p><Link value={issue.completionUrl} />
-    <div className={`pb-deadline${!done && issue.dueDate && issue.dueDate < today ? " is-overdue" : ""}`}><span>{requestDeadlineLabel(issue, today)}</span>{canWrite && !editingDeadline && <button disabled={saving} onClick={() => { setDeadline(issue.dueDate || ""); setEditingDeadline(true); }}>{issue.dueDate ? "마감일 변경" : "마감일 설정"}</button>}</div>
-    {editingDeadline && canWrite && <form className="pb-deadline-form" onSubmit={async event => { event.preventDefault(); if (saving) return; try { if (await save(requestDeadlineFields(deadline))) setEditingDeadline(false); } catch (err) { setError(err.message); } }}>
-      <label>컨펌 마감일<input type="date" value={deadline} disabled={saving} onChange={e => setDeadline(e.target.value)} /></label><button type="button" disabled={saving} onClick={() => setDeadline("")}>기한 해제</button><button disabled={saving}>{saving ? "저장 중…" : "마감일 저장"}</button><button type="button" disabled={saving} onClick={() => setEditingDeadline(false)}>취소</button>
-    </form>}
-    {issue.remarks && <details className="pb-replies"><summary>답변·추가 메모 보기</summary><p>{issue.remarks}</p></details>}
-    {canWrite && <div className="pb-request-actions"><button disabled={saving} onClick={() => setReplyOpen(!replyOpen)}><MessageSquare size={13} />답변 작성</button><button disabled={saving} onClick={() => save({ status_code: done ? "IN_PROGRESS" : "DONE" })}><Check size={13} />{done ? "다시 확인 요청" : "확인 완료"}</button></div>}
-    {replyOpen && <form className="pb-reply-form" onSubmit={submitReply}><label>답변<textarea required maxLength={4000} rows={3} value={reply} onChange={e => setReply(e.target.value)} /></label><button disabled={saving}>{saving ? "저장 중…" : "답변 저장"}</button></form>}
-    {error && <p className="pb-error" role="alert">{error}</p>}
-  </article>;
-}
 export function ProgressView({ project, role, taskPage, source, actorName, canWrite, onIssueCreate, onIssueUpdate, onNavigate, schedule }) {
   const [now, setNow] = useState(() => new Date());
   const [meetingState, setMeetingState] = useState({ status: "loading", items: [] });
@@ -169,7 +138,7 @@ export function ProgressView({ project, role, taskPage, source, actorName, canWr
         {heldTasks.length > 0 && <div className="pb-held-tasks"><strong>보류·차단 업무 {heldTasks.length}건</strong>{heldTasks.slice(0, 3).map(task => <button type="button" key={task.id} onClick={() => onNavigate("tasks")}><span>{task.title}</span><Tag code={task.statusCode} /></button>)}</div>}
         <div className="pb-review-toolbar"><span>{canWriteIssues ? "업무의 이슈·추가요청과 같은 기록을 사용합니다." : "공유된 요청을 조회합니다. 등록·답변은 운영 담당자가 처리합니다."}</span><select aria-label="확인 요청 상태" value={filter} onChange={e => { setFilter(e.target.value); setAllRequests(false); }}><option value="open">확인 필요</option><option value="done">확인 완료</option><option value="all">전체</option></select></div>
         {adding && canWriteIssues && <RequestForm owners={owners} onCreate={async fields => { await onIssueCreate(fields); setFilter("open"); }} onClose={() => setAdding(false)} />}
-        {requests.length ? (allRequests ? requests : requests.slice(0, 3)).map(issue => <RequestCard key={issue.id} issue={issue} canWrite={canWriteIssues} actorName={actorName} onUpdate={onIssueUpdate} today={week.today} />) : <Empty>해당 상태의 확인 요청이 없습니다.</Empty>}
+        {requests.length ? (allRequests ? requests : requests.slice(0, 3)).map(issue => <IssueRequestCard key={issue.id} issue={issue} canWrite={canWriteIssues} actorName={actorName} onUpdate={onIssueUpdate} today={week.today} />) : <Empty>해당 상태의 확인 요청이 없습니다.</Empty>}
         {requests.length > 3 && <button className="pb-more" onClick={() => setAllRequests(value => !value)}>{allRequests ? "간단히 보기" : `나머지 ${requests.length - 3}건 더 보기`}</button>}
       </section>
     </div>

@@ -89,6 +89,7 @@ import {
   quoteColumnLabel,
   readQuoteFile,
 } from "./quoteImport.js";
+import IssueRequestCard from "./IssueRequestCard.jsx";
 
 const SAVE_OVERLAY_MIN_MS = 500;
 const SAVE_OVERLAY_COALESCE_MS = 250;
@@ -1468,31 +1469,34 @@ function ProjectIssueRow({ issue, index, canWrite, onUpdate, onArchive }) {
   </tr>;
 }
 
-export function ProjectIssuePanel({ issues, canWrite, onCreate, onUpdate, onArchive }) {
+export function ProjectIssuePanel({ issues, canWrite, actorName, onCreate, onUpdate, onArchive }) {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
+  const [ledgerOpen, setLedgerOpen] = useState(false);
   const addIssue = async () => {
     if (!canWrite || creating) return;
     setCreating(true);
     setCreateError("");
     try {
       await onCreate({ issue_date: localDateValue(), status_code: "IN_PROGRESS" });
+      setLedgerOpen(true);
     } catch (error) {
-      setCreateError(error?.message || "이슈 행을 추가하지 못했습니다.");
+      setCreateError(error?.message || "확인 요청을 추가하지 못했습니다.");
     } finally {
       setCreating(false);
     }
   };
-  return <section className="panel project-issue-panel" aria-label="이슈사항 및 추가요청 기록">
-    <header className="panel-head reference-panel-head"><div><h2>이슈사항 · 추가요청 기록</h2><span className="hint">추가 업무 요청, 진행 중 이슈, 완료 링크를 자유롭게 기록하세요</span></div></header>
-    <div className="project-issue-scroll"><table id="issueTable"><thead><tr><th>No</th><th>등록일</th><th>구분</th><th>관련 업무</th><th>내용</th><th>담당자</th><th>상태</th><th>완료링크</th><th>비고</th>{canWrite && <th aria-label="행 작업" />}</tr></thead><tbody>
+  return <section className="panel project-issue-panel" aria-label="확인 요청">
+    <header className="panel-head reference-panel-head"><div><h2>확인 요청</h2><span className="hint">요청을 열지 않고 답변·마감일·확인 상태를 바로 처리합니다</span></div>{canWrite && <button type="button" className="project-issue-ledger-toggle" aria-expanded={ledgerOpen} onClick={() => setLedgerOpen((value) => !value)}>{ledgerOpen ? "카드로 보기" : "원장 편집"}</button>}</header>
+    {issues.length ? <div className="project-issue-card-list">{issues.map((issue) => <IssueRequestCard key={issue.id} issue={issue} canWrite={canWrite} actorName={actorName} onUpdate={onUpdate} />)}</div> : <div className="project-issue-card-empty">등록된 확인 요청이 없습니다.</div>}
+    {ledgerOpen && <div className="project-issue-scroll"><table id="issueTable"><thead><tr><th>No</th><th>등록일</th><th>구분</th><th>관련 업무</th><th>내용</th><th>담당자</th><th>상태</th><th>완료링크</th><th>비고</th>{canWrite && <th aria-label="행 작업" />}</tr></thead><tbody>
       {issues.length ? issues.map((issue, index) => <ProjectIssueRow key={issue.id} issue={issue} index={index} canWrite={canWrite} onUpdate={onUpdate} onArchive={onArchive} />) : <tr><td colSpan={canWrite ? 10 : 9} className="project-issue-empty">기록된 이슈가 없습니다.</td></tr>}
-    </tbody></table></div>
-    {canWrite && <footer className="project-issue-footer"><button type="button" className="project-issue-add" disabled={creating} onClick={addIssue}>{creating ? <LoaderCircle size={14} className="spin" /> : <Plus size={14} />}{creating ? "행 추가 중" : "이슈 행 추가"}</button>{createError && <small role="alert">{createError}</small>}</footer>}
+    </tbody></table></div>}
+    {canWrite && <footer className="project-issue-footer"><button type="button" className="project-issue-add" disabled={creating} onClick={addIssue}>{creating ? <LoaderCircle size={14} className="spin" /> : <Plus size={14} />}{creating ? "추가 중" : "확인 요청 추가"}</button>{createError && <small role="alert">{createError}</small>}</footer>}
   </section>;
 }
 
-export function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, canWriteIssues, canEditProject, canManageVisibility = false, onUpdate, onArchive, onBatchUpdate, onProjectUpdate, onCreate, onIssueCreate, onIssueUpdate, onIssueArchive, displayMode, onViewChange, canViewActivity, activityState, onLoadActivity, summaryOnly = false, showOwners = true }) {
+export function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, canWriteIssues, actorName, canEditProject, canManageVisibility = false, onUpdate, onArchive, onBatchUpdate, onProjectUpdate, onCreate, onIssueCreate, onIssueUpdate, onIssueArchive, displayMode, onViewChange, canViewActivity, activityState, onLoadActivity, summaryOnly = false, showOwners = true }) {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [scheduleFilter, setScheduleFilter] = useState("ALL");
@@ -2104,11 +2108,11 @@ export function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, 
       {displayMode === "gantt" && <div className="g-legend">{ganttGroups.map((group) => <span key={group.label}><i style={{ background: ganttCategoryColor(group.label) }} />{group.label}</span>)}<span><i style={{ background: "#8a93a3", opacity: .3 }} />예정 = 옅게</span><span><i className="g-overdue-hold-legend" />기한 초과 보류</span><span><i className="g-weekend-legend" />주말</span><span><i className="g-today-legend" />기준일 {today}</span></div>}
       {editingTaskId && canWrite && <TaskEditModal key={editingTaskId} task={tasks.find((task) => task.id === editingTaskId)} clientName={project.clientName} onUpdate={onUpdate} onClose={() => setEditingTaskId(null)} />}
     </section>
-    {!summaryOnly && !activityMode && <ProjectIssuePanel issues={issues} canWrite={canWriteIssues} onCreate={onIssueCreate} onUpdate={onIssueUpdate} onArchive={onIssueArchive} />}
+    {!summaryOnly && !activityMode && <ProjectIssuePanel issues={issues} canWrite={canWriteIssues} actorName={actorName} onCreate={onIssueCreate} onUpdate={onIssueUpdate} onArchive={onIssueArchive} />}
   </div>;
 }
 
-function TasksView({ role, query, taskPage, activityState, onLoadActivity, onCreate, canWrite, onUpdate, onArchive, onBatchUpdate, onProjectUpdate, onIssueCreate, onIssueUpdate, onIssueArchive, initialSection = "schedule" }) {
+function TasksView({ role, query, taskPage, activityState, onLoadActivity, onCreate, canWrite, actorName, onUpdate, onArchive, onBatchUpdate, onProjectUpdate, onIssueCreate, onIssueUpdate, onIssueArchive, initialSection = "schedule" }) {
   const editable = Boolean(canWrite);
   const schedule = useMemo(() => trackerSchedule(taskPage.project?.startDate), [taskPage.project?.startDate]);
   const tasks = useMemo(() => (taskPage.items || []).map((task) => {
@@ -2125,7 +2129,7 @@ function TasksView({ role, query, taskPage, activityState, onLoadActivity, onCre
   }, [displayMode, activityState?.status, onLoadActivity]);
   const selectTaskView = (nextView) => setDisplayMode(nextView === "gantt" || nextView === "activity" ? nextView : "table");
 
-  return <div className="view-stack campaign-schedule-root"><TaskScheduleTimeline tasks={tasks} issues={taskPage.issues || []} project={taskPage.project || {}} query={query} canWrite={editable} canWriteIssues={Boolean(editable && taskPage.issueCanWrite)} canEditProject={Boolean(editable && role === "pocket")} canManageVisibility={Boolean(editable && role === "pocket")} onUpdate={onUpdate} onArchive={onArchive} onBatchUpdate={onBatchUpdate} onProjectUpdate={onProjectUpdate} onCreate={onCreate} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} displayMode={displayMode} onViewChange={selectTaskView} canViewActivity={role !== "client"} activityState={activityState} onLoadActivity={onLoadActivity} /></div>;
+  return <div className="view-stack campaign-schedule-root"><TaskScheduleTimeline tasks={tasks} issues={taskPage.issues || []} project={taskPage.project || {}} query={query} canWrite={editable} canWriteIssues={Boolean(editable && taskPage.issueCanWrite)} actorName={actorName} canEditProject={Boolean(editable && role === "pocket")} canManageVisibility={Boolean(editable && role === "pocket")} onUpdate={onUpdate} onArchive={onArchive} onBatchUpdate={onBatchUpdate} onProjectUpdate={onProjectUpdate} onCreate={onCreate} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} displayMode={displayMode} onViewChange={selectTaskView} canViewActivity={role !== "client"} activityState={activityState} onLoadActivity={onLoadActivity} /></div>;
 }
 
 function localDateValue() {
@@ -2502,10 +2506,10 @@ function AppContent({ view, planVariant, project, role, search, setView, pageSta
   if (pageState.status === "loading" && !pageState.data) return <LoadingState />;
   if (pageState.status === "error" && !pageState.data) return <ErrorState error={pageState.error} onRetry={onRetry} />;
   const data = pageState.data || {};
-  if (view === "portfolio") return role !== "client" ? <Suspense fallback={<LoadingState label="통합 관리 화면을 준비하고 있습니다." />}><OperationsDashboardView dashboard={data} onOpenProject={onOpenProject} onLoadWeek={(startDate, endDate) => source.operationsDashboard({ startDate, endDate }).then(operationsDashboardViewModel)} /></Suspense> : <ErrorState error={new Error("내부 운영 계정만 접근할 수 있습니다.")} />;
+  if (view === "portfolio") return role !== "client" ? <Suspense fallback={<LoadingState label="통합 관리 화면을 준비하고 있습니다." />}><OperationsDashboardView dashboard={data} actorName={actorName} canWrite={canWrite} onIssueUpdate={onIssueUpdate} onOpenProject={onOpenProject} onLoadWeek={(startDate, endDate) => source.operationsDashboard({ startDate, endDate }).then(operationsDashboardViewModel)} /></Suspense> : <ErrorState error={new Error("내부 운영 계정만 접근할 수 있습니다.")} />;
   if (view === "progress") return <ProjectProgressView key={project.id} project={project} role={role} taskPage={data} source={source} actorName={actorName} canWrite={canWrite} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onNavigate={setView} />;
   if (view === "plan") return <PlanView plan={data} project={project} planVariant={planVariant} />;
-  if (view === "tasks" || view === "schedule") return <TasksView role={role} query={search} taskPage={{ ...data, project: { id: project.id, clientId: project.clientId, clientName: project.clientName, name: project.name, permissionCode: project.permissionCode, allowedPages: project.allowedPages, phaseCode: project.phaseCode, phase: project.phase, startDate: project.startDate, endDate: project.endDate, rowVersion: project.rowVersion, ...(data.project || {}) } }} activityState={taskActivityState} onLoadActivity={onLoadTaskActivity} onCreate={onCreate} onUpdate={onTaskUpdate} onArchive={onTaskArchive} onBatchUpdate={onTaskBatchUpdate} onProjectUpdate={onProjectUpdate} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} canWrite={canWrite} initialSection="schedule" />;
+  if (view === "tasks" || view === "schedule") return <TasksView role={role} query={search} taskPage={{ ...data, project: { id: project.id, clientId: project.clientId, clientName: project.clientName, name: project.name, permissionCode: project.permissionCode, allowedPages: project.allowedPages, phaseCode: project.phaseCode, phase: project.phase, startDate: project.startDate, endDate: project.endDate, rowVersion: project.rowVersion, ...(data.project || {}) } }} activityState={taskActivityState} onLoadActivity={onLoadTaskActivity} onCreate={onCreate} actorName={actorName} onUpdate={onTaskUpdate} onArchive={onTaskArchive} onBatchUpdate={onTaskBatchUpdate} onProjectUpdate={onProjectUpdate} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} canWrite={canWrite} initialSection="schedule" />;
   if (view === "daily") return role !== "client" && Array.isArray(data.projects)
     ? <Suspense fallback={<LoadingState label="전체 업체 회의록을 준비하고 있습니다." />}><WorkspaceDailyMeetingsView dashboard={data} canWrite={canWrite} onSave={onDailyMeetingSave} onLoadWeek={(startDate, endDate) => source.operationsDashboard({ startDate, endDate }).then(operationsDashboardViewModel)} /></Suspense>
     : <DailyMeetingsView role={role} meetings={data.items || []} canWrite={canWrite && role !== "client"} onSave={onDailyMeetingSave} />;
@@ -3368,7 +3372,7 @@ export function App() {
       readOnlyError.code = "forbidden";
       throw readOnlyError;
     }
-    const projectId = activeProjectId;
+    const projectId = issue.projectId || activeProjectId;
     resourceCacheEpochRef.current += 1;
     try {
       const result = await mutateWithSaveLock("이슈 변경사항을 원장에 기록하고 있습니다.", {
@@ -3381,7 +3385,13 @@ export function App() {
           fields,
         },
       });
-      const canonicalIssue = projectIssueViewModel(result?.data?.item || {});
+      const canonicalIssue = {
+        ...issue,
+        ...projectIssueViewModel(result?.data?.item || {}),
+        projectId,
+        clientName: issue.clientName,
+        projectName: issue.projectName,
+      };
       patchIssueResource(projectId, issue.id, () => canonicalIssue);
       setSaveNotice("이슈 변경사항을 Supabase에 저장했습니다.");
       return canonicalIssue;

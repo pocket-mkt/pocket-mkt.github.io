@@ -553,7 +553,8 @@ export function operationsDashboardViewModel(envelope) {
       id: String(row.issue_id), projectId: String(row.project_id), clientName: row.client_name || "고객사", projectName: row.project_name || "프로젝트",
       date: row.issue_date ? String(row.issue_date).slice(0, 10) : null, dueDate: row.due_date ? String(row.due_date).slice(0, 10) : null,
       kind: row.kind_text || "확인 요청", relatedTask: row.related_task_text || "", body: row.body_text || "", owner: row.owner_text || "미지정",
-      statusCode: String(row.status_code || "IN_PROGRESS").toUpperCase(), updatedAt: row.updated_at || null,
+      statusCode: String(row.status_code || "IN_PROGRESS").toUpperCase(), completionUrl: row.completion_url || "", remarks: row.remarks || "",
+      visibilityCode: String(row.visibility_code || "CLIENT").toUpperCase(), rowVersion: Number(row.row_version || 0), updatedAt: row.updated_at || null,
     })),
     meetings: (data.meetings || []).map((row) => ({
       id: String(row.meeting_id), projectId: String(row.project_id), clientName: row.client_name || "고객사", projectName: row.project_name || "프로젝트",
