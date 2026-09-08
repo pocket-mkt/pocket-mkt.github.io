@@ -1,6 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createDetailActivityReader, readDetailTaskEvent } from '../src/supabase/detailActivityRead.js';
+import { createDetailActivityReader, readDetailTaskEvent, readIssueActivityContext } from '../src/supabase/detailActivityRead.js';
+
+test('계정 생성 활동과 확인요청 유형 필터를 함께 서버 적용한다',async()=>{
+ const f=fixture();const actorId='12345678-1234-1234-1234-123456789abc';
+ await f.read({actorId,actionCode:'CREATED',entityFilter:'PROJECT_ISSUE'});
+ for(const [field,value] of [['actor_user_id',actorId],['action_code','CREATED'],['entity_type','PROJECT_ISSUE']])assert.ok(f.calls.some(c=>c[1]==='eq'&&c[2]===field&&c[3]===value));
+ await assert.rejects(f.read({actionCode:'anything'}),{code:'invalid_filter'});
+});
+
+test('확인요청 내용은 기존 권한 RPC에서 선택한 항목만 반환하며 다른 데이터는 버린다',async()=>{
+ const event={entity_type:'PROJECT_ISSUE',entity_id:5,project_id:7};let args;
+ const client={rpc(name,params){args={name,params};return Promise.resolve({data:{items:[{title:'irrelevant task'}],issues:[{issue_id:5,related_task_text:'원고',body_text:'검토 요청',kind_text:'컨펌'},{issue_id:6,body_text:'다른 요청'}]}});}};
+ const result=await readIssueActivityContext(client,event);
+ assert.equal(args.name,'read_task_workspace');assert.equal(args.params.p_project_id,'7');
+ assert.deepEqual(result.data,{relatedTask:'원고',body:'검토 요청',kind:'컨펌'});
+ await assert.rejects(readIssueActivityContext(client,{...event,entity_id:88}),{code:'detail_log_unavailable'});
+ await assert.rejects(readIssueActivityContext(client,{...event,entity_type:'PROJECT_CREDENTIAL'}),{code:'invalid_filter'});
+});
 
 test('통합 알림은 프로젝트 제한 없이 최근 24시간 생성 완료 업무만 서버 조회한다',async()=>{
  const f=fixture();await f.read({workspaceNotifications:true});

@@ -145,6 +145,14 @@ window.runQa = async () => {
  check(logCalls[0]?.actorId===logActor,'account filter was not sent to data source');
  check(document.querySelector('.detail-log-empty').textContent.includes('없습니다'),'filtered empty state missing');
  results.push('workspace detail log: account-labelled rows, server account filter, empty state');
+ const createdData={...logData,items:[{...logData.items[0],action_code:'CREATED'},{id:2,entity_id:8,project_id:7,actor_user_id:logActor,created_at:'2026-09-08T02:00:00Z',project:{project_name:'QA 프로젝트'},entity_type:'PROJECT_ISSUE',action_code:'CREATED',event_status_code:'COMMIT'}]};
+ let issueContextArgs=null;
+ await render(<DetailLogView initialData={createdData} source={{activity:async params=>{issueContextArgs=params;return {data:{relatedTask:'원고 검토',body:'확인해 주세요',kind:'컨펌'}};}}}/>);
+ check(document.querySelector('.detail-log-work-summary').textContent.includes('업무 생성 1건')&&document.querySelector('.detail-log-work-summary').textContent.includes('확인요청 생성 1건'),'creation counts missing');
+ check(!document.querySelector('.detail-log-before'),'creation rendered as misleading change');
+ [...document.querySelectorAll('.detail-log-diff button')].find(button=>button.textContent.includes('확인요청 내용 보기')).click();await tick();
+ check(issueContextArgs?.issueEvent?.entity_id===8&&document.querySelector('.detail-log-view').textContent.includes('현재 저장된 내용입니다'),'issue context must identify request and distinguish current from historical text');
+ results.push('detail log creation: task/request counts, creation content, authorized current request context');
  for(const visible of [true,false]) {
   await render(<div className="has-sidebar-workspace" style={{width:visible?264:56}}><ProjectSidebar project={{id:1,name:'QA',allowedPages:['progress']}} role="client" activeView="client-progress" visible={visible} navigation={{actionLabel:'메뉴',controlledIds:'project-navigation-content'}} onToggleNavigation={()=>{}} onClose={()=>{}} onView={()=>{}}/></div>);
   const mark=document.querySelector('.sidebar-company-symbol');

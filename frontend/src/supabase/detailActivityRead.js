@@ -1,7 +1,9 @@
 import { HubApiError } from '../api/errors.js';
 
 export function createDetailActivityReader(client) {
-  return async ({ actorId = '', projectId = '', fromDate = '', toDate = '', cursor, signal, limit = 100, workspaceNotifications = false } = {}) => {
+  return async ({ actorId = '', projectId = '', fromDate = '', toDate = '', actionCode = '', entityFilter = '', cursor, signal, limit = 100, workspaceNotifications = false } = {}) => {
+    if(actionCode && !['CREATED','UPDATED','ARCHIVED','RESTORED'].includes(actionCode))throw new HubApiError('활동 필터가 올바르지 않습니다.',{code:'invalid_filter'});
+    if(entityFilter && !['TASK','PROJECT_ISSUE','DAILY_MEETING','PROJECT'].includes(entityFilter))throw new HubApiError('유형 필터가 올바르지 않습니다.',{code:'invalid_filter'});
     if (actorId && actorId !== 'system' && !/^[0-9a-f-]{36}$/i.test(actorId)) throw new HubApiError('계정 필터가 올바르지 않습니다.', {code:'invalid_filter'});
     if (cursor && (!/^\d+$/.test(String(cursor.id)) || !/^\d{4}-\d{2}-\d{2}T[\d:.]+(?:Z|[+-]\d{2}:\d{2})$/.test(cursor.createdAt) || !Number.isFinite(Date.parse(cursor.createdAt)))) throw new HubApiError('조회 위치가 올바르지 않습니다.', {code:'invalid_cursor'});
     if (projectId && !/^[1-9]\d*$/.test(String(projectId))) throw new HubApiError('프로젝트 필터가 올바르지 않습니다.', {code:'invalid_filter'});
@@ -15,6 +17,8 @@ export function createDetailActivityReader(client) {
     else if (actorId) query = query.eq('actor_user_id', actorId);
     if(workspaceNotifications) query=query.eq('entity_type','TASK').eq('action_code','CREATED').eq('event_status_code','COMMIT').gte('created_at',new Date(Date.now()-86400000).toISOString());
     if (projectId) query = query.eq('project_id',projectId);
+    if(actionCode)query=query.eq('action_code',actionCode);
+    if(entityFilter)query=query.eq('entity_type',entityFilter);
     if (fromDate) query = query.gte('created_at',new Date(`${fromDate}T00:00:00+09:00`).toISOString());
     if (toDate) query = query.lt('created_at',new Date(Date.parse(`${toDate}T00:00:00+09:00`)+86400000).toISOString());
     if (cursor) query = query.or(`created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`);
@@ -63,4 +67,15 @@ export async function readDetailTaskEvent(client,event,signal) {
   const detail=items.find(row=>String(row.event_id)===String(event.event_id));
   if(!detail)throw new HubApiError('이 기록의 변경 내역을 찾지 못했습니다.',{code:'detail_log_unavailable'});
   return {ok:true,data:detail};
+}
+
+export async function readIssueActivityContext(client,event,signal) {
+  if(event.entity_type!=='PROJECT_ISSUE' || !/^[1-9]\d*$/.test(String(event.entity_id)) || !/^[1-9]\d*$/.test(String(event.project_id)))throw new HubApiError('확인요청 기록이 올바르지 않습니다.',{code:'invalid_filter'});
+  let request=client.rpc('read_task_workspace',{p_project_id:String(event.project_id),p_include_archived:false});
+  if(signal)request=request.abortSignal(signal);
+  const {data,error}=await request;
+  if(error || !Array.isArray(data?.issues))throw new HubApiError('확인요청을 불러오지 못했습니다.',{code:'detail_log_unavailable'});
+  const issue=data.issues.find(item=>String(item.issue_id)===String(event.entity_id));
+  if(!issue)throw new HubApiError('삭제되었거나 조회 권한이 없는 확인요청입니다.',{code:'detail_log_unavailable'});
+  return {ok:true,data:{relatedTask:issue.related_task_text,body:issue.body_text,kind:issue.kind_text}};
 }

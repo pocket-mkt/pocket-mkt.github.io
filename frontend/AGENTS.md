@@ -27,6 +27,8 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Pocket Marketing Hub design decisions
 
+- Detail logs default to all activity, including CREATED task/request events. Actor, action and entity filters combine on the server before pagination. Creation rows show initial values without a before-arrow; separate task/request creation counts are current-page only. Request content is loaded on explicit click via authorized read_task_workspace, projecting only the selected issue. Label it current content, never imply it is the historical creation snapshot; deleted/inaccessible requests keep their audit row with a clear error.
+
 - Portfolio task progress rises use at least 11px red-on-pale-red superscript beside 13px current progress, with enough reserved width. Explain Korea-day baseline reset at midnight. Missing progress_delta_today is null and visibly unavailable, never silently 0; real zero has no rise badge. This feature is not yet in project schedule rows.
 
 - Portfolio has an internal-only all-project notification bell. Use authorized task CREATED audit events from the last 24h, not the current project's cache or only weekly-deadline tasks. Show project labels, newest first, explicit pagination, unread badge (loaded count with + if more), per-account tab acknowledgement, and cross-project schedule navigation. Poll at most once/minute while visible and popover closed, cancel on unmount; failures show retry, never empty-success. Existing per-project bell remains unchanged.

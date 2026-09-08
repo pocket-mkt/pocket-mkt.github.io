@@ -7,7 +7,7 @@ import { createSupabaseAccessAdmin } from "./accessAdmin.js";
 import { createSupabaseCoreDomainApi } from "./coreDomainApi.js";
 import { createSupabaseTaskReader, createClientProgressReader } from "./taskRead.js";
 import { createSupabaseTaskActivityReader } from "./taskActivityRead.js";
-import { createDetailActivityReader, readDetailTaskEvent } from "./detailActivityRead.js";
+import { createDetailActivityReader, readDetailTaskEvent, readIssueActivityContext } from "./detailActivityRead.js";
 import { createSupabaseTaskBatchMutator, createSupabaseTaskMutator } from "./taskMutation.js";
 import { createSupabasePlanReader } from "./planRead.js";
 import { createSupabaseCredentialLedger } from "./credentialLedger.js";
@@ -395,6 +395,7 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
   }
 
   async function activity(params = {}) {
+    if(params.issueEvent) { await requireAuth(); return readIssueActivityContext(client,params.issueEvent,params.signal); }
     if(params.detailEvent) { await requireAuth(); return readDetailTaskEvent(client,params.detailEvent,params.signal); }
     if (String(params.entityType || "").toUpperCase() !== "TASK") {
       await requireAuth();
