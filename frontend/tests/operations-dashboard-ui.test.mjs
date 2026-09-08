@@ -4,6 +4,7 @@ import test from "node:test";
 
 const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 const dashboardSource = readFileSync(new URL("../src/OperationsDashboardView.jsx", import.meta.url), "utf8");
+const dashboardEnhancementsCss = readFileSync(new URL("../src/operationsDashboardEnhancements.css", import.meta.url), "utf8");
 const requestCardSource = readFileSync(new URL("../src/IssueRequestCard.jsx", import.meta.url), "utf8");
 const viewModelSource = readFileSync(new URL("../src/api/viewModel.js", import.meta.url), "utf8");
 const progressDeltaMigration = readFileSync(new URL("../../supabase/migrations/20260908002729_add_operations_progress_daily_delta.sql", import.meta.url), "utf8");
@@ -63,4 +64,15 @@ test("내부 데일리 회의록은 월요일 고정 주차 탐색과 주간 핵
   assert.match(appSource, /WorkspaceDailyMeetingsView dashboard=\{data\}/);
   assert.match(appSource, /onLoadWeek=\{\(startDate, endDate\)/);
   assert.match(appSource, /projectIdOverride/);
+});
+
+test("회의내용 추가는 프로젝트별 독립 입력 카드를 가로로 펼치고 참석자 없이 입력된 업체만 저장한다", () => {
+  assert.match(dashboardSource, /Object\.fromEntries\(projects\.map/);
+  assert.match(dashboardSource, /ops-compose-projects/);
+  assert.match(dashboardSource, /hasContent\(entries\[project\.id\]\)/);
+  assert.match(dashboardSource, /for \(const project of readyProjects\)/);
+  assert.match(dashboardSource, /attendees_text: ""/);
+  assert.doesNotMatch(dashboardSource, /<span>참석자<\/span>/);
+  assert.match(dashboardEnhancementsCss, /grid-auto-flow: column/);
+  assert.match(dashboardEnhancementsCss, /overflow-x: auto/);
 });

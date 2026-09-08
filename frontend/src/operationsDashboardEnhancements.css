@@ -100,6 +100,11 @@
 }
 
 .ops-compose-modal { width: min(760px, 100%); }
+.ops-compose-modal.is-multi-project {
+  width: min(1480px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow: hidden;
+}
 .ops-issue-ledger-modal { width: min(1240px, 100%); }
 .ops-modal > header,
 .ops-modal > footer {
@@ -115,6 +120,9 @@
 .ops-modal > header h2 { margin: 2px 0 0; font-size: 17px; }
 .ops-modal > header > button { display: grid; width: 34px; height: 34px; place-items: center; border: 0; border-radius: 9px; background: #f1f4f8; color: #66758a; }
 .ops-modal > footer { justify-content: flex-end; border-top: 1px solid #e7ebf1; }
+.ops-compose-modal > header,
+.ops-compose-modal > footer { flex: 0 0 auto; }
+.ops-compose-modal.is-multi-project { display: flex; flex-direction: column; }
 .ops-modal-content { padding: 20px; }
 .ops-modal-content > h3 { margin: 0 0 8px; font-size: 16px; }
 .ops-modal-content > p { color: #55657b; line-height: 1.7; white-space: pre-wrap; }
@@ -140,14 +148,70 @@
 .ops-primary:disabled { opacity: .55; }
 .ops-secondary { border: 1px solid #d8e0eb; background: #fff; color: #596980; }
 
-.ops-compose-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-.ops-compose-grid label { display: grid; gap: 7px; }
-.ops-compose-grid label.is-wide { grid-column: 1 / -1; }
-.ops-compose-grid label > span { color: #596980; font-size: 11px; font-weight: 800; }
-.ops-compose-grid input,
-.ops-compose-grid select,
-.ops-compose-grid textarea { width: 100%; padding: 10px 11px; border: 1px solid #d5deea; border-radius: 10px; background: #fff; color: #17223c; font: inherit; font-size: 12px; box-sizing: border-box; }
-.ops-compose-grid textarea { resize: vertical; line-height: 1.55; }
+.ops-compose-overview {
+  display: flex;
+  align-items: end;
+  gap: 18px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #e7ebf1;
+  background: #f8faff;
+}
+.ops-compose-overview label,
+.ops-compose-project-card label { display: grid; gap: 7px; }
+.ops-compose-overview label > span,
+.ops-compose-project-card label > span { color: #596980; font-size: 11px; font-weight: 800; }
+.ops-compose-overview input,
+.ops-compose-project-card input,
+.ops-compose-project-card textarea {
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid #d5deea;
+  border-radius: 10px;
+  background: #fff;
+  color: #17223c;
+  font: inherit;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+.ops-compose-overview input { width: 170px; }
+.ops-compose-overview p { margin: 0 0 10px; color: #718096; font-size: 11px; }
+.ops-compose-projects {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(340px, 380px);
+  gap: 12px;
+  min-height: 0;
+  padding: 16px 20px 22px;
+  overflow-x: auto;
+  overflow-y: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-gutter: stable;
+}
+.ops-compose-project-card {
+  align-self: start;
+  display: grid;
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid #dfe6ef;
+  border-radius: 14px;
+  background: #fbfcfe;
+  scroll-snap-align: start;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.ops-compose-project-card.is-filled { border-color: #8eb4f5; box-shadow: 0 0 0 2px rgba(36, 101, 202, .08); }
+.ops-compose-project-card.is-saved { border-color: #9bd8bd; background: #f5fcf8; }
+.ops-compose-project-card > header { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 9px; }
+.ops-compose-project-card > header > span { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: #17366f; color: #fff; font-size: 13px; font-weight: 900; }
+.ops-compose-project-card > header > div { min-width: 0; }
+.ops-compose-project-card > header strong,
+.ops-compose-project-card > header small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ops-compose-project-card > header strong { color: #18243b; font-size: 13px; }
+.ops-compose-project-card > header small { margin-top: 3px; color: #8290a2; font-size: 10px; }
+.ops-compose-project-card > header em { display: inline-flex; align-items: center; gap: 3px; color: #14855b; font-size: 10px; font-style: normal; font-weight: 800; white-space: nowrap; }
+.ops-compose-project-card textarea { resize: vertical; line-height: 1.55; }
+.ops-compose-project-card :disabled { color: #708078; background: #edf6f1; }
+.ops-compose-ready { margin-right: auto; color: #52637a; font-size: 11px; font-weight: 800; }
+.ops-form-error.ops-compose-error { margin: 0 20px 14px; }
 .ops-form-error { grid-column: 1 / -1; margin: 0; padding: 10px 12px; border-radius: 9px; background: #fff0f0; color: #bd3434; font-size: 11px; font-weight: 700; }
 
 .ops-issue-ledger-scroll { overflow-x: auto; padding: 18px; }
@@ -238,9 +302,12 @@
 
 @media (max-width: 760px) {
   .ops-meeting-body,
-  .ops-compose-grid,
   .ops-modal-content dl { grid-template-columns: 1fr; }
-  .ops-compose-grid label.is-wide { grid-column: auto; }
+  .ops-compose-modal.is-multi-project { max-height: calc(100vh - 16px); }
+  .ops-compose-overview { align-items: stretch; flex-direction: column; gap: 8px; }
+  .ops-compose-overview input { width: 100%; }
+  .ops-compose-overview p { margin: 0; }
+  .ops-compose-projects { grid-auto-columns: minmax(290px, calc(100vw - 72px)); padding: 12px; }
   .ops-recent-dates { overflow-x: auto; }
   .ops-recent-dates > button { min-width: 62px; }
   .ops-calendar-jump { min-width: 82px; }

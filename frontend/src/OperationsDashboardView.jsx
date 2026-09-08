@@ -60,12 +60,57 @@ function IssueDetailModal({ issue, canWrite, actorName, onUpdate, onUpdated, onC
 }
 
 function MeetingComposeModal({ projects, initialDate, onClose, onSave }) {
-  const [projectId, setProjectId] = useState(projects[0]?.id || "");
-  const [fields, setFields] = useState({ date: initialDate || localDate(), title: "데일리 운영 회의", attendees: "", discussion: "", decisions: "", actionItems: "" });
-  const [error, setError] = useState(""); const [saving, setSaving] = useState(false);
-  const update = (key) => (event) => setFields((current) => ({ ...current, [key]: event.target.value }));
-  const submit = async (event) => { event.preventDefault(); if (!projectId || !fields.date || !fields.title.trim()) return setError("프로젝트, 날짜, 제목을 확인해 주세요."); const selectedProject = projects.find((project) => project.id === projectId); const targetProjectId = selectedProject?.saveProjectId || projectId; const savedTitle = selectedProject?.isMisc ? `${MISC_PREFIX} ${fields.title.trim().replace(/^\[기타\]\s*/, "")}` : fields.title.trim(); setSaving(true); setError(""); try { await onSave(null, { meeting_date: fields.date, title: savedTitle, attendees_text: fields.attendees.trim(), discussion_text: fields.discussion.trim(), decisions_text: fields.decisions.trim(), action_items_text: fields.actionItems.trim(), visibility_code: "PROJECT_TEAM" }, targetProjectId); onClose(); } catch (saveError) { setError(saveError?.message || "회의록을 저장하지 못했습니다."); setSaving(false); } };
-  return <div className="ops-modal-backdrop" role="presentation" onMouseDown={onClose}><form className="ops-modal ops-compose-modal" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}><header><div><span className="ops-panel-icon"><Clock3 size={17} /></span><div><small>전체 업체 회의 기록</small><h2>회의내용 추가</h2></div></div><button type="button" aria-label="닫기" onClick={onClose}><X size={19} /></button></header><div className="ops-modal-content ops-compose-grid"><label><span>프로젝트</span><select value={projectId} onChange={(event) => setProjectId(event.target.value)}>{projects.map((project) => <option key={project.id} value={project.id}>{project.clientName} · {project.name}</option>)}</select></label><label><span>회의 날짜</span><input type="date" value={fields.date} onChange={update("date")} /></label><label className="is-wide"><span>회의 제목</span><input value={fields.title} onChange={update("title")} /></label><label className="is-wide"><span>참석자</span><input value={fields.attendees} onChange={update("attendees")} placeholder="쉼표로 구분" /></label><label className="is-wide"><span>회의내용</span><textarea rows="4" value={fields.discussion} onChange={update("discussion")} placeholder="논의한 내용을 항목별로 입력" /></label><label><span>결정사항</span><textarea rows="4" value={fields.decisions} onChange={update("decisions")} /></label><label><span>후속업무</span><textarea rows="4" value={fields.actionItems} onChange={update("actionItems")} /></label>{error && <p className="ops-form-error">{error}</p>}</div><footer><button className="ops-secondary" type="button" onClick={onClose}>취소</button><button className="ops-primary" type="submit" disabled={saving}>{saving ? "저장 중" : "회의록 저장"}</button></footer></form></div>;
+  const [meetingDate, setMeetingDate] = useState(initialDate || localDate());
+  const [entries, setEntries] = useState(() => Object.fromEntries(projects.map((project) => [project.id, {
+    title: "데일리 운영 회의",
+    discussion: "",
+    decisions: "",
+    actionItems: "",
+  }])));
+  const [savedProjectIds, setSavedProjectIds] = useState([]);
+  const [saveProgress, setSaveProgress] = useState({ current: 0, total: 0 });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const hasContent = (entry) => [entry?.discussion, entry?.decisions, entry?.actionItems].some((value) => String(value || "").trim());
+  const readyProjects = projects.filter((project) => hasContent(entries[project.id]) && !savedProjectIds.includes(project.id));
+  const updateEntry = (projectId, key) => (event) => {
+    const { value } = event.target;
+    setEntries((current) => ({ ...current, [projectId]: { ...current[projectId], [key]: value } }));
+  };
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!meetingDate) return setError("회의 날짜를 확인해 주세요.");
+    if (!readyProjects.length) return setError("한 개 이상의 프로젝트에 회의내용, 결정사항 또는 후속업무를 입력해 주세요.");
+    setSaving(true);
+    setError("");
+    setSaveProgress({ current: 0, total: readyProjects.length });
+    let savedCount = 0;
+    try {
+      for (const project of readyProjects) {
+        const entry = entries[project.id];
+        const title = entry.title.trim() || "데일리 운영 회의";
+        const savedTitle = project.isMisc ? `${MISC_PREFIX} ${title.replace(/^\[기타\]\s*/, "")}` : title;
+        await onSave(null, {
+          meeting_date: meetingDate,
+          title: savedTitle,
+          attendees_text: "",
+          discussion_text: entry.discussion.trim(),
+          decisions_text: entry.decisions.trim(),
+          action_items_text: entry.actionItems.trim(),
+          visibility_code: "PROJECT_TEAM",
+        }, project.saveProjectId || project.id);
+        savedCount += 1;
+        setSavedProjectIds((current) => [...current, project.id]);
+        setSaveProgress({ current: savedCount, total: readyProjects.length });
+      }
+      onClose();
+    } catch (saveError) {
+      const prefix = savedCount ? `${savedCount}개 프로젝트는 저장됐습니다. ` : "";
+      setError(`${prefix}${saveError?.message || "나머지 회의록을 저장하지 못했습니다."}`);
+      setSaving(false);
+    }
+  };
+  return <div className="ops-modal-backdrop" role="presentation" onMouseDown={onClose}><form className="ops-modal ops-compose-modal is-multi-project" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}><header><div><span className="ops-panel-icon"><Clock3 size={17} /></span><div><small>내용이 입력된 프로젝트만 저장됩니다.</small><h2>프로젝트별 회의내용 추가</h2></div></div><button type="button" aria-label="닫기" onClick={onClose}><X size={19} /></button></header><div className="ops-compose-overview"><label><span>공통 회의 날짜</span><input type="date" value={meetingDate} onChange={(event) => setMeetingDate(event.target.value)} /></label><p>프로젝트를 전환하지 않고 각 업체 내용을 한 화면에서 작성할 수 있습니다.</p></div><div className="ops-compose-projects" aria-label="프로젝트별 회의내용 입력">{projects.map((project) => { const entry = entries[project.id]; const saved = savedProjectIds.includes(project.id); const filled = hasContent(entry); return <section className={`ops-compose-project-card${filled ? " is-filled" : ""}${saved ? " is-saved" : ""}`} key={project.id}><header><span>{project.clientName.slice(0, 1)}</span><div><strong>{project.clientName}</strong><small>{project.name}</small></div>{saved && <em><CheckCircle2 size={13} /> 저장 완료</em>}</header><label><span>회의 제목</span><input value={entry.title} disabled={saved} onChange={updateEntry(project.id, "title")} /></label><label><span>회의내용</span><textarea rows="4" value={entry.discussion} disabled={saved} onChange={updateEntry(project.id, "discussion")} placeholder="논의한 내용을 항목별로 입력" /></label><label><span>결정사항</span><textarea rows="3" value={entry.decisions} disabled={saved} onChange={updateEntry(project.id, "decisions")} placeholder="확정된 사항을 입력" /></label><label><span>후속업무</span><textarea rows="3" value={entry.actionItems} disabled={saved} onChange={updateEntry(project.id, "actionItems")} placeholder="담당자가 실행할 업무를 입력" /></label></section>; })}</div>{error && <p className="ops-form-error ops-compose-error" role="alert">{error}</p>}<footer><span className="ops-compose-ready">{readyProjects.length ? `${readyProjects.length}개 프로젝트 입력됨` : "입력 대기"}</span><button className="ops-secondary" type="button" disabled={saving} onClick={onClose}>취소</button><button className="ops-primary" type="submit" disabled={saving || !readyProjects.length}>{saving ? `저장 중 ${saveProgress.current}/${saveProgress.total}` : `${readyProjects.length || 0}개 프로젝트 저장`}</button></footer></form></div>;
 }
 
 function DateNavigator({ selectedDate, onChange, loading = false }) {
