@@ -18,6 +18,7 @@ import { ProjectIssuePanel, TaskScheduleTimeline } from './src/TaskWorkspace.jsx
 import PermissionsView from './src/PermissionsView.jsx';
 import IssueRequestCard from './src/IssueRequestCard.jsx';
 import DetailLogView from './src/DetailLogView.jsx';
+import ScreenBoundary from './src/ScreenBoundary.jsx';
 import { tasksViewModel } from './src/api/viewModel.js';
 import './src/styles.css';
 import './src/sidebarWorkspace.css';
@@ -95,6 +96,18 @@ function IssueTabsQa() {
 }
 window.runQa = async () => {
  const results=[];
+ const FailedLazy = lazy(()=>Promise.reject(new TypeError('Failed to fetch dynamically imported module: test-only')));
+ await render(<div><nav id="qa-surviving-menu">메뉴 유지</nav><ScreenBoundary key="failed-chunk"><Suspense fallback={<span>loading</span>}><FailedLazy/></Suspense></ScreenBoundary></div>);
+ for(let attempt=0;attempt<50 && !document.querySelector('.screen-recovery');attempt++) await tick();
+ check(document.querySelector('#qa-surviving-menu') && document.querySelector('.screen-recovery'),'lazy chunk failure blanked shell');
+ check(document.querySelector('.screen-recovery').textContent.includes('SCREEN_LOAD_FAILED'),'chunk failure not classified');
+ await render(<div><nav id="qa-surviving-menu">메뉴 유지</nav><ScreenBoundary key="next-route"><p id="qa-recovered-route">다른 메뉴 정상</p></ScreenBoundary></div>);
+ check(document.querySelector('#qa-recovered-route'),'navigation cannot recover after chunk error');
+ function BrokenScreen(){throw new Error('test-only-render-failure');}
+ await render(<ScreenBoundary key="render-error"><BrokenScreen/></ScreenBoundary>);
+ check(document.querySelector('.screen-recovery')?.textContent.includes('SCREEN_RENDER_FAILED'),'runtime error blanked root');
+ check(!document.querySelector('.screen-recovery').textContent.includes('test-only-render-failure'),'raw error text exposed');
+ results.push('white-screen recovery: rejected lazy import retains shell, route change recovers, runtime fallback hides raw errors');
  const logActor='12345678-1234-1234-1234-123456789abc';
  const logData={actors:[{id:logActor,display_name:'QA 계정',organization_code:'NS'}],items:[{id:1,created_at:'2026-09-08T01:00:00Z',actor_user_id:logActor,project:{project_name:'QA 프로젝트'},entity_type:'TASK',action_code:'UPDATED',event_status_code:'COMMIT'}],nextCursor:null};
  const logCalls=[];const logSource={activity:async params=>{logCalls.push(params);return {data:{...logData,items:[]}};}};

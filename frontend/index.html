@@ -10,7 +10,8 @@
     <title>포켓 마케팅 허브</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><section style="max-width:560px;margin:60px auto;padding:24px;font-family:system-ui;color:#172238"><h2>포켓 마케팅 허브</h2><p>화면을 불러오고 있습니다.</p><div id="boot-recovery" hidden><p>연결이 지연되거나 업데이트된 화면을 불러오지 못했습니다.</p><button type="button" onclick="location.reload()" style="padding:10px 16px;background:#203660;color:white;border:0;border-radius:7px">다시 불러오기</button></div><noscript>이 페이지를 사용하려면 브라우저에서 JavaScript를 허용해 주세요.</noscript></section></div>
+    <script>setTimeout(function(){var el=document.getElementById('boot-recovery');if(el)el.hidden=false;},10000);</script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
