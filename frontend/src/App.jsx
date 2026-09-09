@@ -1118,7 +1118,7 @@ export function App() {
   const [taskActivityState, setTaskActivityState] = useState(blankTaskActivity);
   const [activeClient, setActiveClient] = useState(null);
   const [activeProjectId, setActiveProjectId] = useState(null);
-  const initialLocation = typeof window !== "undefined" ? parseViewLocation(window.location.hash) : { view: "overview", planVariant: DEFAULT_PLAN_VARIANT };
+  const initialLocation = parseViewLocation(typeof window !== "undefined" ? window.location.hash : "");
   const [view, setView] = useState(initialLocation.view);
   const [planVariant, setPlanVariant] = useState(initialLocation.planVariant);
   const [search, setSearch] = useState("");
@@ -1231,7 +1231,8 @@ export function App() {
   useEffect(() => {
     if (bootstrapState.status !== "ready" || !activeProjectId || view !== "overview") return;
     const allowedPages = bootstrapState.data?.projects?.[activeProjectId]?.allowedPages || [];
-    if (actorRole !== "client" || isViewAllowed("schedule", allowedPages)) setView("schedule");
+    if (actorRole !== "client") setView("portfolio");
+    else if (isViewAllowed("schedule", allowedPages)) setView("schedule");
   }, [bootstrapState.status, bootstrapState.data, actorRole, activeProjectId, view]);
 
   const applyBootstrapEnvelope = useCallback((envelope) => {

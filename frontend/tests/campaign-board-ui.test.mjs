@@ -197,7 +197,8 @@ test("업무 로그에서도 일정표·간트·업무 로그 탭을 유지하�
   assert.match(styleSource, /\.task-workspace-tabs button\[aria-selected="true"\]/);
 });
 
-test("프로젝트 선택과 기존 총괄 진입은 일정 권한이 있으면 일정표로 전환한다", () => {
+test("기존 총괄 진입은 내부 통합관리로, 고객은 허용 일정으로 전환한다", () => {
+  assert.match(appSource, /if \(actorRole !== "client"\) setView\("portfolio"\)/);
   assert.match(appSource, /view !== "overview"/);
   assert.match(appSource, /isViewAllowed\("schedule", allowedPages\)/);
   assert.match(appSource, /\? "schedule" : firstAllowedView/);

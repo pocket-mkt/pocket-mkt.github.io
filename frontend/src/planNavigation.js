@@ -19,7 +19,7 @@ export function parseViewLocation(hash = "") {
   if (["overview", "portfolio", "tasks", "schedule", "daily", "credentials", "content", "tracking", "performance", "files", "permissions"].includes(value)) {
     return { view: value, planVariant: DEFAULT_PLAN_VARIANT };
   }
-  return { view: "overview", planVariant: DEFAULT_PLAN_VARIANT };
+  return { view: "portfolio", planVariant: DEFAULT_PLAN_VARIANT };
 }
 
 export function viewLocationHash(view, planVariant = DEFAULT_PLAN_VARIANT) {

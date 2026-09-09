@@ -3,6 +3,16 @@ import test from "node:test";
 
 import { getNavigationPresentation } from "../src/navigationState.js";
 import { parseViewLocation, viewLocationHash, viewResourceKey } from "../src/planNavigation.js";
+import { firstAllowedView, isViewAllowed } from "../src/accessPermissions.js";
+
+test("bare-site entry opens portfolio while explicit routes and client restrictions remain", () => {
+  for (const hash of ["", "#", "#unknown"]) assert.equal(parseViewLocation(hash).view, "portfolio");
+  assert.equal(parseViewLocation("#tasks/schedule").view, "schedule");
+  assert.equal(parseViewLocation("#daily").view, "daily");
+  assert.equal(parseViewLocation("#tasks/client-progress").view, "client-progress");
+  assert.equal(isViewAllowed(parseViewLocation("").view, ["tasks", "progress"]), false);
+  assert.notEqual(firstAllowedView(["tasks", "progress"]), "portfolio");
+});
 
 test("데스크톱은 접힌 왼쪽 레일에서 프로젝트와 메뉴를 함께 펼친다", () => {
   const initial = getNavigationPresentation({ role: "pocket" });

@@ -27,6 +27,8 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Pocket Marketing Hub design decisions
 
+- Bare-site entry defaults to portfolio (통합 관리); old overview entry also redirects internal Pocket/NS users there rather than the first project's schedule. Preserve explicit deep links and reloads of selected pages. Existing client authorization redirects to firstAllowedView before any workspace fetch; do not grant clients portfolio access.
+
 - Integrated confirmation rows expose the request body without opening a modal: project/title/author/time on the left, full wrapping 15px near-black body in the center, deadline on the right. At narrow panel widths place the body below metadata instead of squeezing it; retain full-row click to the existing reply/confirmation dialog and the same layout in the completed tab.
 
 - Schedule status/owner columns are 78px each, taking 48px from the flexible task-title column without widening the table. Centered 12px triggers open a shared white 13px popup with a selected checkmark, keyboard navigation and outside/Escape dismissal. Portal the popup beyond table scroll clipping; preserve canonical save handlers and read-only permissions.
