@@ -140,13 +140,16 @@ window.runQa = async () => {
  await window.showRequestBodyQa();
  const requestBody=document.querySelector('.ops-issue-body');
  check(requestBody.textContent.includes('이미지 제작 방향'),'request body absent from list');
- check(getComputedStyle(requestBody).fontSize==='15px' && getComputedStyle(requestBody).color==='rgb(17, 24, 39)','request body typography');
+ check(getComputedStyle(requestBody).fontSize==='13px' && getComputedStyle(requestBody).fontWeight==='400','request body typography');
+ check(document.querySelector('.ops-issue-company').textContent==='UND','company label must omit campaign/project name');
+ check(document.querySelectorAll('.ops-issue-byline').length===2,'author and created date must be separate rows');
+ check(getComputedStyle(requestBody).fontFamily===getComputedStyle(document.querySelector('.ops-issue-title')).fontFamily,'request typography must share one font family');
  check(requestBody.scrollWidth<=requestBody.clientWidth+1,'request body overflows');
  requestBody.click();await tick();check(document.querySelector('[aria-label="확인 요청 상세"]'),'request body click must open existing dialog');
  document.querySelector('[aria-label="확인 요청 상세"] [aria-label="닫기"]').click();await tick();
  document.querySelectorAll('.ops-issue-tabs button')[1].click();await tick();
  check(document.querySelector('.ops-issue-body').textContent.includes('문구 수정 완료'),'completed request body absent');
- results.push('Integrated requests: visible 15px near-black body, wrapping, full-row dialog and completed tab');
+ results.push('Integrated requests: company-only label, separate author/date, unified 13px normal-weight body, wrapping and dialog');
  let choiceWrites=[];
  await render(<div className="campaign-schedule-surface"><TaskInlineSelect aria-label="업무 상태" value="TODO" onChange={event=>choiceWrites.push(event.target.value)}><option value="TODO">미착수</option><option value="DONE">완료</option></TaskInlineSelect></div>);
  const choiceTrigger=document.querySelector('.task-choice-trigger');choiceTrigger.click();await tick();
