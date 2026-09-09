@@ -27,6 +27,8 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Pocket Marketing Hub design decisions
 
+- Task creation exposes an optional channel dropdown in the main form. Store it in existing category_code, reuse taskChannels labels plus the active project's already-loaded category codes, and keep unspecified valid. Do not add a new DB field or a channel-list fetch; regular/completed entry share this control and canonical submit path.
+
 - Basic page content must load automatically: never introduce per-row “불러오기”, “내용 보기”, or “완료링크 확인” gates merely to fetch normal display data. Fetch bounded batches on entry/filter/page changes, preserve pagination and explicit retry for real failures, and retain security-required credential reveal controls.
 - Detailed-log task snapshots load automatically by project, following at most five 200-event audit pages (three projects concurrently) with 12-second request deadlines. Automatically load current issue content and fallback task titles once per represented project through authorized read_task_workspace. Clearly label current content as non-historical. Preserve specific safe error codes instead of hiding failures behind buttons; never replace missing historical changes with fabricated current-state differences or expose raw audit JSON.
 

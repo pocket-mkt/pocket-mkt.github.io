@@ -28,6 +28,7 @@ import { TaskColumn } from './src/ProgressFlow.jsx';
 import InternalPreviewTaskEditor from './src/InternalPreviewTaskEditor.jsx';
 import DeadlineTaskLink from './src/DeadlineTaskLink.jsx';
 import TaskInlineSelect from './src/TaskInlineSelect.jsx';
+import { TaskCreateModal } from './src/TaskCreateModal.jsx';
 import { tasksViewModel } from './src/api/viewModel.js';
 import './src/styles.css';
 import './src/sidebarWorkspace.css';
@@ -121,6 +122,19 @@ window.showRequestBodyQa = async () => {
 };
 window.runQa = async () => {
  const results=[];
+ let channelPayload;
+ await render(<TaskCreateModal role="ns" clientName="QA" tasks={[{categoryCode:'CUSTOM',category:'맞춤 채널'}]} todayValue="2026-09-09" onClose={()=>{}} onSubmit={async(type,fields)=>{channelPayload=fields;}}/>);
+ const channelSelect=document.querySelector('select[name="category_code"]');
+ check(channelSelect && [...channelSelect.options].some(option=>option.value==='CUSTOM'), 'creation includes project channels');
+ channelSelect.value='GOOGLE_SEARCH';
+ channelSelect.dispatchEvent(new Event('change',{bubbles:true}));
+ await tick();
+ document.querySelector('.task-create-submit').click();
+ await tick();
+ check(channelPayload?.category_code==='GOOGLE_SEARCH', 'creation submits selected channel');
+ check(channelSelect.getBoundingClientRect().width>200, 'channel dropdown remains usable on mobile');
+ results.push('task channel dropdown saves canonical category without extra fetch');
+ await render(<div/>);
  await render(<LoginScreen configured loading={false} onLogin={async()=>{}}/>);
  const loginLogo=document.querySelector('.login-mark img');
  for(let attempt=0;attempt<20&&!loginLogo.complete;attempt++)await tick();

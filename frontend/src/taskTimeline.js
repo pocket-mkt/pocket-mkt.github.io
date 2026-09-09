@@ -1,5 +1,6 @@
 import { scheduleDateBounds, taskScheduleDates } from "./taskGantt.js";
 import { taskWorkstreamLabel } from "./taskWorkstreams.js";
+import { TASK_CHANNEL_LABELS } from "./taskChannels.js";
 
 const DAY_MS = 86_400_000;
 
@@ -27,6 +28,7 @@ export function taskScheduleCategory(task = {}) {
 }
 
 const TASK_MEDIA_LABELS = {
+  ...TASK_CHANNEL_LABELS,
   YOUTUBE: "YouTube",
   INSTAGRAM: "Instagram",
   NAVER_BLOG: "네이버블로그",

@@ -106,6 +106,7 @@ export function taskCreateInitialFields(role, mode = "default", todayValue = new
   const responsibleOrgCode = role === "ns" ? "NS" : role === "client" ? "CLIENT" : "POCKET";
   return {
     title: "",
+    category_code: "",
     phase_code: "M1",
     workstream_code: "MARKETING",
     responsible_org_code: responsibleOrgCode,

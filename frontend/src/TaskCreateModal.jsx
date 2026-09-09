@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { AlertCircle, CalendarDays, Check, ChevronDown, ClipboardCheck, LoaderCircle, Plus, X } from "lucide-react";
 import { taskCreateInitialFields, taskCreateSubmissionFields, taskCreateValidationError, taskDateRangeDuration, taskDateRangePreset, taskResponsibleOrgOptions } from "./taskForm.js";
 import { acquireBodyScrollLock } from "./bodyScrollLock.js";
+import { taskChannelOptions } from "./taskChannels.js";
 import "./taskCreateModal.css";
 
 const streams = [["MARKETING","마케팅"],["DESIGN","디자인"],["VIDEO","영상"]];
@@ -12,7 +13,7 @@ function Choices({ label, options, value, onChange, required = false }) {
   return <fieldset className={`task-create-choices${required ? " is-required" : ""}`} aria-required={required || undefined}><legend>{label}{required && <small className="task-create-required-badge">필수</small>}</legend><div>{options.map(([code,name]) => <button type="button" key={code} aria-pressed={value === code} onClick={() => onChange(code)}>{value === code && <Check size={12}/>} {name}</button>)}</div></fieldset>;
 }
 
-export function TaskCreateModal({ completed = false, role, clientName, onClose, onSubmit, todayValue }) {
+export function TaskCreateModal({ completed = false, role, clientName, tasks = [], onClose, onSubmit, todayValue }) {
   const [initial] = useState(() => taskCreateInitialFields(role, completed ? "completed" : "default", todayValue));
   const [fields,setFields] = useState(initial);
   const [saving,setSaving] = useState(false);
@@ -62,6 +63,7 @@ export function TaskCreateModal({ completed = false, role, clientName, onClose, 
             <Choices required label="업무 분야" options={streams} value={fields.workstream_code} onChange={value => setField("workstream_code",value)}/>
             <Choices required label="담당" options={owners} value={fields.responsible_org_code} onChange={value => setField("responsible_org_code",value)}/>
           </div>
+          <label className="task-create-field"><span>채널 <small>선택 · 업무표의 매체</small></span><select name="category_code" value={fields.category_code} onChange={event => setField("category_code", event.target.value)}>{taskChannelOptions(tasks).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
           <section className="task-create-schedule" aria-label="업무 일정 설정">
             <div className="task-create-section-heading"><strong><CalendarDays size={15}/> 업무 일정</strong><span>{duration ? `총 ${duration}일` : "일정 미정"}</span></div>
             <div className="task-create-date-presets" role="group" aria-label="일정 빠른 선택">{presets.map(([code,label]) => {
