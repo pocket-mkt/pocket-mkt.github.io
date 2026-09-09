@@ -1068,10 +1068,14 @@ export function ProjectClientProgressView({ project, taskPage }) {
 }
 
 function AppContent({ view, planVariant, project, role, search, setView, pageState, taskActivityState, onLoadTaskActivity, onRetry, onCreate, onTaskUpdate, onTaskArchive, onTaskBatchUpdate, onProjectUpdate, onIssueCreate, onIssueUpdate, onIssueArchive, onDailyMeetingSave, onCredentialSave, onCredentialArchive, onCredentialReveal, onKpiSave, onKpiArchive, onAccessSave, onOpenProject, canWrite, source, actorName }) {
+  const resolveTaskLink = useMemo(() => createDeadlineLinkResolver(async projectId => {
+    if (role === "client") throw new Error("내부 운영 계정만 접근할 수 있습니다.");
+    return tasksViewModel(await source.tasks({projectId})).items.map(({id,completionUrl})=>({id,completionUrl}));
+  }), [source, role, pageState.data]);
   if (pageState.status === "loading" && !pageState.data) return <LoadingState />;
   if (pageState.status === "error" && !pageState.data) return <ErrorState error={pageState.error} onRetry={onRetry} />;
   const data = pageState.data || {};
-  if (view === "portfolio") return role !== "client" ? <Suspense fallback={<LoadingState label="통합 관리 화면을 준비하고 있습니다." />}><OperationsDashboardView dashboard={data} actorName={actorName} canWrite={canWrite} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} onResolveTaskLink={async task=>{const result=await source.tasks({projectId:task.projectId});const current=tasksViewModel(result).items.find(item=>String(item.id)===String(task.id));if(!current)throw new Error("업무 조회 불가");return current.completionUrl || "";}} onOpenProject={onOpenProject} onLoadWeek={(startDate, endDate) => source.operationsDashboard({ startDate, endDate }).then(operationsDashboardViewModel)} /></Suspense> : <ErrorState error={new Error("내부 운영 계정만 접근할 수 있습니다.")} />;
+  if (view === "portfolio") return role !== "client" ? <Suspense fallback={<LoadingState label="통합 관리 화면을 준비하고 있습니다." />}><OperationsDashboardView dashboard={data} actorName={actorName} canWrite={canWrite} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} onResolveTaskLink={resolveTaskLink} onOpenProject={onOpenProject} onLoadWeek={(startDate, endDate) => source.operationsDashboard({ startDate, endDate }).then(operationsDashboardViewModel)} /></Suspense> : <ErrorState error={new Error("내부 운영 계정만 접근할 수 있습니다.")} />;
   if (view === "client-progress") return <InternalPreviewTaskEditor key={project.id} project={project} role={role} canWrite={canWrite} source={source} onUpdate={onTaskUpdate}><ProjectClientProgressView project={project} taskPage={data} /></InternalPreviewTaskEditor>;
   if (view === "progress") return role === "client" ? <LoadingState label="고객용 진행상황으로 이동합니다." /> : <ProjectProgressView key={project.id} project={project} role={role} taskPage={data} source={source} actorName={actorName} canWrite={canWrite} onTaskUpdate={onTaskUpdate} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} onNavigate={setView} />;
   if (view === "plan") return <PlanView plan={data} project={project} planVariant={planVariant} />;
@@ -2292,3 +2296,4 @@ export function App() {
   );
 }
 export { TaskScheduleTimeline };
+import { createDeadlineLinkResolver } from "./deadlineLinkResolver.js";

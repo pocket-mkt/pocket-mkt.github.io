@@ -329,4 +329,10 @@
   .ops-weekly-panel > header { align-items: stretch; flex-direction: column; }
   .ops-week-switcher { align-self: stretch; grid-template-columns: 34px 1fr 34px; }
 }
-.ops-task-table .ops-task-row{grid-template-columns:minmax(180px,1fr) 90px 150px 76px 120px}.ops-completion-link{display:inline-flex;align-items:center;min-height:32px;padding:5px 8px;border:1px solid #ccdafa;border-radius:6px;background:#f1f6ff;color:#1547a1;font-size:12px;font-weight:750;text-decoration:none;white-space:nowrap}.ops-completion-load{min-height:32px;padding:5px 8px;border:1px solid #d9e1ee;border-radius:6px;background:#fff;color:#203660;font:inherit;font-size:12px;cursor:pointer}.ops-completion-load:disabled{opacity:.6}.ops-completion-empty{font-size:12px;color:#718096}
+.ops-task-table .ops-task-row { grid-template-columns: minmax(180px,1fr) 90px 150px 76px 210px; }
+.ops-completion-inline { display: flex; align-items: center; gap: 10px; min-width: 0; width: 100%; }
+.ops-completion-link { flex: none; display: inline-flex; align-items: center; min-height: 32px; color: #0055ff; font-size: 12px; font-weight: 650; text-decoration: none; white-space: nowrap; }
+.ops-completion-link:hover { text-decoration: underline; }
+.ops-completion-url { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #244269; font-size: 12px; }
+.ops-completion-empty, .ops-completion-error { font-size: 12px; color: #718096; }
+.ops-completion-error button { border: 0; background: transparent; color: #1547a1; font: inherit; text-decoration: underline; cursor: pointer; }
