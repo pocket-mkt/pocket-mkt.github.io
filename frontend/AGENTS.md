@@ -27,6 +27,8 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Pocket Marketing Hub design decisions
 
+- Workspace notifications include committed CREATED TASK and PROJECT_ISSUE events from the last 24 hours within existing RLS. Issue alerts use current dashboard request labels/body when available and profile author labels, falling back to an explicit request ID. Clicking re-reads the canonical request through authorized source.tasks for its project and opens the shared IssueDetailModal with existing reply/update/archive callbacks; never mutate an audit snapshot. Missing/deleted/denied requests show a recoverable error. Updates/replies are not creation alerts. No schema, RLS or customer access changes.
+
 - Bare-site entry defaults to portfolio (통합 관리); old overview entry also redirects internal Pocket/NS users there rather than the first project's schedule. Preserve explicit deep links and reloads of selected pages. Existing client authorization redirects to firstAllowedView before any workspace fetch; do not grant clients portfolio access.
 
 - Integrated confirmation rows expose the request body without opening a modal: project/title/author/time on the left, full wrapping 15px near-black body in the center, deadline on the right. At narrow panel widths place the body below metadata instead of squeezing it; retain full-row click to the existing reply/confirmation dialog and the same layout in the completed tab.

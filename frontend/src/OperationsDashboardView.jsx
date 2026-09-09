@@ -57,7 +57,7 @@ function ProjectTabs({ projects, value, onChange }) {
   return <nav className="ops-project-tabs" aria-label="프로젝트 필터"><button type="button" className={value === "all" ? "is-active" : ""} onClick={() => onChange("all")}><FolderKanban size={16} />전체 업체</button>{projects.map((project) => <button type="button" key={project.id} className={value === project.id ? "is-active" : ""} onClick={() => onChange(project.id)}>{project.clientName}<small>{project.inProgressTasks}건 진행</small></button>)}</nav>;
 }
 
-function IssueDetailModal({ issue, canWrite, actorName, onUpdate, onArchive, onUpdated, onArchived, onClose }) {
+export function IssueDetailModal({ issue, canWrite, actorName, onUpdate, onArchive, onUpdated, onArchived, onClose }) {
   const [current, setCurrent] = useState(issue);
   useEffect(() => setCurrent(issue), [issue]);
   if (!issue) return null;

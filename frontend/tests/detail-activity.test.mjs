@@ -19,9 +19,10 @@ test('확인요청 내용은 기존 권한 RPC에서 선택한 항목만 반환�
  await assert.rejects(readIssueActivityContext(client,{...event,entity_type:'PROJECT_CREDENTIAL'}),{code:'invalid_filter'});
 });
 
-test('통합 알림은 프로젝트 제한 없이 최근 24시간 생성 완료 업무만 서버 조회한다',async()=>{
+test('통합 알림은 최근 24시간 새 업무와 확인요청 생성 기록만 서버 조회한다',async()=>{
  const f=fixture();await f.read({workspaceNotifications:true});
- for(const [field,value] of [['entity_type','TASK'],['action_code','CREATED'],['event_status_code','COMMIT']])assert.ok(f.calls.some(c=>c[1]==='eq'&&c[2]===field&&c[3]===value));
+ assert.ok(f.calls.some(c=>c[1]==='in'&&c[2]==='entity_type'&&JSON.stringify(c[3])==='["TASK","PROJECT_ISSUE"]'));
+ for(const [field,value] of [['action_code','CREATED'],['event_status_code','COMMIT']])assert.ok(f.calls.some(c=>c[1]==='eq'&&c[2]===field&&c[3]===value));
  assert.ok(f.calls.some(c=>c[1]==='gte'&&c[2]==='created_at'));
  assert.equal(f.calls.some(c=>c[1]==='eq'&&c[2]==='project_id'),false);
 });
@@ -49,7 +50,7 @@ test('업무 상세는 허용 RPC로 프로젝트별 묶음 조회하고 event_i
 });
 function fixture(error=null) {
  const calls=[];
- const client={from(table){const q={then(resolve){return Promise.resolve({data:table!=='activity_events'?[]:[{id:2,created_at:'2026-09-08T00:00:00Z'},{id:1,created_at:'2026-09-07T00:00:00Z'}],error}).then(resolve);}};for(const key of ['select','order','limit','eq','is','or','gte','lt','abortSignal'])q[key]=(...args)=>{calls.push([table,key,...args]);return q;};return q;}};
+ const client={from(table){const q={then(resolve){return Promise.resolve({data:table!=='activity_events'?[]:[{id:2,created_at:'2026-09-08T00:00:00Z'},{id:1,created_at:'2026-09-07T00:00:00Z'}],error}).then(resolve);}};for(const key of ['select','order','limit','eq','in','is','or','gte','lt','abortSignal'])q[key]=(...args)=>{calls.push([table,key,...args]);return q;};return q;}};
  return {read:createDetailActivityReader(client),calls};
 }
 test('세부로그는 안전한 허용 컬럼만 조회하고 계정별 필터와 서버 페이지 경계를 적용한다',async()=>{

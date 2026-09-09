@@ -15,7 +15,7 @@ export function createDetailActivityReader(client) {
       .order('created_at', {ascending:false}).order('id', {ascending:false}).limit(count + 1);
     if (actorId === 'system') query = query.is('actor_user_id', null);
     else if (actorId) query = query.eq('actor_user_id', actorId);
-    if(workspaceNotifications) query=query.eq('entity_type','TASK').eq('action_code','CREATED').eq('event_status_code','COMMIT').gte('created_at',new Date(Date.now()-86400000).toISOString());
+    if(workspaceNotifications) query=query.in('entity_type',['TASK','PROJECT_ISSUE']).eq('action_code','CREATED').eq('event_status_code','COMMIT').gte('created_at',new Date(Date.now()-86400000).toISOString());
     if (projectId) query = query.eq('project_id',projectId);
     if(actionCode)query=query.eq('action_code',actionCode);
     if(entityFilter)query=query.eq('entity_type',entityFilter);
