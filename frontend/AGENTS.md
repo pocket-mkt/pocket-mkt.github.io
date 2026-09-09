@@ -27,6 +27,8 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Pocket Marketing Hub design decisions
 
+- Portfolio deadline task table has a fifth completion-link column. The current aggregate RPC omits task completion_url; preserve undefined as unknown and use explicit source.tasks lookup on click rather than mislabeling missing or fetching every project at page load. Resolve only the selected task, allow HTTP(S) links with noopener/noreferrer, show unregistered only after confirmed empty, and distinguish errors. Reset resolved state on task/project/update changes.
+
 - The client-progress page remains a pure safe projection, but Pocket/NS writable previews wrap it with InternalPreviewTaskEditor. Capture flow-row clicks (not completion links), fetch the canonical task through the authorized source.tasks before opening the existing editor, and preserve private fields/row version. Never edit using the masked client task. Actual clients and non-writers must not fetch internal tasks or receive an editor. Abort superseded/project-changed reads.
 
 - Internal writable progress flow rows open the existing lazy TaskEditModal and reuse App's canonical onTaskUpdate callback. Completion links retain their own navigation. Client/read-only flow rows keep disclosure-only behavior; no edit handler or modal on customer progress. Do not navigate away merely to edit a flow task.
