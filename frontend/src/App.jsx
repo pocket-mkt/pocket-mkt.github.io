@@ -122,7 +122,7 @@ function GlobalSaveOverlay({ label }) {
 }
 
 
-function LoginScreen({ onLogin, error, loading, configured }) {
+export function LoginScreen({ onLogin, error, loading, configured }) {
   const [account, setAccount] = useState("");
   const [accessCode, setAccessCode] = useState("");
   const submit = async (event) => {
@@ -133,7 +133,7 @@ function LoginScreen({ onLogin, error, loading, configured }) {
   return (
     <main className="login-shell">
       <section className="login-card">
-        <div className="login-mark"><LockKeyhole size={20} /></div>
+        <div className="login-mark"><CompanySymbol /></div>
         <div className="login-heading"><span>포켓컴퍼니</span><h1>마케팅 프로젝트 허브</h1><p>배정된 고객사와 프로젝트만 표시됩니다.</p></div>
         <form onSubmit={submit}>
           <label><span>아이디</span><input type="text" autoComplete="username" value={account} onChange={(event) => setAccount(event.target.value)} placeholder="아이디 입력" disabled={loading || !configured} /></label>

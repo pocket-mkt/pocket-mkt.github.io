@@ -4068,9 +4068,10 @@ table tbody tr:hover {
   height: 40px;
   place-items: center;
   border-radius: var(--radius-sm);
-  background: var(--ink);
-  color: #fff;
+  background: transparent;
 }
+
+.login-mark .sidebar-company-symbol { width: 40px; flex-basis: 40px; }
 
 .login-heading {
   margin: 20px 0 24px;

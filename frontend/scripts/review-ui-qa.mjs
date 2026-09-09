@@ -14,6 +14,7 @@ import { createRoot } from 'react-dom/client';
 import { CredentialLedgerView } from './src/CredentialLedgerView.jsx';
 import { useOverviewResource } from './src/useOverviewResource.js';
 import { ProjectClientProgressView, Topbar, ProjectSidebar } from './src/App.jsx';
+import { LoginScreen } from './src/App.jsx';
 import { ProjectIssuePanel, TaskScheduleTimeline } from './src/TaskWorkspace.jsx';
 import PermissionsView from './src/PermissionsView.jsx';
 import IssueRequestCard from './src/IssueRequestCard.jsx';
@@ -120,6 +121,13 @@ window.showRequestBodyQa = async () => {
 };
 window.runQa = async () => {
  const results=[];
+ await render(<LoginScreen configured loading={false} onLogin={async()=>{}}/>);
+ const loginLogo=document.querySelector('.login-mark img');
+ for(let attempt=0;attempt<20&&!loginLogo.complete;attempt++)await tick();
+ check(loginLogo.naturalWidth>0 && loginLogo.alt==='포켓컴퍼니','login brand asset missing');
+ check(!document.querySelector('.login-mark svg') && getComputedStyle(document.querySelector('.login-mark .sidebar-company-symbol')).width==='40px','login symbol size/lock replacement');
+ check(document.querySelector('input[type="password"]') && document.querySelector('.login-submit').disabled,'login form behavior changed');
+ results.push('Login: original Pocket symbol loaded at 40px, lock removed, form preserved');
  let issueAlertSelection=null;
  const issueAlert={id:8765,entity_type:'PROJECT_ISSUE',entity_id:55,project_id:7,actor_user_id:'actor-qa',created_at:new Date().toISOString(),project:{project_name:'UND'}};
  const issueAlertSource={activity:async()=>({data:{items:[issueAlert],actors:[{id:'actor-qa',display_name:'QA 작성자'}],nextCursor:null}})};
