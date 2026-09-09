@@ -27,6 +27,8 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Pocket Marketing Hub design decisions
 
+- Integrated confirmation rows expose the request body without opening a modal: project/title/author/time on the left, full wrapping 15px near-black body in the center, deadline on the right. At narrow panel widths place the body below metadata instead of squeezing it; retain full-row click to the existing reply/confirmation dialog and the same layout in the completed tab.
+
 - Schedule status/owner columns are 78px each, taking 48px from the flexible task-title column without widening the table. Centered 12px triggers open a shared white 13px popup with a selected checkmark, keyboard navigation and outside/Escape dismissal. Portal the popup beyond table scroll clipping; preserve canonical save handlers and read-only permissions.
 
 - Portfolio deadline links appear automatically as plain “열기 ↗” plus the saved URL on one line, never a check-for-link button. While the aggregate omits completion_url, hydrate displayed projects through authorized source.tasks, deduplicated once per project/page snapshot with at most three reads in flight. Keep only id/link pairs in this page-scoped compatibility cache; never use customer projections or persist it. Known links skip extra reads. Distinguish loading/failure from confirmed empty (—), allow HTTP(S) only with noopener/noreferrer, and ignore superseded responses.

@@ -110,8 +110,25 @@ window.showChoiceQa = async () => {
  check(getComputedStyle(document.querySelector('.reference-task-status .task-choice-trigger')).fontSize==='12px','actual status font overridden');
  check(document.querySelector('.task-choice-menu'),'actual table owner menu missing');
 };
+window.showRequestBodyQa = async () => {
+ const dashboard={range:{from:'2026-09-07',to:'2026-09-11'},projects:[{id:'1',name:'통합 마케팅 운영',clientName:'UND',totalTasks:0,inProgressTasks:0,onHoldTasks:0,overdueTasks:0,doneTasks:0}],meetings:[],weeklyTasks:[],issues:[
+  {id:'body-open',projectId:'1',clientName:'UND',projectName:'통합 마케팅 운영',relatedTask:'블로그',body:'블로그 원고 검토 요청드립니다.\\n이미지 제작 방향과 수정이 필요한 부분을 확인해 주세요.',requester:'NS마케팅',createdAt:'2026-09-08T05:37:00Z',date:'2026-09-08',statusCode:'IN_PROGRESS'},
+  {id:'body-done',projectId:'1',clientName:'UND',projectName:'통합 마케팅 운영',relatedTask:'인스타그램',body:'카드뉴스 시안 확인 및 문구 수정 완료',requester:'포켓',createdAt:'2026-09-07T05:37:00Z',date:'2026-09-07',statusCode:'DONE'}]};
+ await render(<div/>);
+ await render(<OperationsDashboardView dashboard={dashboard} canWrite={false} onOpenProject={()=>{}}/>);
+};
 window.runQa = async () => {
  const results=[];
+ await window.showRequestBodyQa();
+ const requestBody=document.querySelector('.ops-issue-body');
+ check(requestBody.textContent.includes('이미지 제작 방향'),'request body absent from list');
+ check(getComputedStyle(requestBody).fontSize==='15px' && getComputedStyle(requestBody).color==='rgb(17, 24, 39)','request body typography');
+ check(requestBody.scrollWidth<=requestBody.clientWidth+1,'request body overflows');
+ requestBody.click();await tick();check(document.querySelector('[aria-label="확인 요청 상세"]'),'request body click must open existing dialog');
+ document.querySelector('[aria-label="확인 요청 상세"] [aria-label="닫기"]').click();await tick();
+ document.querySelectorAll('.ops-issue-tabs button')[1].click();await tick();
+ check(document.querySelector('.ops-issue-body').textContent.includes('문구 수정 완료'),'completed request body absent');
+ results.push('Integrated requests: visible 15px near-black body, wrapping, full-row dialog and completed tab');
  let choiceWrites=[];
  await render(<div className="campaign-schedule-surface"><TaskInlineSelect aria-label="업무 상태" value="TODO" onChange={event=>choiceWrites.push(event.target.value)}><option value="TODO">미착수</option><option value="DONE">완료</option></TaskInlineSelect></div>);
  const choiceTrigger=document.querySelector('.task-choice-trigger');choiceTrigger.click();await tick();
@@ -403,6 +420,10 @@ try {
     await mkdir('../artifacts/client-progress',{recursive:true});
     await writeFile(`../artifacts/client-progress/qa-${width}.png`,Buffer.from(screenshot.data,'base64'));
     console.log(JSON.stringify({viewport:width,checks:result}));
+    await evaluate('window.showRequestBodyQa()');
+    await evaluate('document.querySelector(".ops-issue-panel").scrollIntoView({block:"center"})');
+    const requestBodyShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await writeFile(`../artifacts/client-progress/request-body-${width}.png`,Buffer.from(requestBodyShot.data,'base64'));
     await evaluate('window.showChoiceQa()');
     const choiceShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await writeFile(`../artifacts/client-progress/task-choice-${width}.png`,Buffer.from(choiceShot.data,'base64'));
