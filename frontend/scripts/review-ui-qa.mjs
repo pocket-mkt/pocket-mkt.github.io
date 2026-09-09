@@ -123,9 +123,10 @@ window.showRequestBodyQa = async () => {
 window.runQa = async () => {
  const results=[];
  let channelPayload;
- await render(<TaskCreateModal role="ns" clientName="QA" tasks={[{categoryCode:'CUSTOM',category:'맞춤 채널'}]} todayValue="2026-09-09" onClose={()=>{}} onSubmit={async(type,fields)=>{channelPayload=fields;}}/>);
+ await render(<TaskCreateModal role="ns" clientName="QA" tasks={[{categoryCode:'CUSTOM',category:'맞춤 채널'}, {categoryCode:'GOOGLE_SEARCH'}]} todayValue="2026-09-09" onClose={()=>{}} onSubmit={async(type,fields)=>{channelPayload=fields;}}/>);
  const channelSelect=document.querySelector('select[name="category_code"]');
  check(channelSelect && [...channelSelect.options].some(option=>option.value==='CUSTOM'), 'creation includes project channels');
+ check(channelSelect.options.length===3, 'media dropdown only includes media already used in this project');
  channelSelect.value='GOOGLE_SEARCH';
  channelSelect.dispatchEvent(new Event('change',{bubbles:true}));
  await tick();

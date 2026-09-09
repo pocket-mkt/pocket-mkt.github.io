@@ -15,10 +15,12 @@ export const TASK_CHANNEL_LABELS = Object.freeze({
 });
 
 export function taskChannelOptions(tasks = []) {
-  const options = new Map(Object.entries(TASK_CHANNEL_LABELS));
+  const options = new Map();
   for (const task of tasks) {
     const code = String(task.categoryCode || task.category_code || "").trim().toUpperCase();
-    if (code && !options.has(code)) options.set(code, String(task.category || task.parent || code).trim() || code);
+    if (code && !options.has(code)) options.set(code, TASK_CHANNEL_LABELS[code] || String(task.category || task.parent || code).trim() || code);
   }
+  // Empty projects still need a small starter list, not every supported subtype.
+  if (!options.size) for (const code of ["INSTAGRAM", "NAVER_BLOG", "YOUTUBE", "GOOGLE_SEARCH"]) options.set(code, TASK_CHANNEL_LABELS[code]);
   return [["", "미지정"], ...options];
 }
