@@ -27,6 +27,9 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Pocket Marketing Hub design decisions
 
+- Basic page content must load automatically: never introduce per-row “불러오기”, “내용 보기”, or “완료링크 확인” gates merely to fetch normal display data. Fetch bounded batches on entry/filter/page changes, preserve pagination and explicit retry for real failures, and retain security-required credential reveal controls.
+- Detailed-log task snapshots load automatically by project, following at most five 200-event audit pages (three projects concurrently) with 12-second request deadlines. Automatically load current issue content and fallback task titles once per represented project through authorized read_task_workspace. Clearly label current content as non-historical. Preserve specific safe error codes instead of hiding failures behind buttons; never replace missing historical changes with fabricated current-state differences or expose raw audit JSON.
+
 - Login uses the existing blue Pocket Company symbol at 40px in place of the lock mark, on transparent/white background. Reuse CompanySymbol and its original asset; preserve sidebar symbol size and all login behavior.
 
 - Workspace notifications include committed CREATED TASK and PROJECT_ISSUE events from the last 24 hours within existing RLS. Issue alerts use current dashboard request labels/body when available and profile author labels, falling back to an explicit request ID. Clicking re-reads the canonical request through authorized source.tasks for its project and opens the shared IssueDetailModal with existing reply/update/archive callbacks; never mutate an audit snapshot. Missing/deleted/denied requests show a recoverable error. Updates/replies are not creation alerts. No schema, RLS or customer access changes.

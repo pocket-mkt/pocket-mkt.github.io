@@ -12,18 +12,23 @@ function ChangeDetails({detail,created=false}) {
   return <ul className="detail-log-changes">{changes.map(change=><li key={change.field}><b>{change.label}</b>{!created&&<><span className="detail-log-before">{valueText(change.field,change.before)}</span><span aria-label="변경 후">→</span></>}<strong>{valueText(change.field,change.after)}</strong></li>)}</ul>;
 }
 
-function IssueActivityContent({item,source}) {
-  const [state,setState]=useState({data:null,loading:false,error:''});
-  return <div>{state.data?<><strong>{state.data.relatedTask||state.data.kind||'확인요청'}</strong><p style={{whiteSpace:'pre-wrap'}}>{state.data.body||'내용 없음'}</p><small>현재 저장된 내용입니다. 생성·수정 당시의 원문이 아닐 수 있습니다.</small></>:<button disabled={state.loading} onClick={async()=>{setState({data:null,loading:true,error:''});try{const result=await source.activity({issueEvent:item});setState({data:result.data,loading:false,error:''});}catch{setState({data:null,loading:false,error:'확인요청을 불러오지 못했습니다. 삭제 여부와 권한을 확인해 주세요.'});}}}>{state.loading?'불러오는 중…':'확인요청 내용 보기'}</button>}{state.error&&<p role="alert">{state.error}</p>}</div>;
+function detailError(code) {
+  if(code==='42501')return '변경 내역 조회 권한이 없습니다. 관리자 권한 설정 확인이 필요합니다. (42501)';
+  if(['PGRST202','42883'].includes(code))return '서버의 로그 조회 함수가 준비되지 않았습니다. 서버 설정 확인이 필요합니다. ('+code+')';
+  if(code==='detail_timeout'||code==='57014')return '상세 조회 시간이 초과되었습니다. 서버 응답을 확인해 주세요.';
+  if(code==='detail_not_found')return '저장 당시의 상세 내역을 조회 범위에서 찾지 못했습니다.';
+  return '상세 조회에 실패했습니다. 기록 자체는 남아 있으며 연결·서버 상태 확인이 필요합니다.';
 }
 
-function LogRow({item,actorName,source}) {
-  const [detail,setDetail]=useState(item.task_detail);
-  const [loading,setLoading]=useState(false);
-  const [error,setError]=useState('');
-  useEffect(()=>{setDetail(item.task_detail);setError('');},[item]);
+function IssueActivityContent({item}) {
+  const data=item.issue_context;
+  return data?<div><strong>{data.relatedTask||data.kind||'확인요청'}</strong><p style={{whiteSpace:'pre-wrap'}}>{data.body||'내용 없음'}</p><small>현재 저장된 내용입니다. 생성·수정 당시의 원문이 아닐 수 있습니다.</small></div>:<span className="detail-log-muted" role="status">{item.issue_error_code==='detail_not_found'?'삭제되었거나 조회할 수 없는 확인요청입니다. 활동 기록은 유지됩니다.':detailError(item.issue_error_code)}</span>;
+}
+
+function LogRow({item,actorName}) {
+  const detail=item.task_detail;
   const isTask=item.entity_type==='TASK' && item.event_status_code==='COMMIT';
-  return <tr><td><time dateTime={item.created_at}>{time(item.created_at)}</time></td><td><strong>{actorName}</strong>{!item.actor_user_id&&<small>자동 처리</small>}</td><td><strong>{item.project?.project_name||'프로젝트'}</strong><small>{entities[item.entity_type]||item.entity_type}</small></td><td className="detail-log-task"><strong>{detail?.task_title || (entities[item.entity_type]||'항목')+' #'+(item.entity_id||'—')}</strong><small><span className={'detail-log-action is-'+String(item.action_code).toLowerCase()}>{actions[item.action_code]||item.action_code}</span> · {({COMMIT:'저장 완료',PREPARE:'처리 준비',FAILED:'실패'})[item.event_status_code]||item.event_status_code}</small></td><td className="detail-log-diff">{detail?<ChangeDetails detail={detail} created={item.action_code==='CREATED'}/>:isTask?<><button disabled={loading} onClick={async()=>{setLoading(true);setError('');try{const result=await source.activity({detailEvent:item});setDetail(result.data);}catch{setError('변경 내역 조회 실패 — 다시 시도해 주세요.');}finally{setLoading(false);}}}>{loading?'불러오는 중…':'업무명 · 변경 내역 불러오기'}</button>{error&&<p role="alert">{error}</p>}</>:item.entity_type==='PROJECT_ISSUE'?<IssueActivityContent item={item} source={source}/>:<span className="detail-log-muted">{entities[item.entity_type]||'항목'} {actions[item.action_code]||'활동'} 기록</span>}</td></tr>;
+  return <tr><td><time dateTime={item.created_at}>{time(item.created_at)}</time></td><td><strong>{actorName}</strong>{!item.actor_user_id&&<small>자동 처리</small>}</td><td><strong>{item.project?.project_name||'프로젝트'}</strong><small>{entities[item.entity_type]||item.entity_type}</small></td><td className="detail-log-task"><strong>{detail?.task_title || item.task_current_title || (entities[item.entity_type]||'항목')+' #'+(item.entity_id||'—')}</strong>{!detail?.task_title&&item.task_current_title&&<small>현재 업무명 · 변경 당시 이름과 다를 수 있음</small>}<small><span className={'detail-log-action is-'+String(item.action_code).toLowerCase()}>{actions[item.action_code]||item.action_code}</span> · {({COMMIT:'저장 완료',PREPARE:'처리 준비',FAILED:'실패'})[item.event_status_code]||item.event_status_code}</small></td><td className="detail-log-diff">{detail?<ChangeDetails detail={detail} created={item.action_code==='CREATED'}/>:isTask?<span className="detail-log-muted" role="status">{detailError(item.detail_error_code)}</span>:item.entity_type==='PROJECT_ISSUE'?<IssueActivityContent item={item}/>:<span className="detail-log-muted">{entities[item.entity_type]||'항목'} {actions[item.action_code]||'활동'} 기록</span>}</td></tr>;
 }
 
 export default function DetailLogView({initialData={},source}) {

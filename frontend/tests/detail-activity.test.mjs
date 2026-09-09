@@ -40,9 +40,9 @@ test('업무 상세는 허용 RPC로 프로젝트별 묶음 조회하고 event_i
  const rpcCalls=[];
  const client={from(table){const q={then:resolve=>Promise.resolve({data:table==='activity_events'?events:[]}).then(resolve)};for(const method of ['select','order','limit'])q[method]=()=>q;return q;},rpc(name,args){rpcCalls.push({name,args});return Promise.resolve({data:{items:[{event_id:'e8',task_title:'블로그',changes:[{field:'progress_percent',before:30,after:60}]}]}});}};
  const result=await createDetailActivityReader(client)();
- assert.equal(rpcCalls.length,1);assert.equal(rpcCalls[0].args.p_before_id,'9');assert.equal(rpcCalls[0].args.p_before_created_at,events[0].created_at);
+ assert.equal(rpcCalls.filter(call=>call.name==='read_task_activity').length,1);assert.equal(rpcCalls[0].args.p_before_id,'9');assert.equal(rpcCalls[0].args.p_before_created_at,events[0].created_at);
  assert.equal(result.data.items[0].task_detail.task_title,'블로그');assert.equal(result.data.items[1].task_detail,null);assert.equal(result.data.items[2].task_detail,undefined);
- const single=await readDetailTaskEvent(client,events[0]);assert.equal(single.data.event_id,'e8');assert.equal(rpcCalls[1].args.p_limit,1);
+ const single=await readDetailTaskEvent(client,events[0]);assert.equal(single.data.event_id,'e8');assert.equal(rpcCalls.at(-1).args.p_limit,1);
  await assert.rejects(readDetailTaskEvent(client,events[2]),{code:'invalid_filter'});
  await assert.rejects(readDetailTaskEvent(client,events[1]),{code:'detail_log_unavailable'});
  client.rpc=()=>Promise.resolve({error:{code:'42501'}});
