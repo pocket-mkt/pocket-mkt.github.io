@@ -25,6 +25,7 @@ import { ProgressView } from './src/ProgressView.jsx';
 import { TaskColumn } from './src/ProgressFlow.jsx';
 import InternalPreviewTaskEditor from './src/InternalPreviewTaskEditor.jsx';
 import DeadlineTaskLink from './src/DeadlineTaskLink.jsx';
+import TaskInlineSelect from './src/TaskInlineSelect.jsx';
 import { tasksViewModel } from './src/api/viewModel.js';
 import './src/styles.css';
 import './src/sidebarWorkspace.css';
@@ -102,8 +103,31 @@ function IssueTabsQa() {
  const [issues,setIssues]=useState([{id:1,relatedTask:'대기 요청',body:'확인해주세요',statusCode:'IN_PROGRESS',createdAt:'2026-09-08T03:00:00Z'},{id:2,relatedTask:'기존 완료',statusCode:'DONE',createdAt:'2026-09-07T03:00:00Z'}]);
  return <ProjectIssuePanel issues={issues} project={{id:'QA',clientName:'QA'}} canWrite actorName="QA" onUpdate={async(issue,fields)=>{const next={...issue,statusCode:fields.status_code||issue.statusCode};setIssues(items=>items.map(item=>item.id===issue.id?next:item));return next;}} onArchive={async(issue)=>setIssues(items=>items.filter(item=>item.id!==issue.id))} onCreate={async()=>{}}/>;
 }
+window.showChoiceQa = async () => {
+ const tasks=tasksViewModel({data:{items:Array.from({length:4},(_,i)=>({task_id:i+1,project_id:1,title:'콘텐츠 제작 / 업로드 '+(i+1),description:'카드뉴스 기획 및 디자인 제작',category_code:'INSTAGRAM',workstream_code:'DESIGN',responsible_org_code:'NS',status_mode:'MANUAL',status_code:'IN_PROGRESS',progress_percent:30,planned_start_date:'2026-09-01',due_date:'2026-09-30',visibility_code:'CLIENT'}))}}).items;
+ await render(<TaskScheduleTimeline tasks={tasks} issues={[]} project={{id:1,clientName:'UND',name:'QA'}} query="" canWrite={true} onUpdate={async()=>{}} onBatchUpdate={async()=>{}} displayMode="table" onViewChange={()=>{}}/>);
+ const choice=document.querySelector('.reference-task-owner .task-choice-trigger');choice.scrollIntoView({block:'center',inline:'center'});await tick();choice.click();await tick();
+ check(getComputedStyle(document.querySelector('.reference-task-status .task-choice-trigger')).fontSize==='12px','actual status font overridden');
+ check(document.querySelector('.task-choice-menu'),'actual table owner menu missing');
+};
 window.runQa = async () => {
  const results=[];
+ let choiceWrites=[];
+ await render(<div className="campaign-schedule-surface"><TaskInlineSelect aria-label="업무 상태" value="TODO" onChange={event=>choiceWrites.push(event.target.value)}><option value="TODO">미착수</option><option value="DONE">완료</option></TaskInlineSelect></div>);
+ const choiceTrigger=document.querySelector('.task-choice-trigger');choiceTrigger.click();await tick();
+ check(document.querySelector('.task-choice-menu')?.parentElement===document.body,'choice popup clipped by table');
+ check(getComputedStyle(document.querySelector('[role="menuitemradio"]')).textAlign==='center','choice option alignment');
+ check(getComputedStyle(choiceTrigger).fontSize==='12px','choice trigger typography');
+ document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));
+ check(document.activeElement.textContent==='완료','choice arrow navigation');document.activeElement.click();await tick();
+ check(choiceWrites.join()==='DONE' && !document.querySelector('.task-choice-menu'),'choice did not save once/close');
+ choiceTrigger.click();await tick();document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));await tick();
+ check(!document.querySelector('.task-choice-menu') && document.activeElement===choiceTrigger,'choice Escape focus return');
+ choiceTrigger.click();await tick();document.body.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));await tick();
+ check(!document.querySelector('.task-choice-menu'),'choice outside dismissal');
+ await render(<TaskInlineSelect disabled value="NS" onChange={()=>choiceWrites.push('forbidden')}><option value="NS">NS</option></TaskInlineSelect>);
+ document.querySelector('.task-choice-trigger').click();await tick();check(!document.querySelector('.task-choice-menu') && choiceWrites.length===1,'disabled choice mutated');
+ results.push('Schedule popup: centered typography, portal, keyboard, single save, Escape/outside and disabled permissions');
  let linkReads=0;
  await render(<DeadlineTaskLink task={{id:'1',projectId:'7'}} onResolve={async()=>{linkReads++;return 'https://example.com/completed';}}/>);
  check(document.querySelector('.ops-completion-load')&&!document.querySelector('.ops-completion-empty'),'unknown completion link mislabeled missing');
@@ -373,6 +397,9 @@ try {
     await mkdir('../artifacts/client-progress',{recursive:true});
     await writeFile(`../artifacts/client-progress/qa-${width}.png`,Buffer.from(screenshot.data,'base64'));
     console.log(JSON.stringify({viewport:width,checks:result}));
+    await evaluate('window.showChoiceQa()');
+    const choiceShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await writeFile(`../artifacts/client-progress/task-choice-${width}.png`,Buffer.from(choiceShot.data,'base64'));
     await evaluate('window.showBrandQa()');
     const brandShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await writeFile(`../artifacts/client-progress/brand-${width}.png`,Buffer.from(brandShot.data,'base64'));
