@@ -1,4 +1,5 @@
 import TaskInlineSelect from "./TaskInlineSelect.jsx";
+import { taskChannelOptions } from "./taskChannels.js";
 import { useWindowedRows } from "./useWindowedRows.js";
 import { newestIssuesFirst } from "./issueOrder.js";
 import { statusClass, formatSyncTime, EmptyState, LoadingState, ErrorState, FormSelect, trackerStatusOptions, trackerStatusLabels, trackerDate, localDateValue } from "./TaskUiPrimitives.jsx";
@@ -45,7 +46,7 @@ function editableTaskStatusCode(value) {
 }
 
 
-function TaskEditModal({ task, clientName, onClose, onUpdate }) {
+function TaskEditModal({ task, tasks = [], clientName, onClose, onUpdate }) {
   const [fields, setFields] = useState(() => taskUpdateInitialFields(task));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -78,6 +79,7 @@ function TaskEditModal({ task, clientName, onClose, onUpdate }) {
       <header><div><p className="editorial-kicker">프로젝트 일정표</p><h2 id="task-edit-title">업무 수정</h2></div><button className="icon-button" type="button" onClick={onClose} disabled={saving} aria-label="닫기"><X size={18} /></button></header>
       <form onSubmit={submit}>
         <label className="create-field is-wide"><span>업무명</span><input autoFocus required maxLength={200} value={fields.title} disabled={saving} onChange={(event) => setField("title", event.target.value)} /></label>
+        <label className="create-field is-wide"><span>매체</span><select name="category_code" value={fields.category_code} disabled={saving} onChange={event => setField("category_code", event.target.value)}>{taskChannelOptions([...tasks, task]).map(([code,label]) => <option key={code} value={code}>{label}</option>)}</select></label>
         <div className="create-field is-wide task-edit-status"><span>상태</span><div className="tracker-status-actions">{trackerStatusOptions.map(([code, label]) => <button key={code} type="button" disabled={saving} className={fields.status_code === code ? "is-active" : ""} onClick={() => setField("status_code", code)}>{label}</button>)}</div></div>
         <label className="create-field"><span>시작일</span><input type="date" value={fields.planned_start_date} max={fields.due_date || undefined} disabled={saving} onChange={(event) => setField("planned_start_date", event.target.value)} /></label>
         <label className="create-field"><span>종료일</span><input type="date" value={fields.due_date} min={fields.planned_start_date || undefined} disabled={saving} onChange={(event) => setField("due_date", event.target.value)} /></label>
@@ -1141,7 +1143,7 @@ function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, canWrit
         {ganttWindow.after > 0 && <div aria-hidden="true" style={{ height: ganttWindow.after }} />}
       </div></div>}
       {displayMode === "gantt" && <div className="g-legend">{ganttGroups.map((group) => <span key={group.label}><i style={{ background: ganttCategoryColor(group.label) }} />{group.label}</span>)}<span><i style={{ background: "#8a93a3", opacity: .3 }} />예정 = 옅게</span><span><i className="g-overdue-hold-legend" />기한 초과 보류</span><span><i className="g-weekend-legend" />주말</span><span><i className="g-today-legend" />기준일 {today}</span></div>}
-      {editingTaskId && canWrite && <TaskEditModal key={editingTaskId} task={tasks.find((task) => task.id === editingTaskId)} clientName={project.clientName} onUpdate={onUpdate} onClose={() => setEditingTaskId(null)} />}
+      {editingTaskId && canWrite && <TaskEditModal key={editingTaskId} task={tasks.find((task) => task.id === editingTaskId)} tasks={tasks} clientName={project.clientName} onUpdate={onUpdate} onClose={() => setEditingTaskId(null)} />}
     </section>
     {!summaryOnly && !activityMode && <ProjectIssuePanel issues={issues} project={project} canWrite={canWriteIssues} actorName={actorName} onCreate={onIssueCreate} onUpdate={onIssueUpdate} onArchive={onIssueArchive} />}
   </div>;

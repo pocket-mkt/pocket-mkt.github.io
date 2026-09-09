@@ -27,6 +27,8 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Pocket Marketing Hub design decisions
 
+- The shared TaskEditModal exposes the same project-media dropdown as creation, preselecting the saved category_code. Schedule/Gantt, internal progress, and internal client-preview editors all pass the full authorized project's media list, not a filtered flow subset. Preserve the current category even if missing from the list; mutations use existing category_code and may clear it explicitly. Never expose editing to actual customers.
+
 - Task creation exposes an optional 매체 dropdown stored in existing category_code. Offer ONLY distinct media already used by the active project's loaded tasks, not every supported subtype (no automatic Place/Smartstore/ads additions). Empty projects get four starters: Instagram, Naver Blog, YouTube, Google Search. Keep unspecified valid, reuse labels, and never rewrite existing categories. No new DB field or list fetch; regular/completed entry share the control.
 
 - Basic page content must load automatically: never introduce per-row “불러오기”, “내용 보기”, or “완료링크 확인” gates merely to fetch normal display data. Fetch bounded batches on entry/filter/page changes, preserve pagination and explicit retry for real failures, and retain security-required credential reveal controls.

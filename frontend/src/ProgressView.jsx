@@ -89,7 +89,7 @@ export function ProgressView({ project, role, taskPage, source, actorName, canWr
       </section>
     </div>
     <section className="pb-flow-section"><div className="pb-section-heading"><div><h2>업무 흐름</h2><p>완료된 결과, 현재 실행 중인 일, 다음 순서를 분리해 봅니다.</p></div><button type="button" onClick={() => onNavigate("tasks")}>전체 업무 보기 <ArrowUpRight size={13} /></button></div><div className="pb-work-grid"><TaskColumn title="최근 완료" subtitle="결과와 완료 자료" items={completedTasks} tone="done" client={client} onEdit={openEditor} /><TaskColumn title="현재 진행" subtitle="실행·검토·보류" items={activeTasks} tone="active" client={client} onEdit={openEditor} /><TaskColumn title="이번 주 예정" subtitle={`${shortDate(week.start)}–${shortDate(week.end)}`} items={upcomingTasks} tone="planned" planned client={client} onEdit={openEditor} /></div></section>
-    {editingTask && canEditTask && <Suspense fallback={<p role="status">업무 수정 화면을 불러오는 중입니다.</p>}><TaskEditModal key={editingTask.id} task={editingTask} clientName={project.clientName} onUpdate={onTaskUpdate} onClose={()=>setEditingTask(null)} /></Suspense>}
+    {editingTask && canEditTask && <Suspense fallback={<p role="status">업무 수정 화면을 불러오는 중입니다.</p>}><TaskEditModal key={editingTask.id} task={editingTask} tasks={taskPage.items || []} clientName={project.clientName} onUpdate={onTaskUpdate} onClose={()=>setEditingTask(null)} /></Suspense>}
     {schedule && <section className="pb-schedule" aria-label="프로젝트 전체 간트 일정"><div className="pb-section-heading pb-schedule-heading"><div><h2>전체 일정 흐름</h2><p>업무별 기간과 겹치는 구간을 간트로 확인합니다.</p></div><button type="button" onClick={() => onNavigate("tasks")}>{canWrite ? "업무에서 수정" : "업무 보기"} <ArrowUpRight size={13} /></button></div><DeferredSchedule>{schedule}</DeferredSchedule></section>}
   </div>;
 }

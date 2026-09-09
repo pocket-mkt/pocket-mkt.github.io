@@ -1,8 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { taskChannelOptions } from "../src/taskChannels.js";
-import { taskCreateInitialFields, taskCreateSubmissionFields, taskCreateValidationError } from "../src/taskForm.js";
+import { taskCreateInitialFields, taskCreateSubmissionFields, taskCreateValidationError, taskUpdateInitialFields, taskUpdateSubmissionFields } from "../src/taskForm.js";
 import { taskScheduleMedia } from "../src/taskTimeline.js";
+
+test("editing preserves, changes and clears the existing media through category_code", () => {
+  const initial = taskUpdateInitialFields({categoryCode:"INSTAGRAM",title:"업무"});
+  assert.equal(initial.category_code, "INSTAGRAM");
+  assert.equal(taskUpdateSubmissionFields(initial).category_code, "INSTAGRAM");
+  assert.equal(taskUpdateSubmissionFields({...initial,category_code:"NAVER_BLOG"}).category_code, "NAVER_BLOG");
+  assert.equal(taskUpdateSubmissionFields({...initial,category_code:""}).category_code, "");
+  assert.equal(Object.hasOwn(taskUpdateSubmissionFields({title:"업무"}), "category_code"), false);
+});
 
 test("creation channels include existing channels and project-specific media without duplicates", () => {
   const options = taskChannelOptions([{categoryCode:"INSTAGRAM"}, {categoryCode:"CUSTOM",category:"맞춤 채널"}, {categoryCode:"CUSTOM"}]);

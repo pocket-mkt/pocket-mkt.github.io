@@ -133,6 +133,7 @@ export function taskCreateSubmissionFields(fields) {
 
 export function taskUpdateInitialFields(task = {}) {
   return {
+    category_code: task.categoryCode || task.category_code || "",
     title: task.title || "",
     status_code: task.statusCode === "COMPLETED" ? "DONE" : task.statusCode || "NOT_STARTED",
     description: task.description || "",
@@ -150,6 +151,7 @@ export function taskUpdateSubmissionFields(fields = {}) {
   const plannedStartDate = fields.planned_start_date || "";
   const dueDate = fields.due_date || "";
   return {
+    ...(Object.prototype.hasOwnProperty.call(fields, "category_code") ? { category_code: String(fields.category_code || "").trim().toUpperCase() } : {}),
     title: String(fields.title || "").trim(),
     status_code: String(fields.status_code || "NOT_STARTED").toUpperCase(),
     description: fields.description || "",
