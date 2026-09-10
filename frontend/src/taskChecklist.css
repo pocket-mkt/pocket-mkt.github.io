@@ -1,4 +1,9 @@
 /* Completion and row selection deliberately have separate locations/labels. */
+.task-local-sort { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; min-height: 30px; padding: 2px 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; gap: 2px; white-space: nowrap; }
+.task-local-sort small { font-size: 10px; font-weight: 500; }
+.task-local-sort.is-active { color: #1d4ed8; }
+.task-local-sort:hover { background: #edf3ff; border-radius: 4px; }
+.task-local-sort:focus-visible { outline: 2px solid #1d4ed8; outline-offset: -2px; }
 .task-done-check { width: 17px; height: 17px; accent-color: #15805b; cursor: pointer; flex: 0 0 17px; }
 .task-done-check:disabled { cursor: default; }
 .reference-task-complete .reference-task-cell { justify-content: center; }

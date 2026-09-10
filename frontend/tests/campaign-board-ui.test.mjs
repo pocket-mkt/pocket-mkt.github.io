@@ -83,11 +83,11 @@ test("참고 캠페인 일정 화면이 업무 화면의 최상위 구조이며 
   assert.match(appSource, /className="campaign-schedule-board"/);
   assert.match(appSource, /className="campaign-board-progress is-checklist"/);
   assert.match(appSource, /onClick=\{\(\) => onChange\("activity"\)\}/);
-  assert.match(appSource, /<TaskScheduleInlineTable tasks=\{filteredTasks\}/);
+  assert.match(appSource, /<TaskScheduleInlineTable[^>]+tasks=\{filteredTasks\}/);
 });
 
 test("일정표는 참고 HTML 열 구조를 유지하며 셀 직접 수정과 상태·담당 선택 저장을 제공한다", () => {
-  assert.match(appSource, /<th>매체<\/th><th>업무분야<\/th><th>업무<\/th><th>세부내용<\/th><th>일정<\/th><th>기간<\/th><th>완료 체크<\/th><th>상태<\/th><th>담당<\/th><th>완료링크<\/th><th>비고<\/th>/);
+  assert.match(appSource, /<th>매체<\/th><th>업무분야<\/th><th>업무<\/th><th>세부내용<\/th><th>일정<\/th><th>기간<\/th><th>완료 체크<\/th><TaskSortHeading field="status"[^>]+\/><TaskSortHeading field="owner"[^>]+\/><th>완료링크<\/th><th>비고<\/th>/);
   assert.match(appSource, /function TaskScheduleInlineRow/);
   assert.match(appSource, /onBlur=\{\(event\) => void commitField\("description"/);
   assert.match(appSource, /onBlur=\{\(event\) => void commitField\("completion_url"/);

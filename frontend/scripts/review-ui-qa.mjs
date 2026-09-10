@@ -136,6 +136,28 @@ function IssueTabsQa() {
  const [issues,setIssues]=useState([{id:1,relatedTask:'대기 요청',body:'확인해주세요',statusCode:'IN_PROGRESS',createdAt:'2026-09-08T03:00:00Z'},{id:2,relatedTask:'기존 완료',statusCode:'DONE',createdAt:'2026-09-07T03:00:00Z'}]);
  return <ProjectIssuePanel issues={issues} project={{id:'QA',clientName:'QA'}} canWrite actorName="QA" onUpdate={async(issue,fields)=>{const next={...issue,statusCode:fields.status_code||issue.statusCode};setIssues(items=>items.map(item=>item.id===issue.id?next:item));return next;}} onArchive={async(issue)=>setIssues(items=>items.filter(item=>item.id!==issue.id))} onCreate={async()=>{}}/>;
 }
+window.runLocalSortQa = async () => {
+ const tasks=tasksViewModel({data:{items:['IN_PROGRESS','DONE','DONE','DELAYED'].map((status,i)=>({task_id:i+1,project_id:1,title:'정렬 검증 '+i,category_code:i%2?'YOUTUBE':'INSTAGRAM',workstream_code:'DESIGN',responsible_org_code:i<2?'POCKET':'NS',status_mode:'MANUAL',status_code:status,planned_start_date:'2026-09-01',due_date:'2026-09-30',visibility_code:'CLIENT'}))}}).items;
+ let writes=0;
+ const view=id=><TaskScheduleTimeline tasks={tasks} issues={[]} project={{id,clientName:'QA',name:'QA'}} query="" canWrite onUpdate={async()=>{writes++;}} onBatchUpdate={async()=>{writes++;}} displayMode="table" onViewChange={()=>{}}/>;
+ await render(<div/>);await render(view(1));
+ const order=()=>[...document.querySelectorAll('.reference-task-row')].map(row=>row.dataset.windowId);
+ const initial=order();
+ const click=async field=>{document.querySelector('[data-sort-field="'+field+'"]').click();await tick();};
+ await click('status');check(order().slice(0,2).every(id=>['2','3'].includes(id)),'completed across media first');
+ await click('owner');check(order()[0]==='3','latest owner primary, status secondary');
+ check(!document.querySelector('.task-reorder-handle').draggable,'sorted drag must not persist order');
+ await click('status');check(order()[0]==='1','latest status primary');
+ await click('status');check(order()[0]==='4','delayed first');
+ await click('status');await click('owner');await click('owner');
+ check(JSON.stringify(order())===JSON.stringify(initial),'default restores original media/authored order');
+ check(document.querySelector('.task-reorder-handle').draggable,'default drag restored');
+ await click('status');await render(view(2));check(!document.querySelector('.task-local-sort.is-active'),'project resets local sort');
+ await click('status');await render(<div/>);await render(view(2));check(!document.querySelector('.task-local-sort.is-active'),'fresh mount resets local sort');
+ check(writes===0,'sorting made persistence calls');
+ await click('status');await click('owner');
+ return ['cross-media stable sorting, cycles, latest priority, zero writes, project/remount reset, drag safety'];
+};
 window.runChecklistQa = async () => {
  const tasks=tasksViewModel({data:{items:['NOT_STARTED','IN_PROGRESS','DELAYED','DONE','ON_HOLD'].map((status,i)=>({task_id:i+1,project_id:1,title:'완료 체크 검증 업무 '+i,category_code:'INSTAGRAM',workstream_code:'DESIGN',responsible_org_code:'NS',status_mode:'MANUAL',status_code:status,progress_percent:45,planned_start_date:'2026-09-01',due_date:'2026-09-30',visibility_code:'CLIENT'}))}}).items;
  const writes=[];
@@ -513,6 +535,10 @@ try {
     await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<500});
     await send('Page.navigate',{url});
     for(let i=0;i<100;i++){if(await evaluate('typeof window.runQa === "function"'))break;await delay(100);}
+    console.log(JSON.stringify({viewport:width,localSort:await evaluate('window.runLocalSortQa()')}));
+    const sortShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await mkdir('../artifacts/client-progress',{recursive:true});
+    await writeFile('../artifacts/client-progress/local-sort-'+width+'.png',Buffer.from(sortShot.data,'base64'));
     console.log(JSON.stringify({viewport:width,checklist:await evaluate('window.runChecklistQa()')}));
     console.log(JSON.stringify({viewport:width,meeting:await evaluate('window.runMeetingEmphasisQa()')}));
     const meetingShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});

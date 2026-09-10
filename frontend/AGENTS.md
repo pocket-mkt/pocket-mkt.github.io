@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- Schedule table status/owner headers cycle personal priority sorting: DONE → IN_PROGRESS → DELAYED → default; NS → POCKET → default. Most recently clicked active rule is primary, the other secondary; ties retain existing media/authored order. Local component memory only, no DB writes or browser persistence; reset on project change and reload. Sorting must not hide rows, affect Gantt order or alter shared sort_order. Disable authored-order dragging while personal table sorting is active; preserve selection/Shift against displayed order.
+
 ## Completion checklist (2026-09-10; supersedes older progress/auto-completion rules)
 
 - Task menus use exactly `시작 전 / 진행중 / 지연 / 완료 / 보류` (`NOT_STARTED / IN_PROGRESS / DELAYED / DONE / ON_HOLD`). Remove task percentage inputs, bars and deltas from schedule, Gantt, progress and portfolio; show completion checks and counts instead. Keep row-selection and completion controls separate. Client controls remain read-only.
