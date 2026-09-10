@@ -7,6 +7,7 @@ export const PAGE_CATALOG = Object.freeze([
   Object.freeze({ id: "client-progress", label: "진행상황 - 클라이언트", permissionId: "progress", description: "고객 공개 업무 흐름과 프로젝트 간트만 조회", navigation: true, customerSelectable: true, nested: true }),
   Object.freeze({ id: "schedule", label: "일정표", permissionId: "tasks", navigation: false, customerSelectable: false, nested: true }),
   Object.freeze({ id: "daily", label: "데일리 회의록", description: "날짜별 회의 내용과 후속 업무", navigation: true, customerSelectable: true, nested: true }),
+  Object.freeze({ id: "blog", label: "블로그 현황", description: "게시 현황·목표 키워드·순위 기록", navigation: true, customerSelectable: false, nested: true }),
   Object.freeze({ id: "credentials", label: "아이디 관리대장", description: "사이트 계정과 비밀번호 보관", navigation: true, customerSelectable: false, nested: true }),
   Object.freeze({ id: "content", label: "콘텐츠", navigation: false, customerSelectable: false }),
   Object.freeze({ id: "tracking", label: "성과 추적", navigation: false, customerSelectable: false }),
@@ -19,7 +20,7 @@ export const ACCESS_PAGE_OPTIONS = Object.freeze(PAGE_CATALOG.filter((page) => p
 export const NAVIGATION_PAGE_OPTIONS = Object.freeze(PAGE_CATALOG.filter((page) => page.navigation));
 // Navigation folder only: never create a route or grant from this group ID.
 export const PROJECT_NAVIGATION_GROUP = Object.freeze({
-  id: "project-pages", label: "프로젝트", pageIds: Object.freeze(["tasks", "progress", "client-progress", "daily", "credentials"]),
+  id: "project-pages", label: "프로젝트", pageIds: Object.freeze(["tasks", "progress", "client-progress", "daily", "blog", "credentials"]),
 });
 
 export const ACCESS_PAGE_KEYS = Object.freeze(ACCESS_PAGE_OPTIONS.map((page) => page.id));

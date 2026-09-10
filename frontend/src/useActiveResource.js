@@ -7,7 +7,7 @@ import { operationsDashboardViewModel, planViewModel, tasksViewModel, dailyMeeti
 
 export function useActiveResource({ source, activeProjectId, resourceProjectId, view, actorRole, authorizedPlanVariant, activeResource, bootstrapState, pageRefreshKey, resourceState, resourceCacheRef, resourceRequestRef, resourceCacheEpochRef, resourceVersionsRef, setResourceState, setSession, operationsDashboardRange }) {
   useEffect(() => {
-    if (!source || !activeProjectId || view === "overview" || bootstrapState.status !== "ready") return undefined;
+    if (!source || !activeProjectId || view === 'blog' || view === "overview" || bootstrapState.status !== "ready") return undefined;
     // Authorize before consulting caches or issuing a request for a legacy URL.
     if (actorRole === "client" && !isViewAllowed(view, bootstrapState.data?.projects?.[activeProjectId]?.allowedPages || [])) return undefined;
     const cacheKey = `${resourceProjectId}:${activeResource}`;

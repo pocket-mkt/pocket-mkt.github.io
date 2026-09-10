@@ -10,6 +10,7 @@ export function normalizePlanVariant(value) {
 }
 
 export function parseViewLocation(hash = "") {
+  if (String(hash).replace(/^#/, '').toLowerCase() === 'blog') return {view:'blog',planVariant:DEFAULT_PLAN_VARIANT};
   const value = String(hash).replace(/^#/, "").trim().toLowerCase();
   if (value === "plan/internal") return { view: "plan", planVariant: "internal" };
   if (value === "plan/client" || value === "plan") return { view: "plan", planVariant: "client" };

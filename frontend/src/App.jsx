@@ -4,6 +4,7 @@ import CompanySymbol from "./CompanySymbol.jsx";
 import ScreenBoundary from "./ScreenBoundary.jsx";
 import { statusClass, formatSyncTime, EmptyState, LoadingState, ErrorState, FormSelect, trackerStatusOptions, trackerStatusLabels, trackerDate, localDateValue } from "./TaskUiPrimitives.jsx";
 const DetailLogView = lazy(() => import("./DetailLogView.jsx"));
+const BlogStatusView = lazy(() => import('./BlogStatusView.jsx'));
 import WorkspaceNotifications from "./WorkspaceNotifications.jsx";
 import NotificationIssueDialog from "./NotificationIssueDialog.jsx";
 import InternalPreviewTaskEditor from "./InternalPreviewTaskEditor.jsx";
@@ -58,6 +59,7 @@ const navIcons = {
   "client-progress": CircleDot,
   daily: NotebookPen,
   credentials: KeyRound,
+  blog: BookOpenText,
   performance: BarChart3,
   files: Activity,
 };
@@ -1073,6 +1075,7 @@ function AppContent({ view, planVariant, project, role, search, setView, pageSta
     if (role === "client") throw new Error("내부 운영 계정만 접근할 수 있습니다.");
     return tasksViewModel(await source.tasks({projectId})).items.map(({id,completionUrl})=>({id,completionUrl}));
   }), [source, role, pageState.data]);
+  if(view==='blog') return role==='client'?<ErrorState error={new Error('내부 운영 계정만 접근할 수 있습니다.')} />:<Suspense fallback={<LoadingState/>}><BlogStatusView key={project.id} project={project} source={source} canWrite={['ADMIN','EDIT'].includes(project.permissionCode)||role==='pocket'} /></Suspense>;
   if (pageState.status === "loading" && !pageState.data) return <LoadingState />;
   if (pageState.status === "error" && !pageState.data) return <ErrorState error={pageState.error} onRetry={onRetry} />;
   const data = pageState.data || {};

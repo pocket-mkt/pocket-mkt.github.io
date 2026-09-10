@@ -18,6 +18,7 @@ export const READ_ACTIONS = Object.freeze({
   activity: "activity",
   permissions: "access_admin",
   credentials: "project_credentials",
+  blog: "blog_targets",
 });
 
 function scopeQuery(params = {}) {

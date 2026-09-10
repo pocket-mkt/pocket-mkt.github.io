@@ -13,6 +13,12 @@ const sheetsConfig = {
   loginEnabled: true,
 };
 
+test('blog native read and writes pass through the source action registry',async()=>{
+ const calls=[];const live={getSession:()=>({user:{userId:'qa'}}),blog:async p=>{calls.push(['read',p]);return {ok:true,data:{items:[],history:[]}};},saveBlog:async p=>{calls.push(['save',p]);return {ok:true,data:{id:'x'}};},saveBlogRank:async p=>{calls.push(['rank',p]);return {ok:true,data:{id:'r'}};}};
+ const source=createHubDataSource({config:sheetsConfig,supabaseLive:live,env:{VITE_POCKET_DATA_BACKEND:'supabase',VITE_SUPABASE_URL:'https://project.supabase.co',VITE_SUPABASE_PUBLISHABLE_KEY:'public-key'}});
+ await source.blog({projectId:1,platform:'NAVER'});await source.saveBlog({projectId:1});await source.saveBlogRank({targetId:'x'});assert.deepEqual(calls.map(x=>x[0]),['read','save','rank']);
+});
+
 test("storage flag defaults to Sheets and preserves the existing live adapter", async () => {
   const live = { bootstrap: async () => ({ ok: true, data: {}, generatedAt: "2026-09-03T02:00:00Z" }) };
   const source = createHubDataSource({ config: sheetsConfig, live, env: {} });

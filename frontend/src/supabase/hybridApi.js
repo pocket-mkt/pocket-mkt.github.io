@@ -11,6 +11,7 @@ import { createDetailActivityReader, readDetailTaskEvent, readIssueActivityConte
 import { createSupabaseTaskBatchMutator, createSupabaseTaskMutator } from "./taskMutation.js";
 import { createSupabasePlanReader } from "./planRead.js";
 import { createSupabaseCredentialLedger } from "./credentialLedger.js";
+import { createBlogApi } from './blogApi.js';
 
 function bridgeError(payload, status) {
   const code = String(payload?.error?.code || "auth_bridge_unavailable");
@@ -437,6 +438,9 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
     tasks,
     clientProgress: async (params = {}) => readClientProgress({ ...params, projectId: await resolveProjectId(params.projectId) }),
     dailyMeetings: async (params = {}) => core.dailyMeetings({ ...params, projectId: await resolveProjectId(params.projectId) }),
+    blog: async (params = {}) => createBlogApi(client).read({...params,projectId:await resolveProjectId(params.projectId)}),
+    saveBlog: async (params = {}) => createBlogApi(client).save({...params,projectId:await resolveProjectId(params.projectId)}),
+    saveBlogRank: async (params = {}) => createBlogApi(client).rank(params),
     contents: async () => retiredFeature(),
     tracking: async () => retiredFeature(),
     performance: async (params = {}) => core.performance({ ...params, projectId: await resolveProjectId(params.projectId) }),

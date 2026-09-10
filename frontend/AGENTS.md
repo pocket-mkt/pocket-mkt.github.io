@@ -1,5 +1,10 @@
 # Prototype Instructions
 
+## Blog management (2026-09-10)
+
+- `#blog` is an internal Pocket/NS project page, never a customer grant. Top-level NAVER/GOOGLE tabs share a compact 44px-row dashboard. Use 목표 키워드, manual nullable 월 검색량, sortable header buttons, publication view and date grid. Do not deploy sample posts, invented ranks or automated-collection claims.
+- `blog_targets` / `blog_rank_records` are project-authorized Supabase records. Rank records are manual, date-specific, version-checked; distinguish unmeasured, outside top100 and failed. Page reads are bounded (100 targets, 30 days) and sorting/filtering are explicitly current-page only. API integrations and scheduled collection are NOT implemented. Changes are audited in private.blog_change_log, not yet projected into detailed-log UI.
+
 ## Review implementation guardrails (2026-09-08)
 
 - `TaskWorkspace.jsx` owns the schedule table/Gantt and is lazy-loaded; `PermissionsView.jsx` and its CSS own access administration. Never re-export TaskWorkspace statically from App, which forces the lazy chunk back into the initial bundle. Common small UI/status primitives live in `TaskUiPrimitives.jsx`, active resource loading in `useActiveResource.js`, and batch state transforms in `taskResourcePatch.js`.

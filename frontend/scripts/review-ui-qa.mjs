@@ -10,6 +10,7 @@ import { existsSync } from "node:fs";
 const bundle = await build({
   stdin: { contents: `
 import React, { lazy, Suspense, useState } from 'react';
+import BlogStatusView from './src/BlogStatusView.jsx';
 import { createRoot } from 'react-dom/client';
 import { CredentialLedgerView } from './src/CredentialLedgerView.jsx';
 import { useOverviewResource } from './src/useOverviewResource.js';
@@ -42,6 +43,24 @@ const bootstrapState = {status:'ready',data:{projects:{A:{id:'A',allowedPages:['
 let overviewState;
 const overviewCalls = [];
 const source = {overview: params => { const pending=deferred(); overviewCalls.push({...params,...pending}); return pending.promise; }};
+window.runBlogQa = async () => {
+ const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+ let items=[{id:'a',project_id:1,platform:'NAVER',title:'QA 게시글 제목',url:'https://example.com/post',keyword:'목표 키워드',published_on:today,monthly_volume:null,goal_rank:5,row_version:1}],history=[];
+ let writes=0;const source={blog:async({platform})=>({data:{items:items.filter(x=>x.platform===platform),history,hasMore:false}}),saveBlog:async({item,fields})=>{writes++;const next={...item,...fields,row_version:2};items=item?items.map(x=>x.id===item.id?next:x):[...items,next];return {data:next};},saveBlogRank:async({targetId,fields})=>{writes++;const next={id:'r',target_id:targetId,...fields,rank:Number(fields.rank),row_version:1};history=[next];return {data:next};}};
+ await render(<BlogStatusView project={{id:1,clientName:'QA'}} source={source} canWrite/>);await tick();
+ check(document.querySelector('.blog-title')?.textContent.includes('QA 게시글'),'blog load');
+ check(document.documentElement.scrollWidth<=innerWidth+1,'blog viewport overflow');
+ check(document.querySelector('.blog-title').getBoundingClientRect().height<=48,'blog compact row');
+ document.querySelectorAll('.blog-platform button')[1].click();await tick();await tick();check(document.querySelector('.blog-empty'),'google empty rather than fake data');
+ document.querySelectorAll('.blog-platform button')[0].click();await tick();await tick();
+ document.querySelector('.blog-title button').click();await tick();check(document.querySelector('[role="dialog"]'),'blog detail dialog');
+ const rank=document.querySelector('[role="dialog"] input[type=number]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(rank,'3');rank.dispatchEvent(new Event('input',{bubbles:true}));await tick();
+ document.querySelector('[role="dialog"] form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await tick();check(writes===1,'manual rank save');check(document.querySelector('.blog-history').textContent.includes('3위'),'saved rank visible');
+ document.querySelector('[aria-label="닫기"]').click();await tick();
+ document.querySelector('.blog-heading button').click();await tick();check(document.querySelector('[name="keyword"]'),'blog create form');document.querySelector('[aria-label="닫기"]').click();await tick();
+ await render(<div/>);await render(<BlogStatusView project={{id:1,clientName:'QA'}} source={source} canWrite/>);await tick();check(document.querySelector('tbody').textContent.includes('3위'),'rank reload');
+ return ['blog desktop/mobile: automatic read, platform isolation, compact rows, modal, manual rank save and reload'];
+};
 window.benchmarkQa = async () => {
  const results=[];
 
@@ -471,6 +490,10 @@ try {
     await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<500});
     await send('Page.navigate',{url});
     for(let i=0;i<100;i++){if(await evaluate('typeof window.runQa === "function"'))break;await delay(100);}
+    console.log(JSON.stringify({viewport:width,blog:await evaluate('window.runBlogQa()')}));
+    const blogShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await mkdir('../artifacts/client-progress',{recursive:true});
+    await writeFile(`../artifacts/client-progress/blog-${width}.png`,Buffer.from(blogShot.data,'base64'));
     const result=await evaluate('window.runQa()');
     const screenshot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await mkdir('../artifacts/client-progress',{recursive:true});

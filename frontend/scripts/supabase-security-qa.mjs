@@ -118,14 +118,32 @@ await db.exec(`
     (1, 'P0', 'MARKETING', '팀 전용 업무', null, null, null, 'NS', 'POCKET', 'PROJECT_TEAM', '${userIds.manager}', '${userIds.manager}');
 `);
 
-assert(await scalar("select count(*)::int as count from pg_tables where schemaname = 'public'") === 24, "table count mismatch");
-assert(await scalar("select count(*)::int as count from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relrowsecurity") === 24, "RLS coverage mismatch");
+assert(await scalar("select count(*)::int as count from pg_tables where schemaname = 'public'") === 26, "table count mismatch");
+assert(await scalar("select count(*)::int as count from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relrowsecurity") === 26, "RLS coverage mismatch");
 assert(await scalar("select count(*)::int as count from information_schema.columns where table_schema='public' and table_name='profiles' and column_name='email'") === 0, "public profile still exposes email");
 assert(await scalar("select count(*)::int as count from information_schema.role_table_grants where grantee='anon' and table_schema='public'") === 0, "anon grants found");
 assert(await scalar("select count(*)::int as count from information_schema.routine_privileges where grantee='PUBLIC' and specific_schema in ('public','private')") === 0, "PUBLIC function execute grants found");
 assert(await scalar("select count(*)::int as count from pg_constraint c join pg_class t on t.oid=c.conrelid join pg_namespace n on n.oid=t.relnamespace where n.nspname='public' and c.contype='f' and not exists (select 1 from pg_index i where i.indrelid=c.conrelid and c.conkey[1]=any(i.indkey))") === 0, "unindexed foreign key found");
 
 await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub', '${userIds.manager}', false);`);
+await db.exec(`insert into public.blog_targets(id,project_id,platform,title,url,keyword,published_on) values('10000000-0000-4000-8000-000000000001',1,'NAVER','QA','https://example.com/blog','키워드','2026-09-01');`);
+await db.exec(`insert into public.blog_targets(id,project_id,platform,title,url,keyword,published_on) values('20000000-0000-4000-8000-000000000002',2,'GOOGLE','QA other project','https://example.com/other','other','2026-09-01');insert into public.blog_rank_records(target_id,recorded_on,rank,state) values('20000000-0000-4000-8000-000000000002','2026-09-01',2,'RANKED');`);
+await db.exec(`set role authenticated;select set_config('request.jwt.claim.sub','${userIds.ns}',false);update public.blog_targets set monthly_volume=1200 where id='10000000-0000-4000-8000-000000000001' and row_version=1;insert into public.blog_rank_records(target_id,recorded_on,rank,state) values('10000000-0000-4000-8000-000000000001','2026-09-01',5,'RANKED');`);
+await expectNoRows("select * from public.blog_targets where project_id=2",'blog NS other project');
+await expectNoRows("select * from public.blog_rank_records where target_id='20000000-0000-4000-8000-000000000002'",'blog NS other project history');
+await expectNoRows("update public.blog_rank_records set rank=99 where target_id='20000000-0000-4000-8000-000000000002' returning id",'blog NS cross-project rank update');
+await expectDenied("insert into public.blog_rank_records(target_id,recorded_on,rank,state) values('20000000-0000-4000-8000-000000000002','2026-09-02',3,'RANKED')",'blog NS cross-project rank insert');
+assert(await scalar("select row_version as count from public.blog_targets limit 1")===2,'blog row version not incremented');
+await expectNoRows("update public.blog_targets set monthly_volume=1 where row_version=1 returning id",'blog optimistic conflict');
+await expectDenied('update public.blog_targets set project_id=2','blog immutable project');
+await expectDenied('update public.blog_targets set row_version=1','blog protected version');
+await expectDenied('delete from public.blog_targets','blog deletion blocked');
+await db.exec(`select set_config('request.jwt.claim.sub','${userIds.client}',false);`);
+await expectNoRows('select * from public.blog_targets','blog client read');await expectNoRows('select * from public.blog_rank_records','blog client rank read');
+await expectDenied("insert into public.blog_targets(project_id,platform,title,url,keyword,published_on) values(1,'NAVER','denied','https://example.com/denied','denied','2026-09-01')",'blog client create');
+await db.exec(`reset role;set role anon;select set_config('request.jwt.claim.sub','',false);`);await expectDenied('select * from public.blog_targets','blog anon read');
+await db.exec(`reset role;set role authenticated;select set_config('request.jwt.claim.sub','${userIds.manager}',false);`);
+console.log('Blog: internal CRUD/version, rank records, protected fields, client and anon boundaries passed');
 const { rows: [operationsDashboard] } = await db.query("select public.read_operations_dashboard(null, null) as response");
 assert(Array.isArray(operationsDashboard.response?.projects) && operationsDashboard.response.projects.length === 2, "operations dashboard project aggregation mismatch");
 assert(Array.isArray(operationsDashboard.response?.weekly_tasks), "operations dashboard weekly task contract mismatch");
@@ -481,8 +499,8 @@ console.log(JSON.stringify({
   nsAllProjectsAndFutureMemberships: "pass",
   operationsDashboardBoundary: "pass",
   migrations: readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).length,
-  tables: 24,
-  rlsTables: 24,
+  tables: 26,
+  rlsTables: 26,
   pageBoundary: "pass",
   visibilityBoundary: "pass",
   tenantWriteBoundary: "pass",
