@@ -11,6 +11,7 @@ const bundle = await build({
   stdin: { contents: `
 import React, { lazy, Suspense, useState } from 'react';
 import BlogStatusView from './src/BlogStatusView.jsx';
+import MeetingText from './src/MeetingText.jsx';
 import { createRoot } from 'react-dom/client';
 import { CredentialLedgerView } from './src/CredentialLedgerView.jsx';
 import { useOverviewResource } from './src/useOverviewResource.js';
@@ -61,6 +62,15 @@ window.runBlogQa = async () => {
  document.querySelector('.blog-heading button').click();await tick();check(document.querySelector('[name="keyword"]'),'blog create form');document.querySelector('[aria-label="닫기"]').click();await tick();
  await render(<div/>);await render(<BlogStatusView project={{id:1,clientName:'QA'}} source={source} canWrite/>);await tick();check(document.querySelector('tbody').textContent.includes('3위'),'rank reload');
  return ['blog desktop/mobile: automatic read, platform isolation, compact rows, modal, manual rank save and reload'];
+};
+window.runMeetingEmphasisQa = async () => {
+ await render(<div className="ops-meeting-body" style={{padding:20,maxWidth:720}}><section><h3>회의 핵심 표시</h3><ul>{['[중요] 이번 회의에서 확정한 최우선 목표와 마감 사항','포켓: 자료와 실행 기준을 확인하고 전달','NS: 집행 상태와 다음 작업 일정 확인','NS·포켓: 공동으로 검토할 측정 기준','일반 회의 내용은 기본 글자색 유지','<script>실행하지 않는 텍스트</script>'].map((line,i)=><li key={i}><MeetingText>{line}</MeetingText></li>)}</ul></section></div>);
+ const colors=['important','pocket','ns'].map(tone=>getComputedStyle(document.querySelector('.meeting-text-line.is-'+tone)).color);
+ check(colors.join('|')==='rgb(180, 35, 50)|rgb(29, 78, 216)|rgb(126, 34, 168)','meeting emphasis colors');
+ check(document.querySelectorAll('.meeting-label.is-pocket').length===2&&document.querySelectorAll('.meeting-label.is-ns').length===2,'joint responsibility labels');
+ check(!document.querySelector('.ops-meeting-body script'),'meeting markup remains escaped text');
+ check(document.documentElement.scrollWidth<=innerWidth+1,'meeting mobile overflow');
+ return ['meeting colors, joint ownership, escaped text, responsive layout'];
 };
 window.benchmarkQa = async () => {
  const results=[];
@@ -491,6 +501,10 @@ try {
     await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<500});
     await send('Page.navigate',{url});
     for(let i=0;i<100;i++){if(await evaluate('typeof window.runQa === "function"'))break;await delay(100);}
+    console.log(JSON.stringify({viewport:width,meeting:await evaluate('window.runMeetingEmphasisQa()')}));
+    const meetingShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await mkdir('../artifacts/client-progress',{recursive:true});
+    await writeFile('../artifacts/client-progress/meeting-emphasis-'+width+'.png',Buffer.from(meetingShot.data,'base64'));
     console.log(JSON.stringify({viewport:width,blog:await evaluate('window.runBlogQa()')}));
     const blogShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await mkdir('../artifacts/client-progress',{recursive:true});

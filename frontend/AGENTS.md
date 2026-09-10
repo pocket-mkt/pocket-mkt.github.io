@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- Meeting emphasis uses the shared MeetingText renderer in portfolio, daily records, weekly focus and internal progress. Explicit `[중요]` line prefixes are red; explicit `포켓:` / `NS:` responsibility prefixes are blue / purple. Shared responsibility gets both labelled badges with neutral body; important body overrides owner color but retains owner badges. Never infer ownership from a company mention or automatically mark all decisions important. Keep stored content as plain text, never raw HTML. Codex selects important points when summarizing meetings; preserve dates, visibility and concurrent edits when annotating existing records.
+
 ## Blog management (2026-09-10)
 
 - Blog titles directly open the saved post URL in a new tab with noopener/noreferrer, in both rank and publication tables. Open manual rank history through the latest-rank cell instead; never put an intermediate dialog in the title link path.

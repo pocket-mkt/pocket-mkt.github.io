@@ -1,3 +1,4 @@
+import MeetingText from "./MeetingText.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, ArrowRight, CalendarDays, CheckCircle2, ChevronDown, CircleDot, Clock3, FolderKanban, Plus, X } from "lucide-react";
 import IssueRequestCard from "./IssueRequestCard.jsx";
@@ -37,12 +38,12 @@ function meetingWeekItems(meetings, field) {
 function StatusBadge({ code }) { const [label, tone] = STATUS[code] || [code || "미착수", "muted"]; return <span className={`ops-status is-${tone}`}>{label}</span>; }
 
 function MeetingBody({ meeting }) {
-  return <div className="ops-meeting-body">{[["회의내용", meeting.discussion], ["결정사항", meeting.decisions], ["후속업무", meeting.actionItems]].map(([title, value]) => <section key={title}><h3>{title}</h3>{splitLines(value).length ? <ul>{splitLines(value).map((line, index) => <li key={index}>{line}</li>)}</ul> : <p>기록된 내용이 없습니다.</p>}</section>)}</div>;
+  return <div className="ops-meeting-body">{[["회의내용", meeting.discussion], ["결정사항", meeting.decisions], ["후속업무", meeting.actionItems]].map(([title, value]) => <section key={title}><h3>{title}</h3>{splitLines(value).length ? <ul>{splitLines(value).map((line, index) => <li key={index}><MeetingText>{line}</MeetingText></li>)}</ul> : <p>기록된 내용이 없습니다.</p>}</section>)}</div>;
 }
 
 function FocusColumn({ title, items, tone, empty }) {
   const visible = items.slice(0, 5);
-  return <section className={`is-${tone}`}><h3>{title}</h3>{visible.length ? <><ul>{visible.map((item) => <li key={item.id}><span>{item.clientName}</span><strong>{item.text}</strong><time>{item.date ? shortDate(item.date) : "기한 미정"}</time></li>)}</ul>{items.length > visible.length && <p className="ops-focus-more">외 {items.length - visible.length}건 · 아래 상세 기록에서 확인</p>}</> : <p>{empty}</p>}</section>;
+  return <section className={`is-${tone}`}><h3>{title}</h3>{visible.length ? <><ul>{visible.map((item) => <li key={item.id}><span>{item.clientName}</span><strong>{tone === "issue" ? item.text : <MeetingText>{item.text}</MeetingText>}</strong><time>{item.date ? shortDate(item.date) : "기한 미정"}</time></li>)}</ul>{items.length > visible.length && <p className="ops-focus-more">외 {items.length - visible.length}건 · 아래 상세 기록에서 확인</p>}</> : <p>{empty}</p>}</section>;
 }
 
 function WeeklyMeetingFocus({ meetings, issues, week }) {

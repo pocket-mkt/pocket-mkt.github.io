@@ -1,0 +1,11 @@
+.meeting-rich-text { font-family: inherit; font-size: inherit; line-height: inherit; }
+.meeting-rich-text .meeting-text-line { display: block; overflow-wrap: anywhere; color: #202938; }
+.meeting-rich-text .meeting-text-line + .meeting-text-line { margin-top: 5px; }
+.meeting-rich-text .meeting-text-line.is-important { color: #b42332; font-weight: 650; }
+.meeting-rich-text .meeting-text-line.is-pocket { color: #1d4ed8; font-weight: 550; }
+.meeting-rich-text .meeting-text-line.is-ns { color: #7e22a8; font-weight: 550; }
+.meeting-rich-text .meeting-line-copy { color: inherit; font: inherit; }
+.meeting-rich-text .meeting-label { display: inline-block; vertical-align: baseline; margin: 0 5px 2px 0; padding: 1px 5px; border-radius: 4px; font-family: inherit; font-size: 11px; font-weight: 600; line-height: 1.6; white-space: nowrap; }
+.meeting-rich-text .meeting-label.is-important { color: #b42332; background: #fff0f1; }
+.meeting-rich-text .meeting-label.is-pocket { color: #1d4ed8; background: #eff6ff; }
+.meeting-rich-text .meeting-label.is-ns { color: #7e22a8; background: #faf0ff; }
