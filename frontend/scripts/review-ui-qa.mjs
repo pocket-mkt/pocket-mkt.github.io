@@ -53,7 +53,8 @@ window.runBlogQa = async () => {
  check(document.querySelector('.blog-title').getBoundingClientRect().height<=48,'blog compact row');
  document.querySelectorAll('.blog-platform button')[1].click();await tick();await tick();check(document.querySelector('.blog-empty'),'google empty rather than fake data');
  document.querySelectorAll('.blog-platform button')[0].click();await tick();await tick();
- document.querySelector('.blog-title button').click();await tick();check(document.querySelector('[role="dialog"]'),'blog detail dialog');
+ const postLink=document.querySelector('.blog-title a');check(postLink?.href==='https://example.com/post'&&postLink.target==='_blank'&&postLink.rel.includes('noopener'),'blog title direct safe link');
+ document.querySelector('.blog-rank-open').click();await tick();check(document.querySelector('[role="dialog"]'),'blog detail dialog');
  const rank=document.querySelector('[role="dialog"] input[type=number]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(rank,'3');rank.dispatchEvent(new Event('input',{bubbles:true}));await tick();
  document.querySelector('[role="dialog"] form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await tick();check(writes===1,'manual rank save');check(document.querySelector('.blog-history').textContent.includes('3위'),'saved rank visible');
  document.querySelector('[aria-label="닫기"]').click();await tick();

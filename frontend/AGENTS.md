@@ -2,6 +2,8 @@
 
 ## Blog management (2026-09-10)
 
+- Blog titles directly open the saved post URL in a new tab with noopener/noreferrer, in both rank and publication tables. Open manual rank history through the latest-rank cell instead; never put an intermediate dialog in the title link path.
+
 - `#blog` is an internal Pocket/NS project page, never a customer grant. Top-level NAVER/GOOGLE tabs share a compact 44px-row dashboard. Use 목표 키워드, manual nullable 월 검색량, sortable header buttons, publication view and date grid. Do not deploy sample posts, invented ranks or automated-collection claims.
 - `blog_targets` / `blog_rank_records` are project-authorized Supabase records. Rank records are manual, date-specific, version-checked; distinguish unmeasured, outside top100 and failed. Page reads are bounded (100 targets, 30 days) and sorting/filtering are explicitly current-page only. API integrations and scheduled collection are NOT implemented. Changes are audited in private.blog_change_log, not yet projected into detailed-log UI.
 
