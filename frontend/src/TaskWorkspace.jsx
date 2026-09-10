@@ -1,3 +1,4 @@
+import "./taskChecklist.css";
 import TaskInlineSelect from "./TaskInlineSelect.jsx";
 import { taskChannelOptions } from "./taskChannels.js";
 import { useWindowedRows } from "./useWindowedRows.js";
@@ -39,6 +40,7 @@ const GANTT_DAY_WIDTH = 24;
 
 function editableTaskStatusCode(value) {
   const code = String(value || "NOT_STARTED").toUpperCase();
+  if (code === "DELAYED") return "DELAYED";
   if (["DONE", "COMPLETED"].includes(code)) return "DONE";
   if (["ON_HOLD", "BLOCKED"].includes(code)) return "ON_HOLD";
   if (["IN_PROGRESS", "INTERNAL_REVIEW", "WAITING_CLIENT", "REVISION"].includes(code)) return "IN_PROGRESS";
@@ -83,7 +85,7 @@ function TaskEditModal({ task, tasks = [], clientName, onClose, onUpdate }) {
         <div className="create-field is-wide task-edit-status"><span>상태</span><div className="tracker-status-actions">{trackerStatusOptions.map(([code, label]) => <button key={code} type="button" disabled={saving} className={fields.status_code === code ? "is-active" : ""} onClick={() => setField("status_code", code)}>{label}</button>)}</div></div>
         <label className="create-field"><span>시작일</span><input type="date" value={fields.planned_start_date} max={fields.due_date || undefined} disabled={saving} onChange={(event) => setField("planned_start_date", event.target.value)} /></label>
         <label className="create-field"><span>종료일</span><input type="date" value={fields.due_date} min={fields.planned_start_date || undefined} disabled={saving} onChange={(event) => setField("due_date", event.target.value)} /></label>
-        <label className="create-field"><span>진행률 (%)</span><input type="number" min="0" max="100" value={fields.progress_percent} disabled={saving} onChange={(event) => setField("progress_percent", event.target.value)} /></label>
+
         <FormSelect label="우선순위" value={fields.priority_code} onChange={(value) => setField("priority_code", value)} options={[["LOW", "낮음"], ["NORMAL", "보통"], ["HIGH", "높음"], ["CRITICAL", "긴급"]]} />
         <FormSelect label="담당" value={fields.responsible_org_code} onChange={(value) => setField("responsible_org_code", value)} options={taskResponsibleOrgOptions(clientName)} />
         <label className="create-field is-wide"><span>세부내용</span><textarea rows="3" maxLength={10000} value={fields.description} disabled={saving} onChange={(event) => setField("description", event.target.value)} /></label>
@@ -342,7 +344,7 @@ function TaskScheduleInlineRow({ task, project, canWrite, onUpdate, onEdit, onAr
     <td className="reference-task-detail"><div className="reference-task-cell"><textarea className="task-inline-textarea" aria-label={`${task.title} 세부내용`} rows="1" maxLength={20000} readOnly={!canWrite} disabled={Boolean(savingField)} value={draft.description} placeholder={canWrite ? "세부내용" : ""} onChange={(event) => setField("description", event.target.value)} onBlur={(event) => void commitField("description", event.currentTarget.value)} onKeyDown={(event) => commitOnEnter(event, "description")} /></div></td>
     <td className="reference-task-dates"><div className="reference-task-cell task-inline-date-range" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) void commitField("date_range"); }}><CompactTaskDateInput label={`${task.title} 시작일`} readOnly={!canWrite} disabled={disabled} value={draft.planned_start_date} max={draft.due_date || undefined} onChange={(event) => setField("planned_start_date", event.target.value)} /><ArrowRight size={10} aria-hidden="true" /><CompactTaskDateInput label={`${task.title} 종료일`} readOnly={!canWrite} disabled={disabled} value={draft.due_date} min={draft.planned_start_date || undefined} onChange={(event) => setField("due_date", event.target.value)} /></div></td>
     <td className="reference-task-duration"><div className="reference-task-cell">{duration === null ? "–" : `${duration}일`}</div></td>
-    <td className="reference-task-progress"><div className="reference-task-cell"><span className="task-inline-progress"><span><i style={{ width: `${progress}%` }} /></span><input type="number" min="0" max="100" aria-label={`${task.title} 진행률`} readOnly={!canWrite} disabled={disabled} value={draft.progress_percent} onChange={(event) => setField("progress_percent", event.target.value)} onBlur={(event) => void commitField("progress_percent", event.currentTarget.value)} onKeyDown={(event) => commitOnEnter(event, "progress_percent")} /><em>%</em></span></div></td>
+    <td className="reference-task-complete"><div className="reference-task-cell"><input type="checkbox" className="task-done-check" aria-label={`${task.title} 완료 체크`} checked={draft.status_code === "DONE"} disabled={disabled || !canWrite} onChange={event => { const next=event.target.checked ? "DONE" : "IN_PROGRESS"; setField("status_code",next); void commitField("status_code",next); }}/></div></td>
     <td className="reference-task-status"><div className="reference-task-cell"><TaskInlineSelect className={`task-inline-select task-inline-status ${statusClass[statusLabel] || "status status-muted"}`} disabled={disabled} data-status-code={draft.status_code} aria-label={`${task.title} 상태`} value={draft.status_code} onChange={(event) => { const next = event.target.value; setField("status_code", next); void commitField("status_code", next); }}>{trackerStatusOptions.map(([code, label]) => <option value={code} key={code}>{label}</option>)}</TaskInlineSelect></div></td>
     <td className="reference-task-owner"><div className="reference-task-cell"><TaskInlineSelect className={`task-inline-select task-inline-owner is-${String(draft.responsible_org_code || "POCKET").toLowerCase()}`} disabled={disabled} aria-label={`${task.title} 담당`} value={draft.responsible_org_code} onChange={(event) => { const next = event.target.value; setField("responsible_org_code", next); void commitField("responsible_org_code", next); }}>{taskResponsibleOrgOptions(project.clientName).map(([code, label]) => <option value={code} key={code}>{label}</option>)}</TaskInlineSelect></div></td>
     <td className="reference-task-link"><div className="reference-task-cell"><span className="task-inline-link">{validInlineTaskUrl(draft.completion_url) && draft.completion_url && <a href={draft.completion_url} target="_blank" rel="noreferrer" aria-label={`${task.title} 완료링크 열기`}>열기 ↗</a>}<input className="task-inline-input" type="text" inputMode="url" aria-label={`${task.title} 완료링크`} maxLength={2048} readOnly={!canWrite} disabled={Boolean(savingField)} value={draft.completion_url} placeholder={canWrite ? "https://" : ""} onChange={(event) => setField("completion_url", event.target.value)} onBlur={(event) => void commitField("completion_url", event.currentTarget.value)} onKeyDown={(event) => commitOnEnter(event, "completion_url")} /></span></div></td>
@@ -354,7 +356,7 @@ function TaskScheduleInlineRow({ task, project, canWrite, onUpdate, onEdit, onAr
 function TaskScheduleInlineTable({ tasks, project, canWrite, onUpdate, onEdit, onArchive, ganttDrafts, freshnessNow, scheduleClass, mediaColor, selectedTaskIds, onSelectTask, onSelectAll, reorderEnabled, draggingTaskIds, dropIndicator, onDragStart, onDragEnd, onDragOverTask, onDropTask }) {
   const scrollRef = useRef(null);
   const windowed = useWindowedRows(tasks, scrollRef, { disabled: Boolean(draggingTaskIds?.length) });
-  const columnWidths = [88, 64, null, 200, 126, 44, 92, 78, 78, 105, 135];
+  const columnWidths = [88, 64, null, 200, 126, 44, 52, 82, 78, 105, 135];
   const allSelected = Boolean(canWrite && tasks.length && tasks.every((task) => selectedTaskIds?.has(task.id)));
   let previousMedia = "";
   const bodyRows = [];
@@ -368,10 +370,10 @@ function TaskScheduleInlineTable({ tasks, project, canWrite, onUpdate, onEdit, o
     const bounds = scheduleDateBounds(scheduleDates);
     bodyRows.push(<TaskScheduleInlineRow key={task.id} task={task} project={project} canWrite={canWrite} onUpdate={onUpdate} onEdit={onEdit} onArchive={onArchive} displayedStart={bounds.start || task.plannedStartDate || ""} displayedEnd={bounds.end || task.dueDate || ""} newTask={isNewTask(task, freshnessNow)} rowClass={scheduleClass(task)} mediaColor={mediaColor(media)} mediaGroupStart={mediaGroupStart} selected={selectedTaskIds?.has(task.id)} onSelect={onSelectTask} reorderEnabled={reorderEnabled} dragging={draggingTaskIds?.includes(task.id)} dropPosition={dropIndicator?.taskId === task.id ? dropIndicator.position : ""} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragOver={onDragOverTask} onDrop={onDropTask} />);
   });
-  return <div ref={scrollRef} className="task-schedule-matrix-scroll reference-task-scroll"><table className={`task-schedule-matrix is-detailed reference-task-table${canWrite ? " has-row-selection" : ""}`} style={{ "--schedule-min-width": canWrite ? "1336px" : "1252px" }}><colgroup>{canWrite && <col style={{ width: 28 }} />}{columnWidths.map((width, index) => <col key={index} style={width ? { width } : undefined} />)}{canWrite && <col style={{ width: 56 }} />}</colgroup><thead><tr>{canWrite && <th className="reference-task-select"><input type="checkbox" checked={allSelected} onChange={(event) => onSelectAll?.(event.target.checked)} aria-label="표시된 업무 전체 선택" /></th>}<th>매체</th><th>업무분야</th><th>업무</th><th>세부내용</th><th>일정</th><th>기간</th><th>진행률</th><th>상태</th><th>담당</th><th>완료링크</th><th>비고</th>{canWrite && <th>관리</th>}</tr></thead><tbody>{windowed.before > 0 && <tr aria-hidden="true" className="virtual-spacer"><td colSpan={canWrite ? 13 : 11} style={{ height: windowed.before, padding: 0, border: 0 }} /></tr>}{bodyRows}{windowed.after > 0 && <tr aria-hidden="true" className="virtual-spacer"><td colSpan={canWrite ? 13 : 11} style={{ height: windowed.after, padding: 0, border: 0 }} /></tr>}</tbody></table></div>;
+  return <div ref={scrollRef} className="task-schedule-matrix-scroll reference-task-scroll"><table className={`task-schedule-matrix is-detailed reference-task-table${canWrite ? " has-row-selection" : ""}`} style={{ "--schedule-min-width": canWrite ? "1336px" : "1252px" }}><colgroup>{canWrite && <col style={{ width: 28 }} />}{columnWidths.map((width, index) => <col key={index} style={width ? { width } : undefined} />)}{canWrite && <col style={{ width: 56 }} />}</colgroup><thead><tr>{canWrite && <th className="reference-task-select"><input type="checkbox" checked={allSelected} onChange={(event) => onSelectAll?.(event.target.checked)} aria-label="표시된 업무 전체 선택" /></th>}<th>매체</th><th>업무분야</th><th>업무</th><th>세부내용</th><th>일정</th><th>기간</th><th>완료 체크</th><th>상태</th><th>담당</th><th>완료링크</th><th>비고</th>{canWrite && <th>관리</th>}</tr></thead><tbody>{windowed.before > 0 && <tr aria-hidden="true" className="virtual-spacer"><td colSpan={canWrite ? 13 : 11} style={{ height: windowed.before, padding: 0, border: 0 }} /></tr>}{bodyRows}{windowed.after > 0 && <tr aria-hidden="true" className="virtual-spacer"><td colSpan={canWrite ? 13 : 11} style={{ height: windowed.after, padding: 0, border: 0 }} /></tr>}</tbody></table></div>;
 }
 
-const scheduleStatusFilters = [["ALL", "전체"], ["TODO", "미착수"], ["ACTIVE", "진행"], ["DONE", "완료"], ["HOLD", "보류"]];
+const scheduleStatusFilters = [["ALL", "전체"], ["TODO", "시작 전"], ["ACTIVE", "진행중"], ["DELAYED", "지연"], ["DONE", "완료"], ["HOLD", "보류"]];
 
 const scheduleCategoryFilters = [["ALL", "전체"], ["마케팅", "마케팅"], ["디자인", "디자인"], ["영상", "영상"]];
 
@@ -640,10 +642,12 @@ function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, canWrit
       onHold: statusSummaryTasks.filter((task) => ["ON_HOLD", "BLOCKED"].includes(task.statusCode)).length,
       countable,
       completed,
+      delayed: countable.filter(task => task.statusCode === "DELAYED").length,
+      notStarted: countable.filter(task => task.statusCode === "NOT_STARTED").length,
       completionRate: countable.length ? Math.round(completed / countable.length * 100) : 0,
     };
   }, [statusSummaryTasks]);
-  const { done, inProgress, onHold, countable, completed, completionRate } = summary;
+  const { done, inProgress, onHold, countable, completed, delayed, notStarted } = summary;
   const missingSchedule = useMemo(() => filteredTasks.filter((task) => !task.plannedStartDate || !task.dueDate).length, [filteredTasks]);
   const today = localDateValue();
   const overdueHoldRanges = useMemo(() => new Map(filteredTasks
@@ -688,7 +692,8 @@ function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, canWrit
   }[category] || "#6e7177");
   const ganttFillColor = (task) => {
     const color = ganttCategoryColor(taskScheduleMedia(task));
-    if (task.statusCode === "DONE") return color;
+    if (task.statusCode === "DONE") return `color-mix(in srgb, ${color} 22%, #fff)`;
+    if (task.statusCode === "DELAYED") return "#e78b8b";
     if (["ON_HOLD", "BLOCKED"].includes(task.statusCode)) return `color-mix(in srgb, ${color} 16%, #fff)`;
     if (["IN_PROGRESS", "INTERNAL_REVIEW", "WAITING_CLIENT", "REVISION"].includes(task.statusCode)) return `color-mix(in srgb, ${color} 68%, #fff)`;
     return `color-mix(in srgb, ${color} 30%, #fff)`;
@@ -1091,7 +1096,8 @@ function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, canWrit
         <button type="button" className="g-task-open nm" disabled={!canWrite} onClick={() => canWrite && setEditingTaskId(task.id)}>{task.title}</button>
         {newTask && <span className="g-new-badge">신규</span>}
         {taskHiddenFromClient(task) && <span className="g-client-hidden-badge" title="고객사 계정에는 표시되지 않습니다"><LockKeyhole size={9} />고객 숨김</span>}
-        {canWrite ? <select className={`g-task-status is-${taskScheduleStatusGroup(task).toLowerCase()}`} aria-label={`${task.title} 상태`} value={editableTaskStatusCode(task.statusCode)} disabled={ganttSave.status === "saving"} onPointerDown={(event) => event.stopPropagation()} onChange={(event) => void updateGanttQuickField(task, "status_code", event.target.value)}>{trackerStatusOptions.map(([code, label]) => <option value={code} key={code}>{label}</option>)}</select> : <span className={`g-task-status is-${taskScheduleStatusGroup(task).toLowerCase()}`}>{({ ACTIVE: "진행중", HOLD: "보류", DONE: "완료", TODO: "미착수" })[taskScheduleStatusGroup(task)] || trackerStatusLabels[task.statusCode] || "미지정"}</span>}
+        {canWrite && <input type="checkbox" className="task-done-check g-done-check" aria-label={`${task.title} 완료 체크`} checked={task.statusCode === "DONE"} disabled={ganttSave.status === "saving"} onPointerDown={event=>event.stopPropagation()} onChange={event=>void updateGanttQuickField(task,"status_code",event.target.checked ? "DONE" : "IN_PROGRESS")}/>}
+        {canWrite ? <select className={`g-task-status is-${taskScheduleStatusGroup(task).toLowerCase()}`} aria-label={`${task.title} 상태`} value={editableTaskStatusCode(task.statusCode)} disabled={ganttSave.status === "saving"} onPointerDown={(event) => event.stopPropagation()} onChange={(event) => void updateGanttQuickField(task, "status_code", event.target.value)}>{trackerStatusOptions.map(([code, label]) => <option value={code} key={code}>{label}</option>)}</select> : <span className={`g-task-status is-${taskScheduleStatusGroup(task).toLowerCase()}`}>{({ ACTIVE: "진행중", HOLD: "보류", DONE: "완료", TODO: "시작 전", DELAYED: "지연" })[taskScheduleStatusGroup(task)] || trackerStatusLabels[task.statusCode] || "미지정"}</span>}
         {showOwners && (canWrite ? <select className={`g-owner-select ${task.responsibleOrgCode === "POCKET" ? "op" : task.responsibleOrgCode === "NS" ? "on" : "oc"}`} aria-label={`${task.title} 담당`} value={task.responsibleOrgCode || "POCKET"} disabled={ganttSave.status === "saving"} onPointerDown={(event) => event.stopPropagation()} onChange={(event) => void updateGanttQuickField(task, "responsible_org_code", event.target.value)}>{taskResponsibleOrgOptions(project.clientName).map(([code, label]) => <option value={code} key={code}>{label}</option>)}</select> : <span className={`otag ${task.responsibleOrgCode === "POCKET" ? "op" : task.responsibleOrgCode === "NS" ? "on" : "oc"}`}>{owner}</span>)}
         {canWrite && <TaskRowActions compact task={task} onEdit={setEditingTaskId} onArchive={onArchive} disabled={ganttSave.status === "saving"} />}
       </div>
@@ -1113,7 +1119,7 @@ function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, canWrit
   return <div className="campaign-schedule-board" aria-label="캠페인 운영 일정">
     {!summaryOnly && <>
     <QuoteSummary quote={project.quoteData} />
-    <section className="campaign-board-progress" aria-label="전체 진행률"><div><span>전체 진행률</span><strong>{completionRate}<em>%</em></strong><small>완료 {completed}건 · 전체 {countable.length}건</small><div><i style={{ width: `${completionRate}%` }} /></div></div><div className="campaign-board-statuses"><button type="button" className={statusFilter === "ALL" ? "is-active" : ""} onClick={() => setStatusFilter("ALL")}><span>전체</span><strong>{countable.length}</strong></button><button type="button" className={statusFilter === "ACTIVE" ? "is-active" : ""} onClick={() => setStatusFilter((current) => toggleScheduleStatusFilter(current, "ACTIVE"))}><span>진행중</span><strong>{inProgress}</strong></button><button type="button" className={statusFilter === "DONE" ? "is-active" : ""} onClick={() => setStatusFilter((current) => toggleScheduleStatusFilter(current, "DONE"))}><span>완료</span><strong>{done}</strong></button><button type="button" className={statusFilter === "HOLD" ? "is-active" : ""} onClick={() => setStatusFilter((current) => toggleScheduleStatusFilter(current, "HOLD"))}><span>보류</span><strong>{onHold}</strong></button></div></section>
+    <section className="campaign-board-progress is-checklist" aria-label="업무 완료 현황"><div><span>완료 업무</span><strong>{completed}<em> / {countable.length}건</em></strong><small>미완료 {countable.length-completed}건 · 지연 {delayed}건</small></div><div className="campaign-board-statuses">{[["ALL","전체",countable.length],["TODO","시작 전",notStarted],["ACTIVE","진행중",inProgress],["DELAYED","지연",delayed],["DONE","완료",done],["HOLD","보류",onHold]].map(([code,label,count])=><button type="button" key={code} className={statusFilter===code ? "is-active" : ""} onClick={()=>setStatusFilter(current=>toggleScheduleStatusFilter(current,code))}><span>{label}</span><strong>{count}</strong></button>)}</div></section>
     <div className="campaign-schedule-toolbar reference-toolbar toolbar">
       <TaskWorkspaceTabs activeView={displayMode} onChange={onViewChange} canViewActivity={canViewActivity} />
       {activityMode ? <div className="task-activity-toolbar-copy">사용자가 생성·완료·변경한 업무만 표시합니다.</div> : canEditProject && <div className="schedule-start-date refbox"><label><span>착수일</span><input type="date" value={startDateDraft} disabled={startDateSaving} onChange={(event) => { setStartDateDraft(event.target.value); setStartDateError(""); }} /></label><button type="button" className="btn" disabled={startDateSaving || !startDateDraft || startDateDraft === (project.startDate || "")} onClick={saveProjectStartDate}>{startDateSaving ? "저장 중" : "저장"}</button>{startDateError && <small role="alert">{startDateError}</small>}</div>}

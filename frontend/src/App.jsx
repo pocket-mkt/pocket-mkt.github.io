@@ -1,4 +1,5 @@
 import MeetingText from "./MeetingText.jsx";
+import "./taskChecklist.css";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CompanyBrand from "./CompanyBrand.jsx";
 import CompanySymbol from "./CompanySymbol.jsx";
@@ -535,8 +536,11 @@ const trackerPriorityLabels = { LOW: "낮음", NORMAL: "보통", HIGH: "높음",
 function taskWithMutationFields(task, fields = {}) {
   const next = { ...task };
   const scheduleChanged = ["planned_start_date", "due_date", "schedule_dates_json", "schedule_dates"].some((field) => Object.prototype.hasOwnProperty.call(fields, field));
-  if (scheduleChanged) next.statusMode = "SCHEDULE";
-  else if (Object.prototype.hasOwnProperty.call(fields, "status_code")) next.statusMode = "MANUAL";
+  if (Object.prototype.hasOwnProperty.call(fields, "status_code")) next.statusMode = "MANUAL";
+  else if (scheduleChanged && !["DONE", "COMPLETED", "ON_HOLD", "BLOCKED", "CANCELLED"].includes(next.statusCode)) {
+    next.statusMode = "SCHEDULE";
+    if (next.statusCode === "DELAYED") next.statusCode = "NOT_STARTED";
+  }
   if (Object.prototype.hasOwnProperty.call(fields, "status_code")) {
     next.statusCode = String(fields.status_code || "NOT_STARTED").toUpperCase();
     next.status = trackerStatusLabels[next.statusCode] || next.statusCode;
@@ -741,13 +745,13 @@ function TrackerTaskRow({ task, role, clientName, canWrite, onUpdate, isDone }) 
         <label className="tracker-owner-edit"><span>업무명</span><input value={title} disabled={saving} maxLength={200} onChange={(event) => setTitle(event.target.value)} /></label>
         <label className="tracker-owner-edit"><span>시작일</span><input type="date" value={startDate} disabled={saving} onChange={(event) => setStartDate(event.target.value)} /></label>
         <label className="tracker-owner-edit"><span>종료일</span><input type="date" value={dueDate} disabled={saving} onChange={(event) => setDueDate(event.target.value)} /></label>
-        <label className="tracker-owner-edit"><span>진행률 (%)</span><input type="number" min="0" max="100" value={progressPercent} disabled={saving} onChange={(event) => setProgressPercent(event.target.value)} /></label>
+
         <label className="tracker-owner-edit"><span>우선순위</span><select value={priority} disabled={saving} onChange={(event) => setPriority(event.target.value)}><option value="LOW">낮음</option><option value="NORMAL">보통</option><option value="HIGH">높음</option><option value="CRITICAL">긴급</option></select></label>
         <label className="tracker-owner-edit"><span>담당</span><select value={responsibleOrg} disabled={!canWrite || saving} onChange={(event) => setResponsibleOrg(event.target.value)}>{taskResponsibleOrgOptions(clientName).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
         <label><span>세부내용</span><textarea rows="3" value={note} disabled={!canWrite || saving} onChange={(event) => setNote(event.target.value)} placeholder="업무 범위와 산출물을 적어 주세요" /></label>
         <label><span>완료링크</span><input type="url" pattern="https://.*" value={completionUrl} disabled={!canWrite || saving} onChange={(event) => setCompletionUrl(event.target.value)} placeholder="https://" /></label>
         <label><span>비고</span><textarea rows="2" value={remarks} disabled={!canWrite || saving} onChange={(event) => setRemarks(event.target.value)} placeholder="일정 이슈나 참고사항을 적어 주세요" /></label>
-        <div className="tracker-edit-footer">{error ? <span className="tracker-save-error"><AlertCircle size={14} />{error.message || "저장하지 못했습니다."}</span> : <span>저장 시 Supabase 업무 원장에 즉시 반영됩니다.</span>}<button className="primary-button" type="button" disabled={saving || !title.trim() || (title === (task.title || "") && note === (task.description || "") && startDate === (task.plannedStartDate || "") && responsibleOrg === (task.responsibleOrgCode || "POCKET") && dueDate === (task.dueDate || "") && Number(progressPercent) === Number(task.progressPercent ?? 0) && completionUrl === (task.completionUrl || "") && remarks === (task.remarks || "") && priority === (task.priorityCode || "NORMAL"))} onClick={() => { const fields = { title, description: note, planned_start_date: startDate, due_date: dueDate, progress_percent: Number(progressPercent), completion_url: completionUrl, remarks, priority_code: priority }; if (responsibleOrg !== (task.responsibleOrgCode || "POCKET")) fields.responsible_org_code = responsibleOrg; saveFields(fields); }}>{saving ? <><LoaderCircle size={14} className="spin" /> 저장 중</> : "변경 저장"}</button></div>
+        <div className="tracker-edit-footer">{error ? <span className="tracker-save-error"><AlertCircle size={14} />{error.message || "저장하지 못했습니다."}</span> : <span>저장 시 Supabase 업무 원장에 즉시 반영됩니다.</span>}<button className="primary-button" type="button" disabled={saving || !title.trim() || (title === (task.title || "") && note === (task.description || "") && startDate === (task.plannedStartDate || "") && responsibleOrg === (task.responsibleOrgCode || "POCKET") && dueDate === (task.dueDate || "") && Number(progressPercent) === Number(task.progressPercent ?? 0) && completionUrl === (task.completionUrl || "") && remarks === (task.remarks || "") && priority === (task.priorityCode || "NORMAL"))} onClick={() => { const fields = { title, description: note, planned_start_date: startDate, due_date: dueDate, completion_url: completionUrl, remarks, priority_code: priority }; if (responsibleOrg !== (task.responsibleOrgCode || "POCKET")) fields.responsible_org_code = responsibleOrg; saveFields(fields); }}>{saving ? <><LoaderCircle size={14} className="spin" /> 저장 중</> : "변경 저장"}</button></div>
       </div>}
     </div>}
   </article>;

@@ -136,6 +136,23 @@ function IssueTabsQa() {
  const [issues,setIssues]=useState([{id:1,relatedTask:'대기 요청',body:'확인해주세요',statusCode:'IN_PROGRESS',createdAt:'2026-09-08T03:00:00Z'},{id:2,relatedTask:'기존 완료',statusCode:'DONE',createdAt:'2026-09-07T03:00:00Z'}]);
  return <ProjectIssuePanel issues={issues} project={{id:'QA',clientName:'QA'}} canWrite actorName="QA" onUpdate={async(issue,fields)=>{const next={...issue,statusCode:fields.status_code||issue.statusCode};setIssues(items=>items.map(item=>item.id===issue.id?next:item));return next;}} onArchive={async(issue)=>setIssues(items=>items.filter(item=>item.id!==issue.id))} onCreate={async()=>{}}/>;
 }
+window.runChecklistQa = async () => {
+ const tasks=tasksViewModel({data:{items:['NOT_STARTED','IN_PROGRESS','DELAYED','DONE','ON_HOLD'].map((status,i)=>({task_id:i+1,project_id:1,title:'완료 체크 검증 업무 '+i,category_code:'INSTAGRAM',workstream_code:'DESIGN',responsible_org_code:'NS',status_mode:'MANUAL',status_code:status,progress_percent:45,planned_start_date:'2026-09-01',due_date:'2026-09-30',visibility_code:'CLIENT'}))}}).items;
+ const writes=[];
+ for(const mode of ['table','gantt']) {
+  await render(<div/>);
+  await render(<TaskScheduleTimeline tasks={tasks} issues={[]} project={{id:1,clientName:'QA',name:'QA'}} query="" canWrite onUpdate={async(task,fields)=>{writes.push(fields);}} onBatchUpdate={async()=>{}} displayMode={mode} onViewChange={()=>{}}/>);
+  const boxes=[...document.querySelectorAll('.task-done-check')];check(boxes.length===5,mode+' completion check count');check(boxes.filter(x=>x.checked).length===1,mode+' status rather than percentage');
+  check(!document.querySelector('input[name="progress_percent"]'),mode+' legacy percent input');
+  if(mode==='table') {
+   boxes[0].click();await tick();check(writes.at(-1)?.status_code==='DONE','completion saves canonical status');
+   boxes[3].click();await tick();check(writes.at(-1)?.status_code==='IN_PROGRESS','uncheck reopens');
+   const button=document.querySelector('.reference-task-status .task-choice-trigger');button.scrollIntoView({block:'center',inline:'center'});await tick();button.click();await tick();
+   check([...document.querySelectorAll('[role="menuitemradio"]')].map(x=>x.firstElementChild.textContent).join('|')==='시작 전|진행중|지연|완료|보류','five ordered status choices');
+  }
+ }
+ return ['table/Gantt completion indicators, canonical check/uncheck writes, five ordered statuses, no percentage input'];
+};
 window.showChoiceQa = async () => {
  const tasks=tasksViewModel({data:{items:Array.from({length:4},(_,i)=>({task_id:i+1,project_id:1,title:'콘텐츠 제작 / 업로드 '+(i+1),description:'카드뉴스 기획 및 디자인 제작',category_code:'INSTAGRAM',workstream_code:'DESIGN',responsible_org_code:'NS',status_mode:'MANUAL',status_code:'IN_PROGRESS',progress_percent:30,planned_start_date:'2026-09-01',due_date:'2026-09-30',visibility_code:'CLIENT'}))}}).items;
  await render(<TaskScheduleTimeline tasks={tasks} issues={[]} project={{id:1,clientName:'UND',name:'QA'}} query="" canWrite={true} onUpdate={async()=>{}} onBatchUpdate={async()=>{}} displayMode="table" onViewChange={()=>{}}/>);
@@ -272,14 +289,9 @@ window.runQa = async () => {
  const qaMonday=new Date();qaMonday.setDate(qaMonday.getDate()-((qaMonday.getDay()+6)%7));const qaDue=qaMonday.getFullYear()+'-'+String(qaMonday.getMonth()+1).padStart(2,'0')+'-'+String(qaMonday.getDate()).padStart(2,'0');
  const deltaDashboard={range:{from:qaDue,to:qaDue},projects:[{id:'1',name:'QA',clientName:'QA',totalTasks:1}],meetings:[],issues:[],weeklyTasks:[{id:'1',projectId:'1',title:'QA 상승 업무',dueDate:qaDue,statusCode:'IN_PROGRESS',progressPercent:60,progressDeltaToday:30}]};
  await render(<OperationsDashboardView dashboard={deltaDashboard} canWrite={false} onOpenProject={()=>{}} onLoadWeek={async()=>deltaDashboard}/>);
- const delta=document.querySelector('.ops-progress-delta');
- check(delta?.textContent.includes('+30%p'),'progress delta missing');
- check(getComputedStyle(delta).color==='rgb(201, 33, 39)'&&parseFloat(getComputedStyle(delta).fontSize)>=11,'progress rise is not legible red');
- await render(<OperationsDashboardView dashboard={{...deltaDashboard,weeklyTasks:[{...deltaDashboard.weeklyTasks[0],progressDeltaToday:null}]}} canWrite={false} onOpenProject={()=>{}}/>);
- check(document.querySelector('.ops-progress-unavailable')&&!document.querySelector('.ops-progress-delta'),'missing baseline masked as zero');
- await render(<OperationsDashboardView dashboard={{...deltaDashboard,weeklyTasks:[{...deltaDashboard.weeklyTasks[0],progressDeltaToday:0}]}} canWrite={false} onOpenProject={()=>{}}/>);
- check(!document.querySelector('.ops-progress-unavailable')&&!document.querySelector('.ops-progress-delta'),'unchanged progress shows false rise');
- results.push('progress delta: legible red 11px rise, missing baseline distinct from zero');
+ check(!document.querySelector('.ops-progress-delta')&&!document.querySelector('.ops-progress'),'percentage removed from portfolio');
+ check(document.querySelector('.ops-task-completion')?.textContent==='미완료','unfinished task incorrectly completed');
+ results.push('completion checklist: no percent or delta, actual status completion shown');
  let notificationSelection=null;const notificationCalls=[];
  const notificationSource={activity:async params=>{notificationCalls.push(params);return {data:{items:[{id:9001,entity_id:11,project_id:1,created_at:new Date().toISOString(),project:{project_name:'UND'},task_detail:{task_title:'QA 신규 업무'}},{id:9002,entity_id:22,project_id:2,created_at:new Date().toISOString(),project:{project_name:'무극'},task_detail:{task_title:'QA 다른 프로젝트 업무'}}],nextCursor:null}};}};
  await render(<WorkspaceNotifications source={notificationSource} actorId={'qa-'+window.innerWidth} onSelect={item=>notificationSelection=item}/>);await tick();
@@ -497,10 +509,11 @@ try {
     await writeFile('../artifacts/client-progress/render-benchmark.json',JSON.stringify(benchmark,null,2));
     console.log(JSON.stringify({benchmark}));
   }
-  for(const width of [1440,390]) {
+  for(const width of [1440,1024,390]) {
     await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<500});
     await send('Page.navigate',{url});
     for(let i=0;i<100;i++){if(await evaluate('typeof window.runQa === "function"'))break;await delay(100);}
+    console.log(JSON.stringify({viewport:width,checklist:await evaluate('window.runChecklistQa()')}));
     console.log(JSON.stringify({viewport:width,meeting:await evaluate('window.runMeetingEmphasisQa()')}));
     const meetingShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await mkdir('../artifacts/client-progress',{recursive:true});

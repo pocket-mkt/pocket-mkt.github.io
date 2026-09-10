@@ -43,7 +43,7 @@ export function ganttTaskLabelWidth(tasks = [], { canWrite = true, showOwners = 
   const longestTitleWidth = tasks.reduce((maximum, task) => (
     Math.max(maximum, estimatedTextWidth(task?.title || "제목 없는 업무"))
   ), 0);
-  const controlsWidth = canWrite ? (showOwners ? 248 : 186) : (showOwners ? 112 : 68);
+  const controlsWidth = canWrite ? (showOwners ? 280 : 218) : (showOwners ? 120 : 76);
   const minimumWidth = canWrite ? 360 : 280;
   return Math.min(620, Math.max(minimumWidth, Math.ceil((longestTitleWidth + controlsWidth) / 8) * 8));
 }

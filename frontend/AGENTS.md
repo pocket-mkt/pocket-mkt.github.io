@@ -1,5 +1,11 @@
 # Prototype Instructions
 
+## Completion checklist (2026-09-10; supersedes older progress/auto-completion rules)
+
+- Task menus use exactly `시작 전 / 진행중 / 지연 / 완료 / 보류` (`NOT_STARTED / IN_PROGRESS / DELAYED / DONE / ON_HOLD`). Remove task percentage inputs, bars and deltas from schedule, Gantt, progress and portfolio; show completion checks and counts instead. Keep row-selection and completion controls separate. Client controls remain read-only.
+- Never mark a task DONE because its deadline passed or its legacy percentage reached 100. Expired unfinished work is DELAYED; DONE and ON_HOLD survive time and date edits. Reopening overdue work is DELAYED until rescheduled. Preserve existing records and legacy percent storage for compatibility, not as the source of status.
+- Verify canonical DB normalization and table/Gantt/portfolio/create/edit surfaces together; desktop, tablet and mobile must retain column alignment and the five-state menu order.
+
 - Meeting emphasis uses the shared MeetingText renderer in portfolio, daily records, weekly focus and internal progress. Explicit `[중요]` line prefixes are red; explicit `포켓:` / `NS:` responsibility prefixes are blue / purple. Shared responsibility gets both labelled badges with neutral body; important body overrides owner color but retains owner badges. Never infer ownership from a company mention or automatically mark all decisions important. Keep stored content as plain text, never raw HTML. Codex selects important points when summarizing meetings; preserve dates, visibility and concurrent edits when annotating existing records.
 
 ## Blog management (2026-09-10)

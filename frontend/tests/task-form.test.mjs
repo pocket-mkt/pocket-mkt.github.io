@@ -85,7 +85,7 @@ test("작성 오류는 저장 전에 안내하며 일정 미정은 허용한다"
   assert.equal(taskForm.taskCreateValidationError({...valid,title:"   "}), "");
   assert.match(taskForm.taskCreateValidationError({...valid,due_date:"2026-09-01"}), /종료일/);
   assert.match(taskForm.taskCreateValidationError({...valid,due_date:""}), /함께/);
-  assert.match(taskForm.taskCreateValidationError({...valid,progress_percent:101}), /진행률/);
+  assert.equal(taskForm.taskCreateValidationError({...valid,progress_percent:101}), "");
   assert.match(taskForm.taskCreateValidationError({...valid,completion_url:"javascript:alert(1)"}), /https/);
   assert.equal(taskForm.taskCreateValidationError({...valid,...taskForm.taskDateRangePreset("UNSCHEDULED")}), "");
 });
@@ -120,7 +120,7 @@ test("업무 생성은 표·일정 필드를 보존하고 진행률을 숫자로
     completion_url: "https://example.com/result",
     remarks: "비고",
   });
-  assert.equal(payload.progress_percent, 25);
+  assert.equal(payload.progress_percent, undefined);
   assert.equal(payload.completion_url, "https://example.com/result");
   assert.equal(payload.remarks, "비고");
 });
@@ -154,7 +154,7 @@ test("일정표 수정 요청은 목록 수정과 같은 업무 필드를 숫자
   });
   assert.equal(fields.title, "콘텐츠 제작");
   assert.equal(fields.status_code, "ON_HOLD");
-  assert.equal(fields.progress_percent, 35);
+  assert.equal(fields.progress_percent, undefined);
   assert.equal(fields.priority_code, "HIGH");
   assert.equal(fields.responsible_org_code, "NS");
   assert.equal(fields.schedule_dates_json, JSON.stringify([
@@ -176,7 +176,7 @@ test("일정표 날짜 수정은 간트 일정 배열도 함께 갱신한다", (
 
 test("일정표 상태와 담당 클릭은 제품에서 정한 순서로 순환한다", () => {
   assert.equal(taskForm.nextTaskStatusCode("NOT_STARTED"), "IN_PROGRESS");
-  assert.equal(taskForm.nextTaskStatusCode("IN_PROGRESS"), "DONE");
+  assert.equal(taskForm.nextTaskStatusCode("IN_PROGRESS"), "DELAYED");
   assert.equal(taskForm.nextTaskStatusCode("COMPLETED"), "ON_HOLD");
   assert.equal(taskForm.nextTaskStatusCode("BLOCKED"), "NOT_STARTED");
   assert.equal(taskForm.nextTaskResponsibleOrgCode("POCKET"), "NS");

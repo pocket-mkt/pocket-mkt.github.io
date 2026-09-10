@@ -1,0 +1,24 @@
+/* Completion and row selection deliberately have separate locations/labels. */
+.task-done-check { width: 17px; height: 17px; accent-color: #15805b; cursor: pointer; flex: 0 0 17px; }
+.task-done-check:disabled { cursor: default; }
+.reference-task-complete .reference-task-cell { justify-content: center; }
+.status.status-delayed, .g-task-status.is-delayed, .ops-status.is-delayed, .pb-tag.is-delayed { color: #b42332; background: #fff0f1; }
+.campaign-schedule-surface .g-lbl .g-task-status { min-width: 60px; flex-shrink: 0; }
+.g-lbl .g-done-check { margin: 0 3px; }
+.campaign-board-progress.is-checklist { align-items: center; }
+.campaign-board-progress.is-checklist .campaign-board-statuses { display: grid; grid-template-columns: repeat(6,minmax(66px,1fr)); gap: 6px; min-width: 0; }
+.campaign-board-progress.is-checklist > div:first-child > strong { white-space: nowrap; }
+.task-create-status-row.is-checklist { display: block; }
+.task-create-status-row.is-checklist .task-create-choices > div { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 6px; }
+.task-create-status-row.is-checklist button { min-width: 0; padding-left: 5px; padding-right: 5px; white-space: nowrap; }
+.tracker-status-actions { flex-wrap: wrap; }
+.ops-project-worklist .ops-task-table .ops-task-row { grid-template-columns: minmax(180px,1fr) 82px 76px 76px 210px; }
+.ops-task-completion { color: #64748b; font-size: 12px; white-space: nowrap; }
+.ops-task-completion.is-done { color: #15805b; font-weight: 650; }
+@media(max-width:900px) {
+ .campaign-board-progress.is-checklist { display: grid; grid-template-columns: 1fr; gap: 12px; }
+ .campaign-board-progress.is-checklist .campaign-board-statuses { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+@media(max-width:480px) {
+ .task-create-status-row.is-checklist .task-create-choices > div { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}

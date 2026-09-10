@@ -12,7 +12,7 @@ export function taskResponsibleOrgLabel(code, clientName = "고객사") {
   return Object.fromEntries(taskResponsibleOrgOptions(clientName))[String(code || "").toUpperCase()] || "포켓";
 }
 
-const TASK_STATUS_CYCLE = ["NOT_STARTED", "IN_PROGRESS", "DONE", "ON_HOLD"];
+const TASK_STATUS_CYCLE = ["NOT_STARTED", "IN_PROGRESS", "DELAYED", "DONE", "ON_HOLD"];
 const TASK_OWNER_CYCLE = ["POCKET", "NS", "CLIENT"];
 const TASK_WORKSTREAM_CODES = new Set(["MARKETING", "DESIGN", "VIDEO"]);
 const TASK_WORKSTREAM_ALIASES = Object.freeze({ MKT: "MARKETING", DSN: "DESIGN", VID: "VIDEO" });
@@ -94,7 +94,7 @@ export function taskCreateValidationError(fields = {}) {
   if (!TASK_STATUS_CYCLE.includes(String(fields.status_code || "").toUpperCase())) return "현재 상태를 선택해 주세요.";
   if (Boolean(fields.planned_start_date) !== Boolean(fields.due_date)) return "시작일과 종료일을 함께 선택하거나 일정 미정을 선택해 주세요.";
   if (fields.planned_start_date && taskDateRangeDuration(fields) === null) return "종료일은 시작일과 같거나 이후여야 합니다.";
-  if (!Number.isFinite(Number(fields.progress_percent)) || Number(fields.progress_percent) < 0 || Number(fields.progress_percent) > 100) return "진행률은 0~100 사이로 입력해 주세요.";
+
   if (fields.completion_url) {
     try { if (new URL(fields.completion_url).protocol !== "https:") return "완료링크는 https:// 주소를 입력해 주세요."; }
     catch { return "올바른 완료링크 주소를 입력해 주세요."; }
@@ -125,7 +125,7 @@ export function taskCreateSubmissionFields(fields) {
   const cleaned = Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== ""));
   cleaned.title = String(fields.title || "").trim() || "제목 없는 업무";
   if (cleaned.workstream_code) cleaned.workstream_code = normalizeTaskWorkstreamCode(cleaned.workstream_code);
-  if (Object.prototype.hasOwnProperty.call(cleaned, "progress_percent")) cleaned.progress_percent = Number(cleaned.progress_percent);
+  delete cleaned.progress_percent;
   if (cleaned.status_code === "DONE") cleaned.progress_percent = 100;
   if (cleaned.planned_start_date && cleaned.due_date) cleaned.schedule_dates_json = serializeScheduleDates(scheduleDateRange(cleaned.planned_start_date, cleaned.due_date));
   return { ...cleaned, reviewer_org_code: "POCKET" };
@@ -160,7 +160,7 @@ export function taskUpdateSubmissionFields(fields = {}) {
     schedule_dates_json: plannedStartDate && dueDate
       ? serializeScheduleDates(scheduleDateRange(plannedStartDate, dueDate))
       : null,
-    progress_percent: Number(fields.progress_percent || 0),
+
     completion_url: fields.completion_url || "",
     remarks: fields.remarks || "",
     priority_code: String(fields.priority_code || "NORMAL").toUpperCase(),

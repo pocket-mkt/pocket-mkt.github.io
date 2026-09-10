@@ -11,12 +11,12 @@ import { DeferredSchedule, TaskColumn } from "./ProgressFlow.jsx";
 const TaskEditModal = lazy(()=>import('./TaskWorkspace.jsx').then(module=>({default:module.TaskEditModal})));
 
 const shortDate = value => value ? String(value).slice(5, 10).replace("-", ".") : "미정";
-const statusLabels = { NOT_STARTED: "미착수", IN_PROGRESS: "진행 중", DONE: "완료", COMPLETED: "완료", REVIEW: "검토 중", INTERNAL_REVIEW: "검토 중", WAITING_CLIENT: "고객 확인", REVISION: "수정 중", BLOCKED: "차단", ON_HOLD: "보류" };
+const statusLabels = { NOT_STARTED: "시작 전", IN_PROGRESS: "진행중", DELAYED: "지연", DONE: "완료", COMPLETED: "완료", REVIEW: "검토 중", INTERNAL_REVIEW: "검토 중", WAITING_CLIENT: "고객 확인", REVISION: "수정 중", BLOCKED: "차단", ON_HOLD: "보류" };
 const doneStatuses = new Set(["DONE", "COMPLETED"]);
-const activeStatuses = new Set(["IN_PROGRESS", "REVIEW", "INTERNAL_REVIEW", "WAITING_CLIENT", "REVISION"]);
+const activeStatuses = new Set(["DELAYED", "IN_PROGRESS", "REVIEW", "INTERNAL_REVIEW", "WAITING_CLIENT", "REVISION"]);
 const splitPoints = value => String(value || "").split(/\r?\n/).map(line => line.trim().replace(/^[•·-]\s*/, "")).filter(Boolean);
 function Tag({ code, children }) {
-  return <span className={`pb-tag ${["DONE", "COMPLETED"].includes(code) ? "is-done" : ["ON_HOLD", "BLOCKED"].includes(code) ? "is-wait" : ""}`}>{children || statusLabels[code] || code}</span>;
+  return <span className={`pb-tag ${["DONE", "COMPLETED"].includes(code) ? "is-done" : code === "DELAYED" ? "is-delayed" : ["ON_HOLD", "BLOCKED"].includes(code) ? "is-wait" : ""}`}>{children || statusLabels[code] || code}</span>;
 }
 function Empty({ children }) { return <p className="pb-empty">{children}</p>; }
 function SignalCard({ label, value, unit = "건", detail, tone = "default", progress }) {
@@ -77,7 +77,7 @@ export function ProgressView({ project, role, taskPage, source, actorName, canWr
   const owners = [...new Set([project.clientName || "고객사", "포켓컴퍼니", "NS"])];
   return <div className="progress-brief">
     <div className="pb-heading"><div><small>프로젝트 / 진행상황</small><h1>{project.name}</h1><p>지난 결정부터 현재 이슈, 다음 업무까지 한 화면에서 판단합니다.</p></div><span><CalendarDays size={14} />{shortDate(week.start)} — {shortDate(week.end)} · 이번 주</span></div>
-    <section className="pb-signal-strip" aria-label="프로젝트 핵심 현황"><SignalCard label="전체 진척률" value={completionRate} unit="%" detail={`완료 ${completedTasks.length} / 전체 ${tasks.length}`} tone="progress" progress={completionRate} /><SignalCard label="현재 진행" value={activeTasks.length} detail="검토·수정·고객확인 포함" /><SignalCard label="이번 주 예정" value={upcomingTasks.length} detail="아직 시작하지 않은 업무" /><SignalCard label="확인 필요" value={openIssues.length + heldTasks.length} detail={`이슈 ${openIssues.length} · 보류 ${heldTasks.length}`} tone={openIssues.length || heldTasks.length ? "alert" : "default"} /></section>
+    <section className="pb-signal-strip" aria-label="프로젝트 핵심 현황"><SignalCard label="완료 업무" value={completedTasks.length} detail={`전체 ${tasks.length}건 · 미완료 ${tasks.length-completedTasks.length}건`} tone="progress" /><SignalCard label="현재 진행" value={activeTasks.length} detail={`지연 ${tasks.filter(task=>task.statusCode==="DELAYED").length}건 포함`} /><SignalCard label="이번 주 예정" value={upcomingTasks.length} detail="아직 시작하지 않은 업무" /><SignalCard label="확인 필요" value={openIssues.length + heldTasks.length} detail={`이슈 ${openIssues.length} · 보류 ${heldTasks.length}`} tone={openIssues.length || heldTasks.length ? "alert" : "default"} /></section>
     <div className="pb-section-heading"><div><h2>지금 확인할 내용</h2><p>지난 회의의 결정과 아직 닫히지 않은 이슈를 먼저 확인합니다.</p></div></div>
     <div className="pb-priority-grid">
       <section className="pb-panel pb-meeting-panel"><header><div><h2>지난 회의 핵심</h2><small>{latest ? `${shortDate(latest.date)} 기록` : "최근 회의 기준"}</small></div>{canReadMeetings && <button onClick={() => onNavigate("daily")}>회의록 <ArrowUpRight size={13} /></button>}</header><MeetingFocus latest={latest} state={meetingState} client={client} canRead={canReadMeetings} onRetry={() => setMeetingRetry(value => value + 1)} onOpen={() => onNavigate("daily")} /></section>

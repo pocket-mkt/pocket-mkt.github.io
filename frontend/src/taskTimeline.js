@@ -185,6 +185,7 @@ export function taskScheduleStatusGroup(task = {}) {
   const status = String(task.statusCode || "").toUpperCase();
   if (["DONE", "COMPLETED"].includes(status)) return "DONE";
   if (["ON_HOLD", "BLOCKED"].includes(status)) return "HOLD";
+  if (status === "DELAYED") return "DELAYED";
   if (["IN_PROGRESS", "INTERNAL_REVIEW", "WAITING_CLIENT", "REVISION"].includes(status)) return "ACTIVE";
   if (["NOT_STARTED", "TODO", "PLANNED"].includes(status)) return "TODO";
   return "OTHER";

@@ -629,7 +629,7 @@ test("Sheets 응답을 Pocket 화면 뷰모델로 변환한다", () => {
   });
   assert.deepEqual(taskPage.items.map((item) => item.id), ["T-2", "T-1"]);
   const trackedTask = taskPage.items.find((item) => item.id === "T-1");
-  assert.equal(trackedTask.status, "진행");
+  assert.equal(trackedTask.status, "진행중");
   assert.equal(trackedTask.stream, "영상");
   assert.equal(trackedTask.sourceTaskId, "M1-VID-01");
   assert.equal(trackedTask.planWeek, 2);
@@ -644,7 +644,7 @@ test("Sheets 응답을 Pocket 화면 뷰모델로 변환한다", () => {
   assert.equal(taskPage.members[0].userId, "USR-POCKET-1");
   assert.equal(taskPage.members[0].displayName, "포켓 담당자");
   assert.equal(taskPage.members[0].organization, "포켓컴퍼니");
-  assert.equal(taskPage.items[0].status, "미착수");
+  assert.equal(taskPage.items[0].status, "시작 전");
   assert.equal(taskPage.project.startDate, "2026-09-01");
   assert.equal(taskPage.project.rowVersion, 7);
   assert.equal(taskPage.publishing.phases[0].target.total, 26);
@@ -797,7 +797,7 @@ test("업무 로그 변경값의 상태·담당 조직 코드를 화면 라벨�
   });
 
   assert.deepEqual(activity.items[0].changes, [
-    { field: "status_code", label: "상태", before: "진행", after: "완료" },
+    { field: "status_code", label: "상태", before: "진행중", after: "완료" },
     { field: "responsible_org_code", label: "담당 조직", before: "포켓", after: "고객사" },
     { field: "schedule_dates_json", label: "간트 일정", before: "일정 없음", after: "2일 · 2026-09-01~2026-09-03" },
     { field: "visibility_code", label: "고객 공개 범위", before: "고객 공개", after: "고객 숨김" },

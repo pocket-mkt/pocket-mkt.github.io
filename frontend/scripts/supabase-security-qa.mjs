@@ -462,9 +462,9 @@ let progressRow=(await db.query(`select public.mutate_task('qa_progress_create_0
 assert(progressRow.ok && progressRow.data.item.progress_percent===100, 'new completed task did not become 100');
 let progressSequence=0;
 for (const [fields,status,percent] of [
-  [{status_code:'ON_HOLD'},'ON_HOLD',0], [{progress_percent:73,status_code:'IN_PROGRESS'},'IN_PROGRESS',73],
-  [{status_code:'DONE'},'DONE',100], [{progress_percent:35},'IN_PROGRESS',35],
-  [{status_code:'NOT_STARTED'},'NOT_STARTED',0], [{progress_percent:50,status_code:'IN_PROGRESS'},'IN_PROGRESS',50],
+  [{status_code:'ON_HOLD'},'ON_HOLD',100], [{progress_percent:73,status_code:'IN_PROGRESS'},'IN_PROGRESS',73],
+  [{status_code:'DONE'},'DONE',100], [{progress_percent:35},'DONE',100],
+  [{status_code:'NOT_STARTED'},'NOT_STARTED',100], [{progress_percent:50,status_code:'IN_PROGRESS'},'IN_PROGRESS',50],
   [{status_code:'ON_HOLD'},'ON_HOLD',50],
 ]) {
   const row=progressRow.data.item;
@@ -476,9 +476,9 @@ assert(await scalar("select private.effective_task_status('SCHEDULE','NOT_STARTE
 assert(await scalar("select private.effective_task_status('SCHEDULE','NOT_STARTED','2099-01-01','2099-01-05','2099-01-03') as value", "value") === 'IN_PROGRESS', 'active scheduled task was not IN_PROGRESS');
 assert(await scalar("select private.effective_task_status('MANUAL','ON_HOLD','2099-01-01','2099-01-05','2099-01-03') as value", "value") === 'ON_HOLD', 'manual status was not preserved in range');
 assert(await scalar("select private.effective_task_status('MANUAL','ON_HOLD','2099-01-01','2099-01-05','2099-01-06') as value", "value") === 'ON_HOLD', 'expired manual hold was overwritten');
-assert(await scalar("select private.effective_task_status('MANUAL','IN_PROGRESS','2099-01-01','2099-01-05','2099-01-06') as value", "value") === 'DONE', 'expired non-hold manual task bypassed completion');
+assert(await scalar("select private.effective_task_status('MANUAL','IN_PROGRESS','2099-01-01','2099-01-05','2099-01-06') as value", "value") === 'DELAYED', 'expired non-hold task must be delayed, not complete');
 await db.exec(`insert into public.tasks(project_id,phase_code,workstream_code,title,status_code,progress_percent,planned_start_date,due_date,responsible_org_code,reviewer_org_code,visibility_code) values (1,'P0','MARKETING','만료 자동완료 QA','NOT_STARTED',35,'2000-01-01','2000-01-02','NS','POCKET','PROJECT_TEAM')`);
-assert(await scalar("select count(*)::int as count from public.tasks where title='만료 자동완료 QA' and status_code='DONE' and progress_percent=100") === 1, 'expired insert was not persisted as DONE/100');
+assert(await scalar("select count(*)::int as count from public.tasks where title='만료 자동완료 QA' and status_code='DELAYED' and completed_at is null") === 1, 'expired insert must stay incomplete and delayed');
 const expiredTaskId = await scalar("select id::int as value from public.tasks where title='만료 자동완료 QA'", "value");
 const expiredTaskVersion = await scalar(`select row_version::int as value from public.tasks where id=${expiredTaskId}`, "value");
 await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub', '${userIds.ns}', false);`);
@@ -488,6 +488,15 @@ assert(heldOverdue.data.item.overdue_hold_resolved_at === null, 'live overdue ho
 const completedAfterHold = (await db.query(`select public.mutate_task('qa_expired_hold_done_01','UPDATE',1,${expiredTaskId},${heldOverdue.data.item.row_version},'{"status_code":"DONE","progress_percent":100}'::jsonb) as response`)).rows[0].response;
 assert(completedAfterHold.ok && completedAfterHold.data.item.status_code === 'DONE' && completedAfterHold.data.item.progress_percent === 100, 'held overdue task did not return to DONE/100');
 assert(Boolean(completedAfterHold.data.item.overdue_hold_resolved_at), 'resolved overdue hold did not freeze its Gantt endpoint');
+const reopened = (await db.query(`select public.mutate_task('qa_reopen_expired','UPDATE',1,${expiredTaskId},${completedAfterHold.data.item.row_version},'{"status_code":"IN_PROGRESS"}'::jsonb) as response`)).rows[0].response;
+assert(reopened.ok && reopened.data.item.status_code==='DELAYED' && reopened.data.item.completed_at===null,'unchecked overdue completion must become delayed, never auto-complete');
+const extended = (await db.query(`select public.mutate_task('qa_extend_delayed','UPDATE',1,${expiredTaskId},${reopened.data.item.row_version},'{"planned_start_date":"2099-01-01","due_date":"2099-01-02","schedule_dates_json":"[\\"2099-01-01\\",\\"2099-01-02\\"]"}'::jsonb) as response`)).rows[0].response;
+assert(extended.ok && extended.data.item.status_code==='NOT_STARTED','extended schedule must clear date-derived delay');
+const selectedDelay = (await db.query(`select public.mutate_task('qa_select_delayed','UPDATE',1,${expiredTaskId},${extended.data.item.row_version},'{"status_code":"DELAYED"}'::jsonb) as response`)).rows[0].response;
+assert(selectedDelay.ok && selectedDelay.data.item.status_code==='DELAYED','explicit delay selection must persist');
+const manualDone = (await db.query(`select public.mutate_task('qa_check_complete','UPDATE',1,${expiredTaskId},${selectedDelay.data.item.row_version},'{"status_code":"DONE"}'::jsonb) as response`)).rows[0].response;
+const doneDateEdit = (await db.query(`select public.mutate_task('qa_done_date_edit','UPDATE',1,${expiredTaskId},${manualDone.data.item.row_version},'{"schedule_dates_json":"[\\"2099-02-01\\"]"}'::jsonb) as response`)).rows[0].response;
+assert(doneDateEdit.ok && doneDateEdit.data.item.status_code==='DONE' && doneDateEdit.data.item.completed_at===manualDone.data.item.completed_at,'date edits must preserve explicit completion and its timestamp');
 await db.exec('reset role');
 console.log(JSON.stringify({
   confirmationDeadlineAndAudit: "pass",

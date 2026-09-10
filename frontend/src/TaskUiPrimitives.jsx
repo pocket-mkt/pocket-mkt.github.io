@@ -3,6 +3,8 @@ import { FolderOpen, LoaderCircle, AlertCircle, RefreshCw } from "lucide-react";
 const statusClass = {
   할일: "status status-muted",
   미착수: "status status-muted",
+  "시작 전": "status status-muted",
+  지연: "status status-delayed",
   완료: "status status-success",
   진행: "status status-active",
   진행중: "status status-active",
@@ -42,16 +44,18 @@ function FormSelect({ label, value, onChange, options }) {
 }
 
 const trackerStatusOptions = [
-  ["NOT_STARTED", "미착수"],
-  ["IN_PROGRESS", "진행"],
+  ["NOT_STARTED", "시작 전"],
+  ["IN_PROGRESS", "진행중"],
+  ["DELAYED", "지연"],
   ["DONE", "완료"],
   ["ON_HOLD", "보류"],
 ];
 
 const trackerStatusLabels = {
   TODO: "미착수",
-  NOT_STARTED: "미착수",
-  IN_PROGRESS: "진행",
+  NOT_STARTED: "시작 전",
+  DELAYED: "지연",
+  IN_PROGRESS: "진행중",
   INTERNAL_REVIEW: "검토",
   WAITING_CLIENT: "고객 확인",
   REVISION: "검토",

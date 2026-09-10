@@ -51,10 +51,10 @@ test("진행상황·업무 하단·통합관리는 같은 확인요청 카드와
   assert.match(confirmationWorkflowMigration, /read_operations_dashboard_with_confirmation_history/);
 });
 
-test("업무 체크는 실제 당일 변경 이력에서 계산한 상승분만 작은 빨간 지표로 보여준다", () => {
-  assert.match(dashboardSource, /task\.progressDeltaToday > 0/);
-  assert.match(dashboardSource, /className="ops-progress-delta"/);
-  assert.match(dashboardSource, /▲ \+\{task\.progressDeltaToday\}%p/);
+test("업무 체크는 퍼센트 없이 완료 여부를 표시하고 과거 API 호환성은 보존한다", () => {
+  assert.doesNotMatch(dashboardSource, /task\.progressDeltaToday/);
+  assert.match(dashboardSource, /ops-task-completion/);
+  assert.match(dashboardSource, /미완료/);
   assert.match(progressDeltaMigration, /event\.before_data -> 'progress_percent' is distinct from event\.after_data -> 'progress_percent'/);
   assert.match(progressDeltaMigration, /event\.created_at >= seoul_today_start/);
   assert.match(progressDeltaMigration, /'progress_delta_today'/);

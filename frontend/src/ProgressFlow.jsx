@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, ChevronRight } from "lucide-react";
 import { publicHttpLink } from "./progressBrief.js";
 const shortDate = value => value ? String(value).slice(5, 10).replace("-", ".") : "미정";
-const statusLabels = { NOT_STARTED: "미착수", IN_PROGRESS: "진행 중", DONE: "완료", COMPLETED: "완료", REVIEW: "검토 중", INTERNAL_REVIEW: "검토 중", WAITING_CLIENT: "고객 확인", REVISION: "수정 중", BLOCKED: "차단", ON_HOLD: "보류" };
+const statusLabels = { NOT_STARTED: "시작 전", IN_PROGRESS: "진행중", DELAYED: "지연", DONE: "완료", COMPLETED: "완료", REVIEW: "검토 중", INTERNAL_REVIEW: "검토 중", WAITING_CLIENT: "고객 확인", REVISION: "수정 중", BLOCKED: "차단", ON_HOLD: "보류" };
 function Tag({ code, children }) {
-  return <span className={`pb-tag ${["DONE", "COMPLETED"].includes(code) ? "is-done" : ["ON_HOLD", "BLOCKED"].includes(code) ? "is-wait" : ""}`}>{children || statusLabels[code] || code}</span>;
+  return <span className={`pb-tag ${["DONE", "COMPLETED"].includes(code) ? "is-done" : code === "DELAYED" ? "is-delayed" : ["ON_HOLD", "BLOCKED"].includes(code) ? "is-wait" : ""}`}>{children || statusLabels[code] || code}</span>;
 }
 function Empty({ children }) { return <p className="pb-empty">{children}</p>; }
 export function DeferredSchedule({ children }) {
