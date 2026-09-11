@@ -110,10 +110,16 @@ window.runLargeListQa = async () => {
   check(scroll.querySelectorAll('[data-window-id]').length<80,'rows did not release after returning to top');
   if(mode==='gantt') {
    const cell=scroll.querySelector('.g-c[data-gantt-task-id]');
+   const distant=cell.parentElement.querySelectorAll('.g-c')[4];
+   cell.scrollIntoView({block:'center',inline:'nearest'});await tick();
    cell.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerId:1}));
+   const distantRect=distant.getBoundingClientRect();
+   window.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,buttons:1,pointerId:1,clientX:distantRect.left+distantRect.width/2,clientY:distantRect.top+distantRect.height/2}));
    window.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,button:0,pointerId:1}));
    window.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,button:0,pointerId:1}));await tick();
    check(writes.length===1 && writes[0].length===1,'Gantt gesture did not produce exactly one task mutation');
+   const dates=JSON.parse(writes[0][0].fields.schedule_dates_json);
+   check(!dates.includes('2026-09-01') && !dates.includes('2026-09-05') && dates.includes('2026-09-03'),'pointer endpoint jump must not interpolate intervening dates');
   }
  }
  return ['500-row table/Gantt: bounded DOM, scroll to final row and back, Shift selection, focused editor retained, one mutation per Gantt gesture'];

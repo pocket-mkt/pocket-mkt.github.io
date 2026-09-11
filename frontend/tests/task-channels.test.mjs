@@ -4,6 +4,11 @@ import { taskChannelOptions, SHARED_TASK_CHANNELS } from "../src/taskChannels.js
 import { taskCreateInitialFields, taskCreateSubmissionFields, taskCreateValidationError, taskUpdateInitialFields, taskUpdateSubmissionFields } from "../src/taskForm.js";
 import { taskScheduleMedia } from "../src/taskTimeline.js";
 
+test('editing status does not fill gaps between explicitly selected dates', () => {
+  const fields=taskUpdateInitialFields({title:'업무',plannedStartDate:'2026-09-11',dueDate:'2026-09-15',scheduleDates:['2026-09-11','2026-09-15']});
+  assert.deepEqual(JSON.parse(taskUpdateSubmissionFields({...fields,status_code:'DONE'}).schedule_dates_json),['2026-09-11','2026-09-15']);
+});
+
 test("editing preserves, changes and clears the existing media through category_code", () => {
   const initial = taskUpdateInitialFields({categoryCode:"INSTAGRAM",title:"업무"});
   assert.equal(initial.category_code, "INSTAGRAM");

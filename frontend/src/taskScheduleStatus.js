@@ -67,3 +67,14 @@ export function overdueTaskHoldRange(task = {}, todayValue = new Date()) {
   if (!startDate || !endDate || endDate < startDate) return null;
   return { startDate, endDate, live: held };
 }
+
+export function taskHoldRanges(task = {}, todayValue = new Date()) {
+  const history = task.overdueHoldRanges || task.overdue_hold_ranges;
+  const ranges = (Array.isArray(history) ? history : []).filter(range =>
+    /^\d{4}-\d{2}-\d{2}$/.test(range?.startDate || '') &&
+    /^\d{4}-\d{2}-\d{2}$/.test(range?.endDate || '') && range.endDate >= range.startDate
+  ).map(range => ({ startDate: range.startDate, endDate: range.endDate, live: false }));
+  const current = overdueTaskHoldRange(task, todayValue);
+  if (current && !ranges.some(range => range.startDate === current.startDate && range.endDate === current.endDate)) ranges.push(current);
+  return ranges;
+}

@@ -165,7 +165,7 @@ test("간트 포인터는 업무 행과 날짜 열을 동시에 강조한다", (
 });
 
 test("기한이 지난 보류 업무는 간트에 실시간·고정 지연 구간을 구분해 표시한다", () => {
-  assert.match(appSource, /overdueTaskHoldRange\(task, today\)/);
+  assert.match(appSource, /taskHoldRanges\(task, today\)/);
   assert.match(appSource, /overdue-hold \$\{overdueHold\.live \? "is-live" : "is-frozen"\}/);
   assert.match(appSource, /기한 초과 보류 \$\{day\.iso\}/);
   assert.match(appSource, /className="g-overdue-hold-legend"/);

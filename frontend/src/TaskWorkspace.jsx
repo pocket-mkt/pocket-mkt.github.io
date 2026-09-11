@@ -20,7 +20,7 @@ import { isNewTask } from "./taskFreshness.js";
 
 import IssueRequestCard from "./IssueRequestCard.jsx";
 
-import { overdueTaskHoldRange } from "./taskScheduleStatus.js";
+import { taskHoldRanges } from "./taskScheduleStatus.js";
 
 import { QuoteSummary } from "./QuoteSummary.jsx";
 
@@ -660,15 +660,17 @@ function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, canWrit
   const missingSchedule = useMemo(() => filteredTasks.filter((task) => !task.plannedStartDate || !task.dueDate).length, [filteredTasks]);
   const today = localDateValue();
   const overdueHoldRanges = useMemo(() => new Map(filteredTasks
-    .map((task) => [task.id, overdueTaskHoldRange(task, today)])
-    .filter(([, range]) => Boolean(range))), [filteredTasks, today]);
-  const timelineEnd = useMemo(() => [...overdueHoldRanges.values()]
+    .map((task) => [task.id, taskHoldRanges(task, today)])
+    .filter(([, ranges]) => ranges.length)), [filteredTasks, today]);
+  const timelineEnd = useMemo(() => [...overdueHoldRanges.values()].flat()
     .reduce((latest, range) => !latest || range.endDate > latest ? range.endDate : latest, timeline.end), [overdueHoldRanges, timeline.end]);
+  const timelineStart = useMemo(() => [...overdueHoldRanges.values()].flat()
+    .reduce((earliest, range) => !earliest || range.startDate < earliest ? range.startDate : earliest, timeline.start), [overdueHoldRanges, timeline.start]);
   const days = useMemo(() => buildGanttAxis(
-    timeline.start,
+    timelineStart,
     timelineEnd,
     Math.ceil(Math.max(0, ganttViewportWidth - ganttLabelWidth) / GANTT_DAY_WIDTH),
-  ), [timeline.start, timelineEnd, ganttViewportWidth, ganttLabelWidth]);
+  ), [timelineStart, timelineEnd, ganttViewportWidth, ganttLabelWidth]);
   const months = useMemo(() => days.reduce((items, day) => {
     const last = items[items.length - 1];
     if (last?.key === day.monthKey) last.count += 1;
@@ -975,7 +977,10 @@ function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, canWrit
     const paint = paintRef.current;
     if (!paint || (paint.target.rowIndex === rowIndex && paint.target.dayIndex === dayIndex)) return;
     paint.target = { rowIndex, dayIndex };
-    paint.drafts = paintGanttRectangle(paint.rows, paint.anchor, paint.target, paint.mode);
+    // Paint only visited cells, never interpolate an anchor-to-end rectangle.
+    const point = { rowIndex, dayIndex, axisDays: paint.anchor.axisDays };
+    const currentRows = paint.rows.map(row => ({ ...row, scheduleDates: paint.drafts.get(row.id) ?? row.scheduleDates }));
+    paint.drafts = paintGanttRectangle(currentRows, point, point, paint.mode);
     repaintGantt(paint);
   }, [repaintGantt]);
 
@@ -1096,7 +1101,7 @@ function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, canWrit
     const scheduleSet = new Set(scheduleDates);
     const owner = taskResponsibleOrgLabel(task.responsibleOrgCode, project.clientName);
     const newTask = isNewTask(task, freshnessNow);
-    const overdueHold = overdueHoldRanges.get(task.id);
+    const holdRanges = overdueHoldRanges.get(task.id) || [];
     return <div data-window-id={task.id} data-gantt-row-index={rowIndex} className={`g-row${seriesChild ? " is-series-child" : ""}${newTask ? " is-new-task" : ""}${selectedTaskIds.has(task.id) ? " is-selected" : ""}${draggingTaskIds.includes(task.id) ? " is-dragging" : ""}${taskDropIndicator?.taskId === task.id ? ` is-drop-${taskDropIndicator.position}` : ""}`} key={task.id} style={{ "--fill": ganttFillColor(task), "--rail": color }}>
       <div className="g-lbl" title={`${groupLabel} · ${task.title}`} onDragOver={(event) => handleTaskDragOver(event, task.id)} onDrop={(event) => { if (!reorderEnabled) return; event.preventDefault(); void dropTasksAt(task.id); }}>
         {canWrite && <input type="checkbox" checked={selectedTaskIds.has(task.id)} onChange={(event) => selectTask(task.id, event.target.checked, { shiftKey: event.nativeEvent?.shiftKey || event.shiftKey })} aria-label={`${task.title} 선택`} />}
@@ -1115,7 +1120,8 @@ function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, canWrit
           const active = scheduleSet.has(day.iso);
           const starts = active && !scheduleSet.has(days[dayIndex - 1]?.iso);
           const ends = active && !scheduleSet.has(days[dayIndex + 1]?.iso);
-          const overdueHeld = Boolean(overdueHold && day.iso >= overdueHold.startDate && day.iso <= overdueHold.endDate);
+          const overdueHold = holdRanges.find(range => day.iso >= range.startDate && day.iso <= range.endDate);
+          const overdueHeld = Boolean(overdueHold);
           const overdueStarts = overdueHeld && day.iso === overdueHold.startDate;
           const overdueEnds = overdueHeld && day.iso === overdueHold.endDate;
           return <div key={`${task.id}-${day.iso}`} data-r={task.id} data-ri={rowIndex} data-o={dayIndex} data-gantt-task-id={task.id} data-gantt-task-title={task.title} data-gantt-row-index={rowIndex} data-gantt-day-index={dayIndex} className={`g-c${ganttMonthClass(day)}${day.weekend ? " we" : ""}${day.iso === today ? " ref" : ""}${active ? " on" : ""}${starts ? " rs" : ""}${ends ? " re" : ""}${overdueHeld ? ` overdue-hold ${overdueHold.live ? "is-live" : "is-frozen"}` : ""}${overdueStarts ? " hold-start" : ""}${overdueEnds ? " hold-end" : ""}`} title={overdueHeld ? `${task.title} · 기한 초과 보류 ${day.iso}${overdueHold.live ? " (진행 중)" : " (종료)"}` : active ? `${task.title} · ${day.iso}` : day.iso} />;

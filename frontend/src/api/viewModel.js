@@ -430,6 +430,7 @@ export function tasksViewModel(envelope) {
         completedAt: row.completed_at || null,
         completedDate: row.completed_at ? String(row.completed_at).slice(0, 10) : null,
         overdueHoldResolvedAt: row.overdue_hold_resolved_at || null,
+        overdueHoldRanges: Array.isArray(row.overdue_hold_ranges) ? row.overdue_hold_ranges : [],
         clientVisible: true,
         categoryCode: String(row.category_code || "").toUpperCase(),
         category: row.category_code ? codeLabel(row.category_code, {}) : "업무",

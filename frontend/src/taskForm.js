@@ -1,4 +1,4 @@
-import { scheduleDateRange, serializeScheduleDates } from "./taskGantt.js";
+import { scheduleDateRange, serializeScheduleDates, taskScheduleDates } from "./taskGantt.js";
 
 export function taskResponsibleOrgOptions(clientName = "고객사") {
   return [
@@ -133,6 +133,7 @@ export function taskCreateSubmissionFields(fields) {
 
 export function taskUpdateInitialFields(task = {}) {
   return {
+    originalSchedule: { start: task.plannedStartDate || "", end: task.dueDate || "", dates: taskScheduleDates(task) },
     category_code: task.categoryCode || task.category_code || "",
     title: task.title || "",
     status_code: task.statusCode === "COMPLETED" ? "DONE" : task.statusCode || "NOT_STARTED",
@@ -157,7 +158,9 @@ export function taskUpdateSubmissionFields(fields = {}) {
     description: fields.description || "",
     planned_start_date: plannedStartDate,
     due_date: dueDate,
-    schedule_dates_json: plannedStartDate && dueDate
+    schedule_dates_json: fields.originalSchedule && fields.originalSchedule.start === plannedStartDate && fields.originalSchedule.end === dueDate
+      ? serializeScheduleDates(fields.originalSchedule.dates)
+      : plannedStartDate && dueDate
       ? serializeScheduleDates(scheduleDateRange(plannedStartDate, dueDate))
       : null,
 

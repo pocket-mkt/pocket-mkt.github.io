@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { effectiveTaskScheduleState, koreaDateValue, overdueTaskHoldRange } from "../src/taskScheduleStatus.js";
+import { effectiveTaskScheduleState, koreaDateValue, overdueTaskHoldRange, taskHoldRanges } from "../src/taskScheduleStatus.js";
+
+test('frozen hold periods remain after resume, completion and rescheduling', () => {
+  const history=[{startDate:'2026-09-07',endDate:'2026-09-11'}];
+  for(const statusCode of ['IN_PROGRESS','DONE','DELAYED','NOT_STARTED']) {
+    assert.deepEqual(taskHoldRanges({statusCode,dueDate:'2026-10-30',overdueHoldRanges:history},'2026-09-12'), [{...history[0],live:false}]);
+  }
+});
 
 test("일정 자동 상태는 시작 전 미착수, 기간 중 진행, 종료일 다음 날 지연이다", () => {
   const task = { status_mode: "SCHEDULE", status_code: "NOT_STARTED", planned_start_date: "2026-09-04", due_date: "2026-09-06", progress_percent: 35 };

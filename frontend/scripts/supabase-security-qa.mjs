@@ -492,6 +492,13 @@ const reopened = (await db.query(`select public.mutate_task('qa_reopen_expired',
 assert(reopened.ok && reopened.data.item.status_code==='DELAYED' && reopened.data.item.completed_at===null,'unchecked overdue completion must become delayed, never auto-complete');
 const extended = (await db.query(`select public.mutate_task('qa_extend_delayed','UPDATE',1,${expiredTaskId},${reopened.data.item.row_version},'{"planned_start_date":"2099-01-01","due_date":"2099-01-02","schedule_dates_json":"[\\"2099-01-01\\",\\"2099-01-02\\"]"}'::jsonb) as response`)).rows[0].response;
 assert(extended.ok && extended.data.item.status_code==='NOT_STARTED','extended schedule must clear date-derived delay');
+assert(completedAfterHold.data.item.overdue_hold_ranges?.length === 1, 'completed hold history not frozen');
+assert(JSON.stringify(extended.data.item.overdue_hold_ranges) === JSON.stringify(completedAfterHold.data.item.overdue_hold_ranges), 'reschedule erased frozen history');
+const firstHistory = JSON.stringify(extended.data.item.overdue_hold_ranges);
+const directHold = (await db.query(`select public.mutate_task('qa_hold_again','UPDATE',1,${expiredTaskId},${extended.data.item.row_version},'{"status_code":"ON_HOLD"}'::jsonb) as response`)).rows[0].response;
+const directResume = (await db.query(`select public.mutate_task('qa_hold_resume','UPDATE',1,${expiredTaskId},${directHold.data.item.row_version},'{"status_code":"IN_PROGRESS"}'::jsonb) as response`)).rows[0].response;
+assert(directResume.ok && JSON.stringify(directResume.data.item.overdue_hold_ranges)===firstHistory, 'resume lost prior history');
+extended.data.item.row_version = directResume.data.item.row_version;
 const selectedDelay = (await db.query(`select public.mutate_task('qa_select_delayed','UPDATE',1,${expiredTaskId},${extended.data.item.row_version},'{"status_code":"DELAYED"}'::jsonb) as response`)).rows[0].response;
 assert(selectedDelay.ok && selectedDelay.data.item.status_code==='DELAYED','explicit delay selection must persist');
 const manualDone = (await db.query(`select public.mutate_task('qa_check_complete','UPDATE',1,${expiredTaskId},${selectedDelay.data.item.row_version},'{"status_code":"DONE"}'::jsonb) as response`)).rows[0].response;
