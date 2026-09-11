@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { ArrowUpRight, Check, MessageSquare, Trash2 } from "lucide-react";
+import { ArrowUpRight, Check, MessageSquare, Pencil, Trash2 } from "lucide-react";
+import IssueRequestEditForm from './IssueRequestEditForm.jsx';
 import { appendBriefReply, publicHttpLink, requestCreatedLabel, requestDeadlineFields, requestDeadlineLabel, seoulDate } from "./progressBrief.js";
 import "./issueRequestCard.css";
 
@@ -14,6 +15,7 @@ export default function IssueRequestCard({ issue, canWrite = false, actorName, o
   const [editingDeadline, setEditingDeadline] = useState(false);
   const [deadline, setDeadline] = useState(issue.dueDate || "");
   const [deleteArmed, setDeleteArmed] = useState(false);
+  const [editSnapshot, setEditSnapshot] = useState(null);
 
   useEffect(() => {
     setCurrent(issue);
@@ -22,12 +24,12 @@ export default function IssueRequestCard({ issue, canWrite = false, actorName, o
 
   const done = ["DONE", "CLOSED", "COMPLETED"].includes(current.statusCode);
   const href = publicHttpLink(current.completionUrl);
-  const save = async (fields) => {
+  const save = async (fields, original = current) => {
     if (!canWrite || !onUpdate || saving) return false;
     setSaving(true);
     setError("");
     try {
-      const saved = await onUpdate(current, fields);
+      const saved = await onUpdate(original, fields);
       const next = { ...current, ...(saved || {}), projectId: current.projectId, clientName: current.clientName, projectName: current.projectName };
       setCurrent(next);
       onUpdated?.(next);
@@ -72,7 +74,7 @@ export default function IssueRequestCard({ issue, canWrite = false, actorName, o
     {href && <a className="issue-request-link" href={href} target="_blank" rel="noopener noreferrer">관련 자료 열기 <ArrowUpRight size={13} /></a>}
     <div className={`issue-request-deadline${!done && current.dueDate && current.dueDate < today ? " is-overdue" : ""}`}>
       <span>{requestDeadlineLabel(current, today)}</span>
-      {canWrite && !editingDeadline && <button type="button" disabled={saving} onClick={() => { setDeadline(current.dueDate || ""); setEditingDeadline(true); }}>{current.dueDate ? "마감일 변경" : "마감일 설정"}</button>}
+      {canWrite && !editSnapshot && !editingDeadline && <button type="button" disabled={saving} onClick={() => { setDeadline(current.dueDate || ""); setEditingDeadline(true); }}>{current.dueDate ? "마감일 변경" : "마감일 설정"}</button>}
     </div>
     {editingDeadline && canWrite && <form className="issue-request-deadline-form" onSubmit={async (event) => { event.preventDefault(); if (await save(requestDeadlineFields(deadline))) setEditingDeadline(false); }}>
       <label><span>컨펌 마감일</span><input type="date" value={deadline} disabled={saving} onChange={(event) => setDeadline(event.target.value)} /></label>
@@ -81,11 +83,13 @@ export default function IssueRequestCard({ issue, canWrite = false, actorName, o
       <button type="button" disabled={saving} onClick={() => setEditingDeadline(false)}>취소</button>
     </form>}
     {current.remarks && <details className="issue-request-replies"><summary>답변·추가 메모 보기</summary><p>{current.remarks}</p></details>}
-    {canWrite && <div className="issue-request-actions">
+    {canWrite && !editSnapshot && <div className="issue-request-actions">
+      {onUpdate && <button type="button" disabled={saving} onClick={() => { setEditSnapshot(current); setReplyOpen(false); setEditingDeadline(false); setDeleteArmed(false); setError(''); }}><Pencil size={14} />수정</button>}
       <button type="button" className="issue-request-reply-action" disabled={saving} aria-expanded={replyOpen} onClick={() => setReplyOpen((value) => !value)}><MessageSquare size={16} />답변 작성</button>
       <button type="button" disabled={saving} onClick={() => void save({ status_code: done ? "IN_PROGRESS" : "DONE" })}><Check size={14} />{done ? "다시 확인 요청" : "확인 완료"}</button>
       {onArchive && <button type="button" className={`issue-request-delete${deleteArmed ? " is-armed" : ""}`} disabled={saving} onClick={() => void archive()} onBlur={() => setDeleteArmed(false)}><Trash2 size={14} />{deleteArmed ? "한 번 더 눌러 삭제" : "삭제"}</button>}
     </div>}
+    {editSnapshot && canWrite && <IssueRequestEditForm key={editSnapshot.id} issue={editSnapshot} saving={saving} onSave={save} onCancel={()=>setEditSnapshot(null)}/>}
     {replyOpen && canWrite && <form className="issue-request-reply-form" onSubmit={submitReply}><label><span>답변</span><textarea required autoFocus maxLength={4000} rows={3} value={reply} onChange={(event) => setReply(event.target.value)} placeholder="확인 결과나 요청에 대한 답변을 입력하세요" /></label><button type="submit" disabled={saving}>{saving ? "저장 중…" : "답변 저장"}</button></form>}
     {error && <p className="issue-request-error" role="alert">{error}</p>}
   </article>;

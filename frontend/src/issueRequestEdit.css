@@ -1,0 +1,12 @@
+.issue-request-edit-form { margin-top:16px; padding:16px; border:1px solid #d5dfed; border-radius:10px; background:#f7f9fc; }
+.issue-request-edit-form h4 { margin:0 0 12px; font-family:inherit; font-size:16px; font-weight:600; line-height:1.5; color:#172b4d; }
+.issue-request-edit-form fieldset { border:0; margin:0; padding:0; display:grid; gap:12px; min-width:0; }
+.issue-request-edit-form label { display:grid; gap:6px; min-width:0; color:#263b5d; font-size:14px; font-weight:600; }
+.issue-request-edit-form input,.issue-request-edit-form select,.issue-request-edit-form textarea { box-sizing:border-box; width:100%; min-width:0; border:1px solid #cbd7e7; border-radius:6px; padding:9px 10px; background:white; color:#172b4d; font:inherit; font-weight:400; }
+.issue-request-edit-form textarea { resize:vertical; line-height:1.6; }
+.issue-request-edit-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.issue-request-edit-form small { display:block; color:#52647c; margin-top:12px; font-size:12px; }
+.issue-request-edit-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
+.issue-request-edit-actions button { padding:9px 14px; border:1px solid #cbd7e7; border-radius:6px; background:white; color:#243c60; font:inherit; cursor:pointer; }
+.issue-request-edit-actions button[type=submit] { background:#243c60; color:white; }
+@media(max-width:560px) { .issue-request-edit-grid { grid-template-columns:minmax(0,1fr); } }

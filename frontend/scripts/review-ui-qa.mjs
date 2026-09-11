@@ -44,6 +44,29 @@ const bootstrapState = {status:'ready',data:{projects:{A:{id:'A',allowedPages:['
 let overviewState;
 const overviewCalls = [];
 const source = {overview: params => { const pending=deferred(); overviewCalls.push({...params,...pending}); return pending.promise; }};
+window.runIssueEditQa = async () => {
+ const issue={id:'44',relatedTask:'기존 제목',body:'기존 내용',owner:'허준',kind:'기존 유형',requester:'NS',dueDate:'2026-09-01',statusCode:'DONE',remarks:'이전 답변',rowVersion:4};
+ const writes=[];let reject=false;
+ const update=async(original,fields)=>{writes.push({original,fields});if(reject)throw Object.assign(new Error('conflict'),{code:'conflict'});return {...issue,relatedTask:fields.related_task_text||issue.relatedTask,body:fields.body_text||issue.body,rowVersion:5};};
+ await render(<div/>);await render(<IssueRequestCard issue={issue} canWrite onUpdate={update}/>);
+ const edit=()=>[...document.querySelectorAll('.issue-request-actions button')].find(button=>button.textContent==='수정').click();
+ edit();await tick();check(document.querySelector('.issue-request-edit-form'),'edit form missing');
+ const body=document.querySelector('.issue-request-edit-form textarea');
+ Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(body,'수정된 내용');body.dispatchEvent(new Event('input',{bubbles:true}));await tick();
+ document.querySelector('.issue-request-edit-form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await tick();await tick();
+ check(writes.length===1&&writes[0].original.id==='44'&&writes[0].original.rowVersion===4,'edit must update same versioned record');
+ check(JSON.stringify(writes[0].fields)===JSON.stringify({body_text:'수정된 내용'}),'edit changed status, dates or replies');
+ check(!document.querySelector('.issue-request-edit-form')&&document.querySelector('.issue-request-card').textContent.includes('수정된 내용'),'saved edit not rendered');
+ check(document.querySelector('.issue-request-card').textContent.includes('이전 답변'),'edit erased replies');
+ edit();await tick();reject=true;
+ const title=document.querySelector('.issue-request-edit-form input[autofocus]')||document.querySelectorAll('.issue-request-edit-form input')[1];
+ Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(title,'충돌 시 유지');title.dispatchEvent(new Event('input',{bubbles:true}));await tick();
+ document.querySelector('.issue-request-edit-form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await tick();
+ check(document.querySelector('.issue-request-edit-form')&&document.querySelector('[role="alert"]'),'conflict must retain draft');
+ await render(<div/>);await render(<IssueRequestCard issue={issue} canWrite={false} onUpdate={update}/>);
+ check(!document.querySelector('.issue-request-actions')&&!document.querySelector('.issue-request-edit-form'),'client edit exposed');
+ return ['request same-record edit, preserve completion/date/replies, conflict draft, client denied'];
+};
 window.runBlogQa = async () => {
  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  let items=[{id:'a',project_id:1,platform:'NAVER',title:'QA 게시글 제목',url:'https://example.com/post',keyword:'목표 키워드',published_on:today,monthly_volume:null,goal_rank:5,row_version:1}],history=[];
@@ -527,6 +550,7 @@ try {
   await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
   await send('Page.navigate',{url});
   for(let i=0;i<100;i++){if(await evaluate('typeof window.runLargeListQa === "function"'))break;await delay(100);}
+  console.log(JSON.stringify({issueEdit:await evaluate('window.runIssueEditQa()')}));
   console.log(JSON.stringify({largeList:await evaluate('window.runLargeListQa()')}));
   if(process.env.BENCHMARK_UI==='1') {
     await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
