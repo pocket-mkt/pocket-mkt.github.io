@@ -426,7 +426,9 @@ export function tasksViewModel(envelope) {
         due: dateOnly(row.due_date),
         dueDate: row.due_date ? String(row.due_date).slice(0, 10) : null,
         plannedStartDate: row.planned_start_date ? String(row.planned_start_date).slice(0, 10) : null,
-        scheduleDates: normalizeScheduleDates(row.schedule_dates_json),
+        // Read RPCs alias this field; mutation responses return the raw date array.
+        // Losing it here makes the Gantt fall back to filling the entire date range.
+        scheduleDates: normalizeScheduleDates(row.schedule_dates_json ?? row.schedule_dates),
         completedAt: row.completed_at || null,
         completedDate: row.completed_at ? String(row.completed_at).slice(0, 10) : null,
         overdueHoldResolvedAt: row.overdue_hold_resolved_at || null,
