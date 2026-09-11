@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { taskChannelOptions } from "../src/taskChannels.js";
+import { taskChannelOptions, SHARED_TASK_CHANNELS } from "../src/taskChannels.js";
 import { taskCreateInitialFields, taskCreateSubmissionFields, taskCreateValidationError, taskUpdateInitialFields, taskUpdateSubmissionFields } from "../src/taskForm.js";
 import { taskScheduleMedia } from "../src/taskTimeline.js";
 
@@ -16,14 +16,18 @@ test("editing preserves, changes and clears the existing media through category_
 test("creation channels include existing channels and project-specific media without duplicates", () => {
   const options = taskChannelOptions([{categoryCode:"INSTAGRAM"}, {categoryCode:"CUSTOM",category:"맞춤 채널"}, {categoryCode:"CUSTOM"}]);
   const codes = options.map(([code]) => code);
-  assert.deepEqual(codes, ["", "INSTAGRAM", "CUSTOM"]);
+  assert.deepEqual(codes, ["", ...SHARED_TASK_CHANNELS, "CUSTOM"]);
   assert.equal(codes.length, new Set(codes).size);
   assert.equal(new Map(options).get("CUSTOM"), "맞춤 채널");
 });
 
-test("empty projects get only four basic media; existing projects do not gain unused subtypes", () => {
-  assert.deepEqual(taskChannelOptions().map(([code]) => code), ["", "INSTAGRAM", "NAVER_BLOG", "YOUTUBE", "GOOGLE_SEARCH"]);
-  assert.deepEqual(taskChannelOptions([{categoryCode:"NAVER_BLOG"}]), [["", "미지정"], ["NAVER_BLOG", "네이버 블로그"]]);
+test("every project including NAVER-only and empty projects gets identical registered media", () => {
+  const common = taskChannelOptions();
+  assert.deepEqual(common.map(([code]) => code), ["", ...SHARED_TASK_CHANNELS]);
+  for (const categoryCode of [...SHARED_TASK_CHANNELS, 'Instagram', 'YouTube', 'Ads', 'TikTok']) {
+    assert.deepEqual(taskChannelOptions([{categoryCode}]), common);
+  }
+  assert.equal(new Map(common).get('NAVER'), '네이버');
 });
 
 test("regular and completed creation preserve selected category in the canonical payload", () => {

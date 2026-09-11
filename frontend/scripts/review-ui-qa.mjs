@@ -195,7 +195,7 @@ window.runQa = async () => {
  await render(<TaskCreateModal role="ns" clientName="QA" tasks={[{categoryCode:'CUSTOM',category:'맞춤 채널'}, {categoryCode:'GOOGLE_SEARCH'}]} todayValue="2026-09-09" onClose={()=>{}} onSubmit={async(type,fields)=>{channelPayload=fields;}}/>);
  const channelSelect=document.querySelector('select[name="category_code"]');
  check(channelSelect && [...channelSelect.options].some(option=>option.value==='CUSTOM'), 'creation includes project channels');
- check(channelSelect.options.length===3, 'media dropdown only includes media already used in this project');
+ check(channelSelect.options.length===9 && ['NAVER','NAVER_BLOG','INSTAGRAM','YOUTUBE','TIKTOK','ADS'].every(code=>[...channelSelect.options].some(option=>option.value===code)), 'shared registered media plus unknown project media');
  channelSelect.value='GOOGLE_SEARCH';
  channelSelect.dispatchEvent(new Event('change',{bubbles:true}));
  await tick();
@@ -209,11 +209,11 @@ window.runQa = async () => {
  const mediaTask={id:71,title:'매체 수정 QA',categoryCode:'INSTAGRAM',statusCode:'NOT_STARTED'};
  await render(<TaskEditModal task={mediaTask} tasks={[mediaTask,{categoryCode:'NAVER_BLOG'}]} clientName="QA" onClose={()=>{}} onUpdate={async(task,fields)=>{mediaUpdate=fields;}}/>);
  const mediaSelect=document.querySelector('.task-edit-modal select[name="category_code"]');
- check(mediaSelect?.value==='INSTAGRAM' && mediaSelect.options.length===3, 'edit preselects saved media and uses only project media');
+ check(mediaSelect?.value==='INSTAGRAM' && mediaSelect.options.length===7, 'edit preserves saved media and offers shared registered media');
  mediaSelect.value='NAVER_BLOG'; mediaSelect.dispatchEvent(new Event('change',{bubbles:true})); await tick();
  document.querySelector('.task-edit-modal button[type="submit"]').click(); await tick();
  check(mediaUpdate?.category_code==='NAVER_BLOG', 'edit saves selected media through canonical mutation');
- results.push('task edit: saved media preselected, project-only list, canonical category update');
+ results.push('task edit: saved media preselected, shared registered list, canonical category update');
  await render(<div/>);
  await render(<LoginScreen configured loading={false} onLogin={async()=>{}}/>);
  const loginLogo=document.querySelector('.login-mark img');

@@ -2,6 +2,7 @@
 export const TASK_CHANNEL_LABELS = Object.freeze({
   INSTAGRAM: "인스타그램",
   YOUTUBE: "유튜브",
+  NAVER: "네이버",
   NAVER_BLOG: "네이버 블로그",
   NAVER_SMARTPLACE: "네이버 플레이스",
   NAVER_SMARTSTORE: "네이버 스마트스토어",
@@ -14,13 +15,15 @@ export const TASK_CHANNEL_LABELS = Object.freeze({
   ADS: "광고",
 });
 
+// Union of media actually registered across projects, verified 2026-09-11.
+// Share names/codes only; never fetch another project's tasks to fill a picker.
+export const SHARED_TASK_CHANNELS = Object.freeze(['NAVER', 'NAVER_BLOG', 'INSTAGRAM', 'YOUTUBE', 'TIKTOK', 'ADS']);
+
 export function taskChannelOptions(tasks = []) {
-  const options = new Map();
+  const options = new Map(SHARED_TASK_CHANNELS.map(code => [code, TASK_CHANNEL_LABELS[code]]));
   for (const task of tasks) {
     const code = String(task.categoryCode || task.category_code || "").trim().toUpperCase();
     if (code && !options.has(code)) options.set(code, TASK_CHANNEL_LABELS[code] || String(task.category || task.parent || code).trim() || code);
   }
-  // Empty projects still need a small starter list, not every supported subtype.
-  if (!options.size) for (const code of ["INSTAGRAM", "NAVER_BLOG", "YOUTUBE", "GOOGLE_SEARCH"]) options.set(code, TASK_CHANNEL_LABELS[code]);
   return [["", "미지정"], ...options];
 }

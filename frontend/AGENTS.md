@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- Shared task media (2026-09-11, supersedes project-only/starter-list guidance): create and edit pickers in every project share actual registered codes NAVER / NAVER_BLOG / INSTAGRAM / YOUTUBE / TIKTOK / ADS, plus unspecified. Deduplicate case variants in options, preserve NAVER versus NAVER_BLOG and unknown current task values. Never rewrite saved tasks or fetch other projects' private data for options. Table filters still list only media present in the current project.
+
 - Schedule table status/owner headers cycle personal priority sorting: DONE → IN_PROGRESS → DELAYED → default; NS → POCKET → default. Most recently clicked active rule is primary, the other secondary; ties retain existing media/authored order. Local component memory only, no DB writes or browser persistence; reset on project change and reload. Sorting must not hide rows, affect Gantt order or alter shared sort_order. Disable authored-order dragging while personal table sorting is active; preserve selection/Shift against displayed order.
 
 ## Completion checklist (2026-09-10; supersedes older progress/auto-completion rules)
