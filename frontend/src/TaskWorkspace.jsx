@@ -961,7 +961,7 @@ function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, canWrit
         const active = dates.has(date);
         const runStart = active && !dates.has(axisDays[dayIndex - 1]);
         const runEnd = active && !dates.has(axisDays[dayIndex + 1]);
-        const preview = rowIndex >= rowStart && rowIndex <= rowEnd && dayIndex >= dayStart && dayIndex <= dayEnd;
+        const preview = paint.visited.has(`${rowIndex}:${dayIndex}`);
         cell.classList.toggle("on", active);
         cell.classList.toggle("rs", runStart);
         cell.classList.toggle("re", runEnd);
@@ -977,6 +977,7 @@ function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, canWrit
     const paint = paintRef.current;
     if (!paint || (paint.target.rowIndex === rowIndex && paint.target.dayIndex === dayIndex)) return;
     paint.target = { rowIndex, dayIndex };
+    paint.visited.add(`${rowIndex}:${dayIndex}`);
     // Paint only visited cells, never interpolate an anchor-to-end rectangle.
     const point = { rowIndex, dayIndex, axisDays: paint.anchor.axisDays };
     const currentRows = paint.rows.map(row => ({ ...row, scheduleDates: paint.drafts.get(row.id) ?? row.scheduleDates }));
@@ -1077,6 +1078,7 @@ function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, canWrit
       rows,
       drafts: new Map(),
       previewRange: null,
+      visited: new Set(),
     };
     paintRef.current = paint;
     matrixRef.current.classList.add("is-painting");
