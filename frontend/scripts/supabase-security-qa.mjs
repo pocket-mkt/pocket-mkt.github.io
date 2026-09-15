@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
+import { verifyMeetingSearchSecurity } from './meeting-search-security-qa.mjs';
 
 const migrationsDir = fileURLToPath(new URL("../../supabase/migrations/", import.meta.url)).replace(/\\$/, "");
 const db = new PGlite();
@@ -562,4 +563,5 @@ await expectDenied('select public.read_client_progress(1)', 'disabled client sha
 await db.exec("reset role; set role anon; select set_config('request.jwt.claim.sub','',false);");
 await expectDenied('select public.read_client_progress(1)', 'anonymous customer progress');
 console.log(JSON.stringify({clientProgressRoleProjection:'pass',clientProgressOnlyBoundary:'pass',clientProgressAnonymousAndDisabled:'blocked'}));
+await verifyMeetingSearchSecurity(db, userIds, assert);
 await db.close();

@@ -11,6 +11,7 @@ export const READ_ACTIONS = Object.freeze({
   tasks: "tasks",
   clientProgress: "client_progress",
   dailyMeetings: "daily_meetings",
+  searchMeetings: "meeting_search",
   contents: "contents",
   tracking: "performance_tracking",
   performance: "performance",

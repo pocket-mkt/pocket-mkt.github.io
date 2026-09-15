@@ -10,6 +10,7 @@ import { existsSync } from "node:fs";
 const bundle = await build({
   stdin: { contents: `
 import React, { lazy, Suspense, useState } from 'react';
+import { runMeetingSearchQa } from './scripts/meeting-search-browser-fixture.jsx';
 import BlogStatusView from './src/BlogStatusView.jsx';
 import MeetingText from './src/MeetingText.jsx';
 import { createRoot } from 'react-dom/client';
@@ -40,6 +41,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 40));
 const check = (ok, message) => { if (!ok) throw Error(message); };
 const deferred = () => { let resolve; const promise = new Promise(done => resolve = done); return {promise, resolve}; };
 const render = async element => { root.render(element); await tick(); };
+window.runMeetingSearchQa = () => runMeetingSearchQa(render, tick, check);
 const bootstrapState = {status:'ready',data:{projects:{A:{id:'A',allowedPages:['overview']}, B:{id:'B',allowedPages:['overview']}}}};
 let overviewState;
 const overviewCalls = [];
@@ -571,6 +573,10 @@ try {
     await writeFile('../artifacts/client-progress/local-sort-'+width+'.png',Buffer.from(sortShot.data,'base64'));
     console.log(JSON.stringify({viewport:width,checklist:await evaluate('window.runChecklistQa()')}));
     console.log(JSON.stringify({viewport:width,meeting:await evaluate('window.runMeetingEmphasisQa()')}));
+    console.log(JSON.stringify({viewport:width,meetingSearch:await evaluate('window.runMeetingSearchQa()')}));
+    const searchShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await mkdir('../artifacts/client-progress',{recursive:true});
+    await writeFile('../artifacts/client-progress/meeting-search-'+width+'.png',Buffer.from(searchShot.data,'base64'));
     const meetingShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await mkdir('../artifacts/client-progress',{recursive:true});
     await writeFile('../artifacts/client-progress/meeting-emphasis-'+width+'.png',Buffer.from(meetingShot.data,'base64'));

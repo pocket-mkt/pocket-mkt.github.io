@@ -351,6 +351,13 @@ export function createHubDataSource(options = {}) {
     tasks: (params) => load("tasks", params),
     clientProgress: (params) => load("clientProgress", params),
     dailyMeetings: (params) => load("dailyMeetings", params),
+    searchMeetings: async (params) => {
+      const epoch = sessionEpoch;
+      if (!live?.searchMeetings) throw new HubApiError("이 연결에서는 회의록 검색을 지원하지 않습니다.", { code: "unsupported_action" });
+      const result = await live.searchMeetings(params);
+      assertSessionEpoch(epoch);
+      return result;
+    },
     contents: (params) => load("contents", params),
     tracking: (params) => load("tracking", params),
     performance: (params) => load("performance", params),

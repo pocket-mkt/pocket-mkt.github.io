@@ -5,6 +5,7 @@ import { createSessionStore } from "../api/session.js";
 import { getSupabaseClient } from "./client.js";
 import { createSupabaseAccessAdmin } from "./accessAdmin.js";
 import { createSupabaseCoreDomainApi } from "./coreDomainApi.js";
+import { searchMeetings } from './meetingSearchApi.js';
 import { createSupabaseTaskReader, createClientProgressReader } from "./taskRead.js";
 import { createSupabaseTaskActivityReader } from "./taskActivityRead.js";
 import { createDetailActivityReader, readDetailTaskEvent, readIssueActivityContext } from "./detailActivityRead.js";
@@ -432,6 +433,7 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
     previewOverview: sheets.previewOverview,
     bootstrap,
     operationsDashboard: (params = {}) => core.operationsDashboard(params),
+    searchMeetings: (params = {}) => searchMeetings(client, params),
     workspace: legacyRead("workspace"),
     overview,
     plan,
