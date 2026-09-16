@@ -72,7 +72,7 @@ window.runIssueEditQa = async () => {
 window.runBlogQa = async () => {
  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  let items=[{id:'a',project_id:1,platform:'NAVER',title:'QA 게시글 제목',url:'https://example.com/post',keyword:'목표 키워드',published_on:today,monthly_volume:null,goal_rank:5,row_version:1}],history=[];
- let writes=0;const source={blog:async({platform})=>({data:{items:items.filter(x=>x.platform===platform),history,hasMore:false}}),saveBlog:async({item,fields})=>{writes++;const next={...item,...fields,row_version:2};items=item?items.map(x=>x.id===item.id?next:x):[...items,next];return {data:next};},saveBlogRank:async({targetId,fields})=>{writes++;const next={id:'r',target_id:targetId,...fields,rank:Number(fields.rank),row_version:1};history=[next];return {data:next};}};
+ let writes=0,failDelete=false;const source={blog:async({platform})=>({data:{items:items.filter(x=>x.platform===platform&&!x.archived),history,hasMore:false}}),saveBlog:async({item,fields})=>{writes++;if(fields.archived&&failDelete)throw new Error('삭제 테스트 오류');const next={...item,...fields,row_version:2};items=item?items.map(x=>x.id===item.id?next:x):[...items,next];return {data:next};},saveBlogRank:async({targetId,fields})=>{writes++;const next={id:'r',target_id:targetId,...fields,rank:Number(fields.rank),row_version:1};history=[next];return {data:next};}};
  await render(<BlogStatusView project={{id:1,clientName:'QA'}} source={source} canWrite/>);await tick();
  check(document.querySelector('.blog-title')?.textContent.includes('QA 게시글'),'blog load');
  check(document.documentElement.scrollWidth<=innerWidth+1,'blog viewport overflow');
@@ -86,6 +86,19 @@ window.runBlogQa = async () => {
  document.querySelector('[aria-label="닫기"]').click();await tick();
  document.querySelector('.blog-heading button').click();await tick();check(document.querySelector('[name="keyword"]'),'blog create form');document.querySelector('[aria-label="닫기"]').click();await tick();
  await render(<div/>);await render(<BlogStatusView project={{id:1,clientName:'QA'}} source={source} canWrite/>);await tick();check(document.querySelector('tbody').textContent.includes('3위'),'rank reload');
+ document.querySelector('.blog-delete').click();await tick();
+ check(document.querySelector('[role="dialog"]').textContent.includes('실제 게시글'),'delete scope explained');
+ document.querySelector('[role="dialog"] footer button').click();await tick();check(writes===1,'cancel does not write');
+ document.querySelectorAll('.blog-tabs button')[1].click();await tick();check(document.querySelector('.blog-delete'),'publication view delete');
+ document.querySelector('.blog-delete').click();await tick();failDelete=true;
+ document.querySelector('.blog-delete-confirm').click();await tick();check(document.querySelector('[role="alert"]').textContent.includes('삭제 테스트 오류')&&document.querySelector('.blog-title'),'failed delete preserves row');
+ failDelete=false;document.querySelector('.blog-delete-confirm').click();document.querySelector('.blog-delete-confirm').click();await tick();await tick();
+ check(writes===3&&items[0].archived&&history.length===1,'single archive write preserves rank history');
+ check(!document.querySelector('.blog-title')&&document.querySelector('.blog-empty'),'deleted row removed');
+ await render(<div/>);await render(<BlogStatusView project={{id:1,clientName:'QA'}} source={source} canWrite/>);await tick();check(!document.querySelector('.blog-title'),'deletion survives reload');
+ items[0].archived=false;
+ await render(<div/>);await render(<BlogStatusView project={{id:1,clientName:'QA'}} source={source} canWrite={false}/>);await tick();
+ check(document.querySelector('.blog-title')&&!document.querySelector('.blog-delete'),'read only no delete');
  return ['blog desktop/mobile: automatic read, platform isolation, compact rows, modal, manual rank save and reload'];
 };
 window.runMeetingEmphasisQa = async () => {

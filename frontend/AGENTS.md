@@ -18,6 +18,8 @@
 
 ## Blog management (2026-09-10)
 
+- Blog deletion archives only the selected target/keyword via the existing project/id/row_version-checked saveBlog update. Never delete external posts or rank history. Show a compact delete action to writers in both views, confirm the title/keyword and scope, block duplicate submits, retain the row on failure, and automatically refresh/clamp pagination after success. No schema or permission changes.
+
 - Blog titles directly open the saved post URL in a new tab with noopener/noreferrer, in both rank and publication tables. Open manual rank history through the latest-rank cell instead; never put an intermediate dialog in the title link path.
 
 - `#blog` is an internal Pocket/NS project page, never a customer grant. Top-level NAVER/GOOGLE tabs share a compact 44px-row dashboard. Use 목표 키워드, manual nullable 월 검색량, sortable header buttons, publication view and date grid. Do not deploy sample posts, invented ranks or automated-collection claims.
