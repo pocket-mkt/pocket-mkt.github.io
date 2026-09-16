@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { verifyMeetingSearchSecurity } from './meeting-search-security-qa.mjs';
+import { verifyKpiFunnelSecurity } from './kpi-funnel-security-qa.mjs';
 
 const migrationsDir = fileURLToPath(new URL("../../supabase/migrations/", import.meta.url)).replace(/\\$/, "");
 const db = new PGlite();
@@ -119,8 +120,8 @@ await db.exec(`
     (1, 'P0', 'MARKETING', '팀 전용 업무', null, null, null, 'NS', 'POCKET', 'PROJECT_TEAM', '${userIds.manager}', '${userIds.manager}');
 `);
 
-assert(await scalar("select count(*)::int as count from pg_tables where schemaname = 'public'") === 26, "table count mismatch");
-assert(await scalar("select count(*)::int as count from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relrowsecurity") === 26, "RLS coverage mismatch");
+assert(await scalar("select count(*)::int as count from pg_tables where schemaname = 'public'") === 27, "table count mismatch");
+assert(await scalar("select count(*)::int as count from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relrowsecurity") === 27, "RLS coverage mismatch");
 assert(await scalar("select count(*)::int as count from information_schema.columns where table_schema='public' and table_name='profiles' and column_name='email'") === 0, "public profile still exposes email");
 assert(await scalar("select count(*)::int as count from information_schema.role_table_grants where grantee='anon' and table_schema='public'") === 0, "anon grants found");
 assert(await scalar("select count(*)::int as count from information_schema.routine_privileges where grantee='PUBLIC' and specific_schema in ('public','private')") === 0, "PUBLIC function execute grants found");
@@ -516,8 +517,8 @@ console.log(JSON.stringify({
   nsAllProjectsAndFutureMemberships: "pass",
   operationsDashboardBoundary: "pass",
   migrations: readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).length,
-  tables: 26,
-  rlsTables: 26,
+  tables: 27,
+  rlsTables: 27,
   pageBoundary: "pass",
   visibilityBoundary: "pass",
   tenantWriteBoundary: "pass",
@@ -564,4 +565,5 @@ await db.exec("reset role; set role anon; select set_config('request.jwt.claim.s
 await expectDenied('select public.read_client_progress(1)', 'anonymous customer progress');
 console.log(JSON.stringify({clientProgressRoleProjection:'pass',clientProgressOnlyBoundary:'pass',clientProgressAnonymousAndDisabled:'blocked'}));
 await verifyMeetingSearchSecurity(db, userIds, assert);
+await verifyKpiFunnelSecurity(db, userIds, assert);
 await db.close();

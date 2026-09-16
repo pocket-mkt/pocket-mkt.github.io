@@ -11,7 +11,7 @@ export const PAGE_CATALOG = Object.freeze([
   Object.freeze({ id: "credentials", label: "아이디 관리대장", description: "사이트 계정과 비밀번호 보관", navigation: true, customerSelectable: false, nested: true }),
   Object.freeze({ id: "content", label: "콘텐츠", navigation: false, customerSelectable: false }),
   Object.freeze({ id: "tracking", label: "성과 추적", navigation: false, customerSelectable: false }),
-  Object.freeze({ id: "performance", label: "성과", description: "핵심 KPI와 실적", navigation: true, customerSelectable: true }),
+  Object.freeze({ id: "performance", label: "KPI 성과", description: "핵심 KPI와 실적", navigation: true, customerSelectable: true }),
   Object.freeze({ id: "files", label: "세부 로그", description: "전체 프로젝트 계정별 작업 이력", navigation: true, customerSelectable: false }),
 ]);
 

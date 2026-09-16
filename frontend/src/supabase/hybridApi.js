@@ -1,4 +1,5 @@
 import { readApiConfig } from "../api/config.js";
+import {createKpiFunnelApi} from './kpiFunnelApi.js';
 import { HubApiError } from "../api/errors.js";
 import { createHubApi } from "../api/hubApi.js";
 import { createSessionStore } from "../api/session.js";
@@ -442,6 +443,8 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
     dailyMeetings: async (params = {}) => core.dailyMeetings({ ...params, projectId: await resolveProjectId(params.projectId) }),
     blog: async (params = {}) => createBlogApi(client).read({...params,projectId:await resolveProjectId(params.projectId)}),
     saveBlog: async (params = {}) => createBlogApi(client).save({...params,projectId:await resolveProjectId(params.projectId)}),
+    kpiFunnel: async (params = {}) => createKpiFunnelApi(client).read({...params,projectId:await resolveProjectId(params.projectId)}),
+    saveKpiFunnel: async (params = {}) => createKpiFunnelApi(client).save({...params,projectId:await resolveProjectId(params.projectId)}),
     saveBlogRank: async (params = {}) => createBlogApi(client).rank(params),
     contents: async () => retiredFeature(),
     tracking: async () => retiredFeature(),

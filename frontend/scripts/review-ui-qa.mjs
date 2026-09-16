@@ -11,6 +11,7 @@ const bundle = await build({
   stdin: { contents: `
 import React, { lazy, Suspense, useState } from 'react';
 import { runMeetingSearchQa } from './scripts/meeting-search-browser-fixture.jsx';
+import { runKpiFunnelQa } from './scripts/kpi-funnel-browser-fixture.jsx';
 import BlogStatusView from './src/BlogStatusView.jsx';
 import MeetingText from './src/MeetingText.jsx';
 import { createRoot } from 'react-dom/client';
@@ -42,6 +43,7 @@ const check = (ok, message) => { if (!ok) throw Error(message); };
 const deferred = () => { let resolve; const promise = new Promise(done => resolve = done); return {promise, resolve}; };
 const render = async element => { root.render(element); await tick(); };
 window.runMeetingSearchQa = () => runMeetingSearchQa(render, tick, check);
+window.runKpiFunnelQa = () => runKpiFunnelQa(render, tick, check);
 const bootstrapState = {status:'ready',data:{projects:{A:{id:'A',allowedPages:['overview']}, B:{id:'B',allowedPages:['overview']}}}};
 let overviewState;
 const overviewCalls = [];
@@ -562,6 +564,7 @@ try {
   const send=(method,params={})=>new Promise((resolve,reject)=>{const next=++id;pending.set(next,{resolve,reject});socket.send(JSON.stringify({id:next,method,params}));});
   const evaluate=async expression=>{const result=await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(result.exceptionDetails)throw Error(JSON.stringify(result.exceptionDetails));return result.result.value;};
   await send('Runtime.enable'); await send('Page.enable');
+  await send('Emulation.setFocusEmulationEnabled',{enabled:true});
   await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
   await send('Page.navigate',{url});
   for(let i=0;i<100;i++){if(await evaluate('typeof window.runLargeListQa === "function"'))break;await delay(100);}
@@ -593,6 +596,9 @@ try {
     const meetingShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await mkdir('../artifacts/client-progress',{recursive:true});
     await writeFile('../artifacts/client-progress/meeting-emphasis-'+width+'.png',Buffer.from(meetingShot.data,'base64'));
+    console.log(JSON.stringify({viewport:width,kpi:await evaluate('window.runKpiFunnelQa()')}));
+    const kpiShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await writeFile(`../artifacts/client-progress/kpi-${width}.png`,Buffer.from(kpiShot.data,'base64'));
     console.log(JSON.stringify({viewport:width,blog:await evaluate('window.runBlogQa()')}));
     const blogShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await mkdir('../artifacts/client-progress',{recursive:true});

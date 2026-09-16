@@ -7,6 +7,7 @@ import ScreenBoundary from "./ScreenBoundary.jsx";
 import { statusClass, formatSyncTime, EmptyState, LoadingState, ErrorState, FormSelect, trackerStatusOptions, trackerStatusLabels, trackerDate, localDateValue } from "./TaskUiPrimitives.jsx";
 const DetailLogView = lazy(() => import("./DetailLogView.jsx"));
 const BlogStatusView = lazy(() => import('./BlogStatusView.jsx'));
+const KpiFunnelView = lazy(() => import('./KpiFunnelView.jsx'));
 import WorkspaceNotifications from "./WorkspaceNotifications.jsx";
 import NotificationIssueDialog from "./NotificationIssueDialog.jsx";
 import InternalPreviewTaskEditor from "./InternalPreviewTaskEditor.jsx";
@@ -1081,6 +1082,7 @@ function AppContent({ view, planVariant, project, role, search, setView, pageSta
     return tasksViewModel(await source.tasks({projectId})).items.map(({id,completionUrl})=>({id,completionUrl}));
   }), [source, role, pageState.data]);
   if(view==='blog') return role==='client'?<ErrorState error={new Error('내부 운영 계정만 접근할 수 있습니다.')} />:<Suspense fallback={<LoadingState/>}><BlogStatusView key={project.id} project={project} source={source} canWrite={['ADMIN','EDIT'].includes(project.permissionCode)||role==='pocket'} /></Suspense>;
+  if(view==='performance') return <Suspense fallback={<LoadingState/>}><KpiFunnelView key={project.id} project={project} source={source} canWrite={role!=='client'&&(['ADMIN','EDIT'].includes(project.permissionCode)||role==='pocket')} legacy={role!=='client'&&pageState.data?<PerformanceView performance={pageState.data} canWrite={canWrite} onKpiSave={onKpiSave} onKpiArchive={onKpiArchive}/>:null} legacyError={role!=='client'&&pageState.status==='error'}/></Suspense>;
   if (pageState.status === "loading" && !pageState.data) return <LoadingState />;
   if (pageState.status === "error" && !pageState.data) return <ErrorState error={pageState.error} onRetry={onRetry} />;
   const data = pageState.data || {};
@@ -1095,7 +1097,6 @@ function AppContent({ view, planVariant, project, role, search, setView, pageSta
   if (view === "credentials") return role !== "client" ? <Suspense fallback={<LoadingState label="아이디 관리대장 화면을 준비하고 있습니다." />}><CredentialLedgerView key={project.id} project={project} credentials={data.items || []} query={search} canWrite={canWrite} onSave={onCredentialSave} onArchive={onCredentialArchive} onReveal={onCredentialReveal} /></Suspense> : <ErrorState error={new Error("내부 운영 계정만 접근할 수 있습니다.")} />;
   if (view === "content") return <ContentView role={role} query={search} contents={data.items || []} onCreate={onCreate} canWrite={canWrite} />;
   if (view === "tracking") return <TrackingView tracking={data} />;
-  if (view === "performance") return <PerformanceView performance={data} canWrite={canWrite && role !== "client"} onKpiSave={onKpiSave} onKpiArchive={onKpiArchive} />;
   if (view === "permissions") return canManageClientAccess(role) ? <Suspense fallback={<LoadingState label="권한관리 화면을 준비하고 있습니다." />}><PermissionsView access={data} onSave={onAccessSave} role={role} /></Suspense> : <ErrorState error={new Error("내부 운영 계정만 접근할 수 있습니다.")} />;
   if (view === "files") return role !== "client" ? <Suspense fallback={<LoadingState label="세부 로그를 준비하고 있습니다." />}><DetailLogView initialData={data} source={source} /></Suspense> : <ErrorState error={new Error("내부 계정만 접근할 수 있습니다.")} />;
   return <OverviewView project={data.project || project} role={role} activities={data.activities || []} onNavigate={setView} />;

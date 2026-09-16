@@ -20,6 +20,7 @@ export const READ_ACTIONS = Object.freeze({
   permissions: "access_admin",
   credentials: "project_credentials",
   blog: "blog_targets",
+  kpiFunnel: "read_kpi_funnel",
 });
 
 function scopeQuery(params = {}) {

@@ -367,6 +367,8 @@ export function createHubDataSource(options = {}) {
     credentials: (params) => load("credentials", params),
     blog: (params) => load('blog',params),
     saveBlog: (params) => domainWrite('saveBlog',params),
+    kpiFunnel: (params) => load('kpiFunnel',params),
+    saveKpiFunnel: (params) => domainWrite('saveKpiFunnel',params),
     saveBlogRank: (params) => domainWrite('saveBlogRank',params),
     revealCredential: (params) => domainWrite("revealCredential", params),
     accessAdminMutate,
