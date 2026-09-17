@@ -164,6 +164,15 @@ export async function runKpiFunnelQa(render, tick, check) {
   client = false;
   await mount();
   check(
+    document.querySelectorAll(".kf-stage-card").length === 3,
+    "reference stage cards missing",
+  );
+  check(
+    document.querySelector(".traffic .kf-stage-badge").textContent ===
+      "목표 미달",
+    "inflow target state incorrect",
+  );
+  check(
     document.querySelectorAll(".kf-funnel-step").length === 3,
     "editable funnel missing",
   );

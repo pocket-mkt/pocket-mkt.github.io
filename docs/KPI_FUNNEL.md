@@ -1,5 +1,9 @@
 # KPI funnel — monthly manual entry
 
+## Stage cards (2026-09-17)
+
+Reference: the user's Pocket KPI sheet screenshot and public `pockethjs-sketch.github.io/pocket.kpi/` site. The user explicitly retained 광고·콘텐츠 → 유입 → 전환. Replace the trapezoid with three stage panels, colored number markers, metric tiles, connecting arrows, and actual/target status. Inline editing and monthly data remain unchanged. Registered channel count is not a posting/impression count. Cost-per-visit/conversion uses all entered channel costs; missing values and zero denominators stay unavailable. No conversion-rate or cost target is fabricated. Customer cost masking remains intact.
+
 ## Direct funnel editor (2026-09-17)
 
 The primary UI is now an always-visible three-stage funnel with channel selection, direct visits/conversions editing and overall targets inside the stages. Percentages below recalculate from confirmed saved values. Empty months can create their first channel directly in the funnel; aggregate counts are never arbitrarily redistributed among channels. Funnel width identifies stages, not a proportional volume scale. Existing storage, authorization and monthly history are unchanged.
