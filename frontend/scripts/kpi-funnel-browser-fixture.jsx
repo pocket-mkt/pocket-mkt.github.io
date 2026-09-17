@@ -48,7 +48,7 @@ export async function runKpiFunnelQa(render, tick, check) {
       writes.push(p);
       if (fail) throw Error("충돌 테스트");
       check(
-        p.rowVersion === (records.get(p.month)?.row_version ?? null),
+        (p.rowVersion ?? null) === (records.get(p.month)?.row_version ?? null),
         "wrong version",
       );
       records.set(p.month, {
@@ -163,9 +163,53 @@ export async function runKpiFunnelQa(render, tick, check) {
   );
   client = false;
   await mount();
-  for (let i = 0; i < 30 && !document.querySelector(".kf-chart canvas"); i++)
-    await tick();
-  check(document.querySelector(".kf-chart canvas"), "chart missing");
+  check(
+    document.querySelectorAll(".kf-funnel-step").length === 3,
+    "editable funnel missing",
+  );
+  el = await fill("퍼널 유입 수", "2000");
+  el.blur();
+  await tick();
+  await tick();
+  el = await fill("퍼널 전환 수", "100");
+  el.blur();
+  await tick();
+  await tick();
+  check(
+    records.get(monthNow()).body.channels[0].visits === 2000 &&
+      records.get(monthNow()).body.channels[0].conversions === 100,
+    "funnel direct values not saved",
+  );
+  check(
+    document.querySelector(".kf-funnel-results").textContent.includes("5.0%"),
+    "funnel percentage did not recalculate",
+  );
+  const picker = document.querySelector('[aria-label="퍼널 채널"]');
+  picker.value = "b";
+  picker.dispatchEvent(new Event("change", { bubbles: true }));
+  await tick();
+  check(
+    input("퍼널 유입 수").value === "500",
+    "channel switch kept stale value",
+  );
+  document.querySelector('[aria-label="이전 달"]').click();
+  await tick();
+  await tick();
+  check(
+    document.querySelectorAll(".kf-funnel-step").length === 3,
+    "empty month hides funnel",
+  );
+  el = await fill("퍼널 유입 수", "300");
+  el.blur();
+  await tick();
+  await tick();
+  check(
+    input("퍼널 유입 수").value === "300",
+    "first channel direct creation failed",
+  );
+  document.querySelector('[aria-label="다음 달"]').click();
+  await tick();
+  await tick();
   check(
     document.documentElement.scrollWidth <= window.innerWidth + 2,
     "page overflow",

@@ -1,5 +1,9 @@
 # KPI funnel — monthly manual entry
 
+## Direct funnel editor (2026-09-17)
+
+The primary UI is now an always-visible three-stage funnel with channel selection, direct visits/conversions editing and overall targets inside the stages. Percentages below recalculate from confirmed saved values. Empty months can create their first channel directly in the funnel; aggregate counts are never arbitrarily redistributed among channels. Funnel width identifies stages, not a proportional volume scale. Existing storage, authorization and monthly history are unchanged.
+
 Written: 2026-09-16 19:55 KST.
 
 Production route: `#performance` (label: KPI 성과). Project permissions continue to use `performance`.

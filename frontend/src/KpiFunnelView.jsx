@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import {
   Plus,
   Trash2,
@@ -6,7 +6,6 @@ import {
   ChevronRight,
   Info,
   RotateCcw,
-  Target,
   Eye,
 } from "lucide-react";
 import {
@@ -18,7 +17,7 @@ import {
   funnelTotals,
 } from "./kpiFunnelModel.js";
 import "./kpiFunnel.css";
-const Chart = lazy(() => import("./KpiFunnelChart.jsx"));
+import "./kpiDirectFunnel.css";
 const fmt = (v, suffix = "") =>
   v == null ? "—" : v.toLocaleString("ko-KR") + suffix;
 function Cell({
@@ -252,7 +251,43 @@ export default function KpiFunnelView({
         c.id === id ? { ...c, [key]: value } : c,
       ),
     }));
-  const selectedRow = body.channels.find((c) => c.id === selected);
+  const activeChannel =
+    body.channels.find((c) => c.id === selected) || body.channels[0];
+  const activeRate =
+    activeChannel?.visits > 0 && activeChannel.conversions != null
+      ? (activeChannel.conversions / activeChannel.visits) * 100
+      : null;
+  const saveFunnelMetric = (key, value) =>
+    activeChannel
+      ? changeChannel(activeChannel.id, key, value)
+      : save((b) => ({
+          ...b,
+          channels: [
+            ...b.channels,
+            {
+              id: crypto.randomUUID(),
+              name: "직접 입력",
+              type: "OTHER",
+              visits: null,
+              conversions: null,
+              cost: null,
+              [key]: value,
+            },
+          ],
+        }));
+  const funnelInput = (key, label) =>
+    write ? (
+      <Cell
+        key={"funnel-" + key}
+        value={activeChannel?.[key] ?? null}
+        label={label}
+        disabled={busy}
+        dirty={dirtyFor("funnel-" + key)}
+        onSave={(v) => saveFunnelMetric(key, v)}
+      />
+    ) : (
+      <strong className="kf-direct-number">{fmt(activeChannel?.[key])}</strong>
+    );
   const percent =
     totals.conversions !== null && body.goal
       ? Math.round((totals.conversions / body.goal) * 100)
@@ -367,124 +402,129 @@ export default function KpiFunnelView({
             </div>
           ) : (
             <>
-              <section className="kf-goal">
-                <div>
-                  <label>
-                    <Target size={14} />
-                    최종 KPI
-                  </label>
-                  {field("name", "최종 KPI 이름")}
-                  <div className="kf-number">
-                    {fmt(totals.conversions)}
-                    <small>건</small>
-                  </div>
-                </div>
-                <div>
-                  <label>전환 목표 · 월간</label>
-                  {field("goal", "전환 목표", { goal: true, type: "number" })}
-                  <p>
-                    {percent == null
-                      ? "목표·실적 입력 후 달성률 표시"
-                      : `${percent}% 달성 · ${fmt(Math.max(0, body.goal - totals.conversions))}건 남음`}
-                  </p>
-                  <progress
-                    aria-label="전환 목표 달성률"
-                    value={Math.min(percent || 0, 100)}
-                    max="100"
-                  />
-                </div>
-                <div>
-                  <label>유입 목표 · 월간</label>
-                  {field("inflow_goal", "유입 목표", {
-                    goal: true,
-                    type: "number",
-                  })}
-                  <p>
-                    현재 {fmt(totals.visits)} / 목표 {fmt(body.inflow_goal)}
-                  </p>
-                </div>
-                <div>
-                  <label>전체 전환율</label>
-                  <div className="kf-number small">
-                    {totals.rate == null ? "—" : totals.rate.toFixed(1) + "%"}
-                  </div>
-                  {internal && (
-                    <p>
-                      광고 전환당 비용{" "}
-                      {fmt(
-                        totals.paidCost == null
-                          ? null
-                          : Math.round(totals.paidCost),
-                        "원",
-                      )}
-                    </p>
-                  )}
-                </div>
-              </section>
-              <section className="kf-flow">
+              <section className="kf-direct">
                 <header>
-                  <h3>성과 흐름</h3>
-                  <span>
-                    {write
-                      ? "숫자·이름을 수정하고 Enter 또는 다른 칸을 누르면 저장됩니다."
-                      : "선택한 월의 누적 실적"}
-                  </span>
+                  <div>
+                    <h3>성과 퍼널</h3>
+                    <p>
+                      채널을 선택하고 깔때기 안의 숫자를 수정하세요. Enter 또는
+                      다른 칸 클릭 시 저장됩니다.
+                    </p>
+                  </div>
+                  <span>월 누적 · 직접 입력</span>
                 </header>
-                <div className="kf-flow-scroll">
-                  <div className="kf-flow-inner">
-                    <div className="kf-stages">
-                      <div>
-                        광고·콘텐츠<small>{body.channels.length}개 채널</small>
-                      </div>
-                      <div>
-                        {field("inflow_label", "유입 단계 이름")}
-                        <small>{fmt(totals.visits)} 유입</small>
-                      </div>
-                      <div>
-                        {body.name}
-                        <small>{fmt(totals.conversions)}건 전환</small>
-                      </div>
-                    </div>
-                    {totals.visits > 0 && totals.conversions !== null ? (
-                      <Suspense
-                        fallback={
-                          <p className="kf-empty">
-                            그래프를 준비하고 있습니다…
-                          </p>
-                        }
-                      >
-                        <Chart
-                          channels={body.channels}
-                          totals={totals}
-                          name={body.name}
-                          inflow={body.inflow_label}
-                          selected={selected}
-                          onSelect={(id) =>
-                            setSelected((v) => (v === id ? null : id))
+                <div className="kf-funnel-editor">
+                  <div className="kf-funnel-step source">
+                    <span className="kf-step-no">01 · 광고·콘텐츠</span>
+                    <label>수정할 채널</label>
+                    {body.channels.length ? (
+                      <select
+                        aria-label="퍼널 채널"
+                        disabled={busy}
+                        value={activeChannel.id}
+                        onChange={(e) => {
+                          if (discard()) {
+                            dirtySet.current.clear();
+                            setSelected(e.target.value);
                           }
-                        />
-                      </Suspense>
+                        }}
+                      >
+                        {body.channels.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
                     ) : (
-                      <p className="kf-empty">
-                        {body.channels.length
-                          ? "모든 채널의 유입·전환을 입력하면 흐름이 표시됩니다. 0과 미입력은 구분됩니다."
-                          : "아래에서 채널을 추가하고 실적을 입력해 주세요."}
-                      </p>
+                      <strong>첫 번째 채널</strong>
                     )}
+                    {write ? (
+                      <Cell
+                        key="funnel-name"
+                        value={activeChannel?.name || ""}
+                        label="퍼널 채널 이름"
+                        type="text"
+                        disabled={busy}
+                        dirty={dirtyFor("funnel-name")}
+                        onSave={(v) => saveFunnelMetric("name", v)}
+                      />
+                    ) : (
+                      <strong>{activeChannel?.name || "—"}</strong>
+                    )}
+                    <small>
+                      {body.channels.length
+                        ? "선택한 채널의 유입·전환을 수정합니다."
+                        : "채널명이나 숫자 입력 시 첫 채널이 등록됩니다."}
+                    </small>
+                  </div>
+                  <div className="kf-funnel-step traffic">
+                    <span className="kf-step-no">02 · 유입</span>
+                    {field("inflow_label", "유입 단계 이름")}
+                    {funnelInput("visits", "퍼널 유입 수")}
+                    <small>선택 채널 유입 수</small>
+                    <label>
+                      전체 유입 목표{" "}
+                      {field("inflow_goal", "유입 목표", {
+                        goal: true,
+                        type: "number",
+                      })}
+                    </label>
+                  </div>
+                  <div className="kf-funnel-step conversion">
+                    <span className="kf-step-no">03 · 전환</span>
+                    {field("name", "최종 KPI 이름")}
+                    {funnelInput("conversions", "퍼널 전환 수")}
+                    <small>선택 채널 전환 수</small>
+                    <label>
+                      전체 전환 목표{" "}
+                      {field("goal", "전환 목표", {
+                        goal: true,
+                        type: "number",
+                      })}
+                    </label>
                   </div>
                 </div>
-                {selectedRow && (
-                  <div className="kf-selection">
-                    <b>{selectedRow.name}</b> 유입 {fmt(selectedRow.visits)} →{" "}
-                    {body.name} {fmt(selectedRow.conversions, "건")}
-                    <button onClick={() => setSelected(null)}>전체 보기</button>
+                <div className="kf-funnel-results" aria-live="polite">
+                  <div>
+                    <span>선택 채널 전환율</span>
+                    <strong>
+                      {activeRate == null ? "—" : activeRate.toFixed(1) + "%"}
+                    </strong>
+                    <small>전환 ÷ 유입 × 100</small>
                   </div>
-                )}
+                  <div>
+                    <span>전체 유입 목표 달성률</span>
+                    <strong>
+                      {totals.visits !== null && body.inflow_goal
+                        ? ((totals.visits / body.inflow_goal) * 100).toFixed(
+                            1,
+                          ) + "%"
+                        : "—"}
+                    </strong>
+                    <small>
+                      {fmt(totals.visits)} / 목표 {fmt(body.inflow_goal)}
+                    </small>
+                  </div>
+                  <div>
+                    <span>전체 전환 목표 달성률</span>
+                    <strong>{percent == null ? "—" : percent + "%"}</strong>
+                    <small>
+                      {fmt(totals.conversions)} / 목표 {fmt(body.goal)}
+                    </small>
+                  </div>
+                  <div>
+                    <span>전체 전환율</span>
+                    <strong>
+                      {totals.rate == null ? "—" : totals.rate.toFixed(1) + "%"}
+                    </strong>
+                    <small>모든 채널 합산 · {fmt(totals.conversions)}건</small>
+                  </div>
+                </div>
                 <p className="kf-note">
                   <Info size={13} />
-                  동일 기간·측정 기준의 유입/전환만 입력하세요. 노출·조회 수는
-                  유입에 합산하지 않습니다. 선은 입력값 기준이며 실제 사용자
-                  경로 추적이 아닙니다.
+                  퍼널 폭은 단계 구분용입니다. 실제 비율은 아래 수치로
+                  확인하세요. 빈칸은 미입력이며, 전체 합계는 모든 채널 입력 후
+                  계산됩니다.
                 </p>
               </section>
               <section className="kf-table-panel">

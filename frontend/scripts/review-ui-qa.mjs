@@ -544,7 +544,7 @@ const profile=await mkdtemp(path.join(tmpdir(),"pocket-review-qa-"));
 const chromePath=process.env.CHROME_PATH || (process.platform==='win32' ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : ['/usr/bin/google-chrome','/usr/bin/chromium','/usr/bin/chromium-browser'].find(existsSync));
 if(!chromePath)throw Error('Chrome not found; set CHROME_PATH');
 const chrome=spawn(chromePath,[
-  '--headless=new','--disable-gpu','--disable-dev-shm-usage',...(process.env.CI ? ['--no-sandbox'] : []),`--remote-debugging-port=${debugPort}`,`--user-data-dir=${profile}`,'about:blank',
+  '--headless=new','--disable-extensions','--disable-gpu','--disable-dev-shm-usage',...(process.env.CI ? ['--no-sandbox'] : []),`--remote-debugging-port=${debugPort}`,`--user-data-dir=${profile}`,'about:blank',
 ],{stdio:['ignore','ignore','pipe'],windowsHide:true});
 let chromeStartupError='';
 chrome.stderr.on('data',chunk=>{chromeStartupError=(chromeStartupError+chunk.toString()).slice(-4000);});
@@ -560,7 +560,7 @@ try {
   socket=new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((resolve,reject)=>{socket.addEventListener('open',resolve,{once:true});socket.addEventListener('error',reject,{once:true});});
   let id=0;const pending=new Map();const errors=[];
-  socket.addEventListener('message',event=>{const message=JSON.parse(event.data);if(message.id){const done=pending.get(message.id);pending.delete(message.id);message.error?done?.reject(Error(message.error.message)):done?.resolve(message.result);}else if(message.method==='Runtime.exceptionThrown')errors.push(message.params.exceptionDetails.text);});
+  socket.addEventListener('message',event=>{const message=JSON.parse(event.data);if(message.id){const done=pending.get(message.id);pending.delete(message.id);message.error?done?.reject(Error(message.error.message)):done?.resolve(message.result);}else if(message.method==='Runtime.exceptionThrown')errors.push(message.params.exceptionDetails.text);else if(process.env.KPI_ONLY==='1'&&message.method==='Runtime.consoleAPICalled')console.log(message.params.args.map(a=>a.value).join(' '));});
   const send=(method,params={})=>new Promise((resolve,reject)=>{const next=++id;pending.set(next,{resolve,reject});socket.send(JSON.stringify({id:next,method,params}));});
   const evaluate=async expression=>{const result=await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(result.exceptionDetails)throw Error(JSON.stringify(result.exceptionDetails));return result.result.value;};
   await send('Runtime.enable'); await send('Page.enable');
@@ -568,8 +568,10 @@ try {
   await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
   await send('Page.navigate',{url});
   for(let i=0;i<100;i++){if(await evaluate('typeof window.runLargeListQa === "function"'))break;await delay(100);}
+  if(process.env.KPI_ONLY!=='1') {
   console.log(JSON.stringify({issueEdit:await evaluate('window.runIssueEditQa()')}));
   console.log(JSON.stringify({largeList:await evaluate('window.runLargeListQa()')}));
+  }
   if(process.env.BENCHMARK_UI==='1') {
     await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
     await send('Page.navigate',{url});
@@ -583,6 +585,13 @@ try {
     await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<500});
     await send('Page.navigate',{url});
     for(let i=0;i<100;i++){if(await evaluate('typeof window.runQa === "function"'))break;await delay(100);}
+    if(process.env.KPI_ONLY==='1') {
+      console.log(JSON.stringify({viewport:width,kpi:await evaluate('window.runKpiFunnelQa()')}));
+      await mkdir('../artifacts/client-progress',{recursive:true});
+      const shot=await send('Page.captureScreenshot',{format:'png'});
+      await writeFile(`../artifacts/client-progress/kpi-${width}.png`,Buffer.from(shot.data,'base64'));
+      continue;
+    }
     console.log(JSON.stringify({viewport:width,localSort:await evaluate('window.runLocalSortQa()')}));
     const sortShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await mkdir('../artifacts/client-progress',{recursive:true});

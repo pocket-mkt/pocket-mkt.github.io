@@ -1,0 +1,218 @@
+.kf-direct {
+  background: #fff;
+  border: 1px solid #dce5f1;
+  border-radius: 14px;
+  margin: 16px 0 22px;
+  padding: 24px;
+  color: #172e50;
+}
+.kf-direct > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 26px;
+}
+.kf-direct h3 {
+  font-size: 19px;
+  margin: 0 0 7px;
+}
+.kf-direct header p {
+  font-size: 13px;
+  color: #526783;
+  margin: 0;
+  line-height: 1.7;
+}
+.kf-direct header > span {
+  font-size: 12px;
+  white-space: nowrap;
+  color: #627796;
+}
+.kf-funnel-editor {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: center;
+  gap: 4px;
+  isolation: isolate;
+}
+.kf-funnel-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  padding: 35px 42px;
+  min-width: 0;
+  min-height: 340px;
+}
+.kf-funnel-step:before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: #edf3ff;
+  clip-path: polygon(0 0, 100% 10%, 100% 90%, 0 100%);
+}
+.kf-funnel-step.traffic:before {
+  background: #dce8ff;
+  clip-path: polygon(0 10%, 100% 19%, 100% 81%, 0 90%);
+}
+.kf-funnel-step.conversion:before {
+  background: #c9dcff;
+  clip-path: polygon(0 19%, 100% 26%, 100% 74%, 0 81%);
+}
+.kf-funnel-step.traffic,
+.kf-funnel-step.conversion {
+  padding-top: 55px;
+  padding-bottom: 55px;
+}
+.kf-step-no {
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  font-weight: 750;
+  color: #335c9e;
+}
+.kf-funnel-step label {
+  font-size: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.kf-funnel-step small {
+  font-size: 12px;
+  color: #526987;
+  line-height: 1.6;
+}
+.kf-funnel-step .kf-cell {
+  min-width: 0;
+}
+.kf-funnel-step .kf-cell input {
+  width: 100%;
+  max-width: none;
+  text-align: left;
+  background: #ffffffc9;
+  border: 1px solid #9bb9e4;
+  box-shadow: 0 1px 2px #2147770a;
+}
+.kf-funnel-step input[aria-label="퍼널 유입 수"],
+.kf-funnel-step input[aria-label="퍼널 전환 수"] {
+  font-size: 32px;
+  font-weight: 750;
+  padding: 7px 10px;
+  height: 56px;
+  color: #123c7b;
+}
+.kf-funnel-step label .kf-cell {
+  flex: 1;
+}
+.kf-funnel-step select {
+  width: 100%;
+}
+.kf-funnel-step .kf-cell span {
+  background: white;
+  display: block;
+  padding: 4px;
+  line-height: 1.5;
+}
+.kf-direct-number {
+  font-size: 32px;
+}
+.kf-funnel-results {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 1px solid #e0e7f2;
+  border-radius: 10px;
+  margin: 18px 0;
+  background: #f8faff;
+  padding: 20px 0;
+}
+.kf-funnel-results > div {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 0 22px;
+  border-right: 1px solid #dfe6f2;
+}
+.kf-funnel-results > div:last-child {
+  border: 0;
+}
+.kf-funnel-results span {
+  font-size: 13px;
+  color: #405a7c;
+}
+.kf-funnel-results strong {
+  font-size: 27px;
+  color: #245ce0;
+}
+.kf-funnel-results small {
+  font-size: 12px;
+  color: #607693;
+}
+.kf-direct .kf-note {
+  padding: 0;
+  margin: 0;
+}
+@media (max-width: 1100px) {
+  .kf-funnel-step {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  .kf-funnel-step label {
+    flex-wrap: wrap;
+  }
+  .kf-funnel-results > div {
+    padding: 0 12px;
+  }
+}
+@media (max-width: 650px) {
+  .kf-direct {
+    padding: 16px;
+  }
+  .kf-direct > header {
+    flex-direction: column;
+    margin-bottom: 16px;
+  }
+  .kf-funnel-editor {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .kf-funnel-step,
+  .kf-funnel-step.traffic,
+  .kf-funnel-step.conversion {
+    min-height: 0;
+    padding: 22px 32px;
+  }
+  .kf-funnel-step:before {
+    clip-path: polygon(0 0, 100% 0, 94% 100%, 6% 100%);
+  }
+  .kf-funnel-step.traffic:before {
+    clip-path: polygon(6% 0, 94% 0, 88% 100%, 12% 100%);
+  }
+  .kf-funnel-step.conversion:before {
+    clip-path: polygon(12% 0, 88% 0, 82% 100%, 18% 100%);
+  }
+  .kf-funnel-step.traffic {
+    padding-left: 48px;
+    padding-right: 48px;
+  }
+  .kf-funnel-step.conversion {
+    padding-left: 64px;
+    padding-right: 64px;
+  }
+  .kf-funnel-step label {
+    display: block;
+  }
+  .kf-funnel-step label .kf-cell {
+    margin-top: 6px;
+  }
+  .kf-funnel-results {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .kf-funnel-results > div:nth-child(2) {
+    border: 0;
+  }
+  .kf-funnel-results strong {
+    font-size: 24px;
+  }
+}
