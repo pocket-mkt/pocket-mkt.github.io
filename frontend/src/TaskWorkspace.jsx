@@ -1,3 +1,6 @@
+import { customTaskRows, groupTaskUpdates } from "./taskCustomGroups.js";
+import "./taskCustomGroups.css";
+import { acquireBodyScrollLock } from "./bodyScrollLock.js";
 import "./taskChecklist.css";
 import TaskSortHeading from "./TaskSortHeading.jsx";
 import { cycleTaskLocalSort, sortTasksLocally } from "./taskLocalSort.js";
@@ -355,14 +358,21 @@ function TaskScheduleInlineRow({ task, project, canWrite, onUpdate, onEdit, onAr
   </tr>;
 }
 
-function TaskScheduleInlineTable({ sortRules, onSortCycle, tasks, project, canWrite, onUpdate, onEdit, onArchive, ganttDrafts, freshnessNow, scheduleClass, mediaColor, selectedTaskIds, onSelectTask, onSelectAll, reorderEnabled, draggingTaskIds, dropIndicator, onDragStart, onDragEnd, onDragOverTask, onDropTask }) {
+function TaskScheduleInlineTable({ expandedGroups = new Set(), onToggleGroup, sortRules, onSortCycle, tasks, project, canWrite, onUpdate, onEdit, onArchive, ganttDrafts, freshnessNow, scheduleClass, mediaColor, selectedTaskIds, onSelectTask, onSelectAll, reorderEnabled, draggingTaskIds, dropIndicator, onDragStart, onDragEnd, onDragOverTask, onDropTask }) {
   const scrollRef = useRef(null);
-  const windowed = useWindowedRows(tasks, scrollRef, { disabled: Boolean(draggingTaskIds?.length) });
+  const displayRows = customTaskRows(tasks, expandedGroups);
+  const windowed = useWindowedRows(displayRows, scrollRef, { disabled: Boolean(draggingTaskIds?.length) });
   const columnWidths = [88, 64, null, 200, 126, 44, 52, 82, 78, 105, 135];
   const allSelected = Boolean(canWrite && tasks.length && tasks.every((task) => selectedTaskIds?.has(task.id)));
   let previousMedia = "";
   const bodyRows = [];
-  tasks.forEach((task, index) => {
+  displayRows.forEach((row, index) => {
+    if (index < windowed.start || index >= windowed.end) return;
+    if (row.customGroup) {
+      bodyRows.push(<tr key={row.id} data-window-id={row.id} className="task-custom-group-row"><td colSpan={canWrite ? 13 : 11}><TaskGroupLabel group={row.customGroup} expanded={expandedGroups.has(row.customGroup.id)} onToggle={onToggleGroup} canWrite={canWrite} selectedTaskIds={selectedTaskIds} onSelect={onSelectTask} /></td></tr>);
+      return;
+    }
+    const task = row.task;
     const media = taskScheduleMedia(task);
     const mediaKey = media.replace(/\s+/g, " ").trim().toLocaleUpperCase("ko");
     const mediaGroupStart = !previousMedia || mediaKey !== previousMedia;
@@ -540,6 +550,33 @@ function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite,
   const [ownerFilter, setOwnerFilter] = useState("ALL");
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState(() => new Set());
+  const [expandedGroups, setExpandedGroups] = useState(() => new Set());
+  const [groupDialog, setGroupDialog] = useState(false);
+  const [groupName, setGroupName] = useState("");
+  const groupBusyRef = useRef(false);
+  useEffect(() => {
+    if (!groupDialog) return;
+    const previous = document.activeElement;
+    const release = acquireBodyScrollLock();
+    return () => { release(); if (previous?.isConnected) previous.focus(); };
+  }, [groupDialog]);
+  const toggleGroup = id => setExpandedGroups(current => {
+    const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next;
+  });
+  const saveTaskGroup = async (ungroup = false) => {
+    if (!canWrite || !onBatchUpdate || groupBusyRef.current || bulkSave.status === "saving") return;
+    const selected = tasks.filter(task => selectedTaskIds.has(task.id) && (!ungroup || task.taskGroupId));
+    try {
+      const updates = groupTaskUpdates(selected, groupName, ungroup ? null : globalThis.crypto.randomUUID());
+      groupBusyRef.current = true;
+      setBulkSave({ status: "saving", error: "" });
+      await onBatchUpdate(updates);
+      setGroupDialog(false); setGroupName(""); setSelectedTaskIds(new Set());
+      setBulkSave({ status: "saved", error: "" });
+    } catch (error) {
+      setBulkSave({ status: "error", error: error.message || "그룹을 저장하지 못했습니다." });
+    } finally { groupBusyRef.current = false; }
+  };
   const [bulkStatus, setBulkStatus] = useState("");
   const [bulkOwner, setBulkOwner] = useState("");
   const [bulkVisibility, setBulkVisibility] = useState("");
@@ -610,7 +647,8 @@ function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite,
     setBulkOwner("");
     setBulkVisibility("");
     setBulkSave({ status: "idle", error: "" });
-    if (copySelectionRef.current || copyBusyRef.current) return;
+    copySelectionRef.current = null;
+    setExpandedGroups(new Set()); setGroupDialog(false); setGroupName("");
     setBulkDeleteArmed(false);
     setDraggingTaskId(null);
     setDraggingTaskIds([]);
@@ -703,9 +741,14 @@ function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite,
   const ganttTrackWidth = days.length * GANTT_DAY_WIDTH;
   const todayIndex = days.findIndex((day) => day.iso === today);
   const ganttGroups = useMemo(() => groupGanttTasks(filteredTasks, taskScheduleMedia), [filteredTasks]);
-  const ganttWindowRows = useMemo(() => ganttGroups.flatMap(group => [{ id: "group:" + group.label, group }, ...group.tasks.map(task => ({ id: task.id, task, group }))]), [ganttGroups]);
+  const ganttWindowRows = useMemo(() => {
+    const custom = customTaskRows(filteredTasks.filter(task => task.taskGroupId), expandedGroups);
+    const loose = groupGanttTasks(filteredTasks.filter(task => !task.taskGroupId), taskScheduleMedia);
+    return [...custom.map(row => ({ ...row, group: { label: row.customGroup?.name || taskScheduleMedia(row.task) } })),
+      ...loose.flatMap(group => [{ id: "group:" + group.label, group }, ...group.tasks.map(task => ({ id: task.id, task, group }))])];
+  }, [filteredTasks, expandedGroups]);
   const ganttWindow = useWindowedRows(ganttWindowRows, ganttScrollRef, { estimate: row => row.task ? 33 : 28, disabled: displayMode !== "gantt" || draggingTaskIds.length > 0 });
-  const ganttTasks = filteredTasks;
+  const ganttTasks = ganttWindowRows.filter(row => row.task).map(row => row.task);
   const ganttRowIndexById = useMemo(() => new Map(ganttTasks.map((task, index) => [task.id, index])), [ganttTasks]);
   const ganttCategoryColor = (category) => ({
     "마케팅": "#0058ff",
@@ -752,12 +795,13 @@ function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite,
   }, [tasks]);
 
   const selectTask = (taskId, checked, options = {}) => {
-    if (copySelectionRef.current || copyBusyRef.current) return;
+    if (copySelectionRef.current || copyBusyRef.current || groupBusyRef.current) return;
     setBulkDeleteArmed(false);
     const anchorTaskId = selectionAnchorRef.current;
     setSelectedTaskIds((current) => {
       if (options.shiftKey && anchorTaskId != null) {
-        return selectTaskRange(filteredTasks, current, anchorTaskId, taskId, checked);
+        const visibleTasks = displayMode === "gantt" ? ganttTasks : customTaskRows(filteredTasks, expandedGroups).filter(row => row.task).map(row => row.task);
+        return selectTaskRange(visibleTasks, current, anchorTaskId, taskId, checked);
       }
       const next = new Set(current);
       if (checked) next.add(taskId); else next.delete(taskId);
@@ -766,6 +810,7 @@ function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite,
     selectionAnchorRef.current = taskId;
   };
   const selectAllVisible = (checked) => {
+    if (copySelectionRef.current || copyBusyRef.current || groupBusyRef.current) return;
     setBulkDeleteArmed(false);
     selectionAnchorRef.current = null;
     setSelectedTaskIds((current) => {
@@ -775,9 +820,10 @@ function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite,
     });
   };
   const saveUpdateChunks = async (updates) => {
+    const undoGroupId = globalThis.crypto.randomUUID();
     for (let offset = 0; offset < updates.length; offset += 40) {
       const batch = updates.slice(offset, offset + 40);
-      if (onBatchUpdate) await onBatchUpdate(batch);
+      if (onBatchUpdate) await onBatchUpdate(batch, { undoGroupId });
       else for (const update of batch) {
         if (update.operation === "ARCHIVE") await onArchive(update.task);
         else await onUpdate(update.task, update.fields);
@@ -1037,9 +1083,10 @@ function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite,
         };
       });
       if (onBatchUpdate) {
+        const undoGroupId = globalThis.crypto.randomUUID();
         for (let offset = 0; offset < updates.length; offset += 40) {
           const batch = updates.slice(offset, offset + 40);
-          await onBatchUpdate(batch);
+          await onBatchUpdate(batch, { undoGroupId });
           saved += batch.length;
           setGanttSave({ status: "saving", saved, total: changes.length, error: "" });
         }
@@ -1173,23 +1220,41 @@ function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite,
       ...(canWrite ? [{ id: "owner", label: "담당 업무별", value: ownerFilter, options: ownerOptions, onChange: setOwnerFilter }] : []),
     ]} />}
     </>}
-    {!activityMode && canWrite && selectedTaskIds.size > 0 && <section className="task-bulk-toolbar" aria-label="선택 업무 일괄 변경"><strong>{selectedTaskIds.size}개 선택</strong>{onCopy && <button type="button" className="btn" disabled={bulkSave.status === "saving"} onClick={() => void applyBulkCopy()}>{copyBusyRef.current ? "복사 중…" : copySelectionRef.current ? "복사 재시도" : "복사"}</button>}<label><span>상태</span><select value={bulkStatus} disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current)} onChange={(event) => { setBulkStatus(event.target.value); setBulkDeleteArmed(false); }}><option value="">변경 안 함</option>{trackerStatusOptions.map(([code, label]) => <option value={code} key={code}>{label}</option>)}</select></label><label><span>담당</span><select value={bulkOwner} disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current)} onChange={(event) => { setBulkOwner(event.target.value); setBulkDeleteArmed(false); }}><option value="">변경 안 함</option>{taskResponsibleOrgOptions(project.clientName).map(([code, label]) => <option value={code} key={code}>{label}</option>)}</select></label>{canManageVisibility && <label className="task-bulk-visibility"><span>고객사</span><select value={bulkVisibility} disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current)} onChange={(event) => { setBulkVisibility(event.target.value); setBulkDeleteArmed(false); }}><option value="">변경 안 함</option><option value="PROJECT_TEAM">숨김 · 내부만</option><option value="CLIENT">공개</option></select></label>}<button type="button" className="btn primary" disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current)} onClick={() => void applyBulkUpdate()}>{bulkSave.status === "saving" ? <LoaderCircle size={13} className="spin" /> : <Check size={13} />}일괄 적용</button><button type="button" className={`btn task-bulk-delete${bulkDeleteArmed ? " is-armed" : ""}`} disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current)} onClick={() => void applyBulkArchive()}>{bulkSave.status === "saving" && bulkDeleteArmed ? <LoaderCircle size={13} className="spin" /> : <Trash2 size={13} />}{bulkDeleteArmed ? `${selectedTaskIds.size}개 삭제 확정` : "선택 삭제"}</button><button type="button" className="btn" disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current)} onClick={() => { setSelectedTaskIds(new Set()); selectionAnchorRef.current = null; setBulkStatus(""); setBulkOwner(""); setBulkVisibility(""); setBulkDeleteArmed(false); setBulkSave({ status: "idle", error: "" }); }}>선택 해제</button>{bulkSave.error && <small role="alert">{bulkSave.error}</small>}</section>}
+    {!activityMode && canWrite && selectedTaskIds.size > 0 && <section className="task-bulk-toolbar" aria-label="선택 업무 일괄 변경"><strong>{selectedTaskIds.size}개 선택</strong>{onBatchUpdate && <><button type="button" className="btn" disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current)} onClick={() => { setGroupName(""); setGroupDialog(true); setBulkSave({status:"idle",error:""}); }}>업무 그룹</button><button type="button" className="btn" disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current) || !tasks.some(task => selectedTaskIds.has(task.id) && task.taskGroupId)} onClick={() => void saveTaskGroup(true)}>그룹 해제</button></>}{onCopy && <button type="button" className="btn" disabled={bulkSave.status === "saving"} onClick={() => void applyBulkCopy()}>{copyBusyRef.current ? "복사 중…" : copySelectionRef.current ? "복사 재시도" : "복사"}</button>}<label><span>상태</span><select value={bulkStatus} disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current)} onChange={(event) => { setBulkStatus(event.target.value); setBulkDeleteArmed(false); }}><option value="">변경 안 함</option>{trackerStatusOptions.map(([code, label]) => <option value={code} key={code}>{label}</option>)}</select></label><label><span>담당</span><select value={bulkOwner} disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current)} onChange={(event) => { setBulkOwner(event.target.value); setBulkDeleteArmed(false); }}><option value="">변경 안 함</option>{taskResponsibleOrgOptions(project.clientName).map(([code, label]) => <option value={code} key={code}>{label}</option>)}</select></label>{canManageVisibility && <label className="task-bulk-visibility"><span>고객사</span><select value={bulkVisibility} disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current)} onChange={(event) => { setBulkVisibility(event.target.value); setBulkDeleteArmed(false); }}><option value="">변경 안 함</option><option value="PROJECT_TEAM">숨김 · 내부만</option><option value="CLIENT">공개</option></select></label>}<button type="button" className="btn primary" disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current)} onClick={() => void applyBulkUpdate()}>{bulkSave.status === "saving" ? <LoaderCircle size={13} className="spin" /> : <Check size={13} />}일괄 적용</button><button type="button" className={`btn task-bulk-delete${bulkDeleteArmed ? " is-armed" : ""}`} disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current)} onClick={() => void applyBulkArchive()}>{bulkSave.status === "saving" && bulkDeleteArmed ? <LoaderCircle size={13} className="spin" /> : <Trash2 size={13} />}{bulkDeleteArmed ? `${selectedTaskIds.size}개 삭제 확정` : "선택 삭제"}</button><button type="button" className="btn" disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current)} onClick={() => { setSelectedTaskIds(new Set()); selectionAnchorRef.current = null; setBulkStatus(""); setBulkOwner(""); setBulkVisibility(""); setBulkDeleteArmed(false); setBulkSave({ status: "idle", error: "" }); }}>선택 해제</button>{bulkSave.error && <small role="alert">{bulkSave.error}</small>}</section>}
     <section ref={schedulePanelRef} className="task-timeline panel campaign-schedule-surface reference-schedule-panel" aria-label="업무 일정">
       <header className="campaign-schedule-table-heading panel-head reference-panel-head"><div><h2>{summaryOnly ? "프로젝트 간트" : activityMode ? "업무 로그" : displayMode === "gantt" ? "타임라인" : "업무 일정"}</h2><span className="hint">{activityMode ? "업무명과 변경 내용을 확인할 수 있는 누적 사용자 작업 이력" : <>{filteredTasks.length}건 표시{displayMode === "gantt" ? " · 머리글과 왼쪽 업무명 고정" : canWrite ? " · 업무명 수정 · 이동 손잡이로 순서 변경" : " · 업무명과 일정을 확인"}</>}</span>{!activityMode && ganttSave.status !== "idle" && <small className={`gantt-save-state is-${ganttSave.status}`}>{ganttSave.status === "saving" ? `업무 저장 중 ${ganttSave.saved}/${ganttSave.total}` : ganttSave.status === "saved" ? `${ganttSave.saved}개 업무 일정 저장 완료` : ganttSave.error}</small>}</div><div>{activityMode ? <button className="btn" type="button" onClick={() => onLoadActivity?.()} disabled={activityState?.status === "loading" || activityState?.loadingMore}>{activityState?.status === "loading" ? <LoaderCircle size={13} className="spin" /> : <RefreshCw size={13} />}새로고침</button> : <>{canWrite && onCreate && <button type="button" className="btn task-schedule-create" onClick={() => onCreate("task-completed")}><Check size={13} />완료 업무 추가</button>}{canWrite && onCreate && <button type="button" className="btn primary task-schedule-create" onClick={() => onCreate("task")}><Plus size={13} />업무 추가</button>}</>}</div></header>
       {displayMode === "gantt" && canWrite && <div className="g-hint"><span>✎</span><span>칸을 클릭하면 칠해지고, 다시 누르면 지워집니다. 옆으로 끌면 여러 칸을 한 번에 — 시작일·종료일·기간은 칠한 범위에 맞춰 자동으로 바뀝니다.</span></div>}
-      {activityMode ? <TaskActivityLog state={activityState} tasks={tasks} clientName={project.clientName} onRefresh={() => onLoadActivity?.()} onLoadMore={(cursor) => onLoadActivity?.({ append: true, cursor })} /> : filteredTasks.length === 0 ? <EmptyState title={summaryOnly ? "등록된 업무가 없습니다" : "조건에 맞는 업무가 없습니다"} description={summaryOnly ? "업무를 등록하면 같은 일정이 여기에 표시됩니다." : "상태·카테고리·일정 필터를 변경해 주세요."} /> : displayMode === "gantt" && !days.length ? <EmptyState title={`일정 미등록 ${missingSchedule}건`} description="프로젝트 기간 또는 업무 날짜를 먼저 입력해 주세요." /> : displayMode === "table" ? <TaskScheduleInlineTable sortRules={sortRules} onSortCycle={cycleLocalSort} tasks={filteredTasks} project={project} canWrite={canWrite} onUpdate={onUpdate} onEdit={setEditingTaskId} onArchive={onArchive} ganttDrafts={ganttDrafts} freshnessNow={freshnessNow} scheduleClass={scheduleClass} mediaColor={ganttCategoryColor} selectedTaskIds={selectedTaskIds} onSelectTask={selectTask} onSelectAll={selectAllVisible} reorderEnabled={reorderEnabled} draggingTaskIds={draggingTaskIds} dropIndicator={taskDropIndicator} onDragStart={startTaskDrag} onDragEnd={finishTaskDrag} onDragOverTask={handleTaskDragOver} onDropTask={(taskId) => void dropTasksAt(taskId)} /> : <div ref={ganttScrollRef} className="reference-gantt-scroll scroll"><div id="gantt" ref={matrixRef} onPointerDown={beginGanttPaint} onPointerMove={highlightGanttAxes} onPointerLeave={clearGanttAxisHighlight} className="gantt reference-gantt" style={{ width: `${ganttLabelWidth + ganttTrackWidth}px`, minWidth: `${ganttLabelWidth + ganttTrackWidth}px`, "--gantt-label-width": `${ganttLabelWidth}px`, "--gantt-day-width": `${GANTT_DAY_WIDTH}px` }}>
+      {activityMode ? <TaskActivityLog state={activityState} tasks={tasks} clientName={project.clientName} onRefresh={() => onLoadActivity?.()} onLoadMore={(cursor) => onLoadActivity?.({ append: true, cursor })} /> : filteredTasks.length === 0 ? <EmptyState title={summaryOnly ? "등록된 업무가 없습니다" : "조건에 맞는 업무가 없습니다"} description={summaryOnly ? "업무를 등록하면 같은 일정이 여기에 표시됩니다." : "상태·카테고리·일정 필터를 변경해 주세요."} /> : displayMode === "gantt" && !days.length ? <EmptyState title={`일정 미등록 ${missingSchedule}건`} description="프로젝트 기간 또는 업무 날짜를 먼저 입력해 주세요." /> : displayMode === "table" ? <TaskScheduleInlineTable expandedGroups={expandedGroups} onToggleGroup={toggleGroup} sortRules={sortRules} onSortCycle={cycleLocalSort} tasks={filteredTasks} project={project} canWrite={canWrite} onUpdate={onUpdate} onEdit={setEditingTaskId} onArchive={onArchive} ganttDrafts={ganttDrafts} freshnessNow={freshnessNow} scheduleClass={scheduleClass} mediaColor={ganttCategoryColor} selectedTaskIds={selectedTaskIds} onSelectTask={selectTask} onSelectAll={selectAllVisible} reorderEnabled={reorderEnabled} draggingTaskIds={draggingTaskIds} dropIndicator={taskDropIndicator} onDragStart={startTaskDrag} onDragEnd={finishTaskDrag} onDragOverTask={handleTaskDragOver} onDropTask={(taskId) => void dropTasksAt(taskId)} /> : <div ref={ganttScrollRef} className="reference-gantt-scroll scroll"><div id="gantt" ref={matrixRef} onPointerDown={beginGanttPaint} onPointerMove={highlightGanttAxes} onPointerLeave={clearGanttAxisHighlight} className="gantt reference-gantt" style={{ width: `${ganttLabelWidth + ganttTrackWidth}px`, minWidth: `${ganttLabelWidth + ganttTrackWidth}px`, "--gantt-label-width": `${ganttLabelWidth}px`, "--gantt-day-width": `${GANTT_DAY_WIDTH}px` }}>
         <div className="g-hrow"><div className="g-lbl g-corner">{canWrite && <input type="checkbox" checked={Boolean(filteredTasks.length && filteredTasks.every((task) => selectedTaskIds.has(task.id)))} onChange={(event) => selectAllVisible(event.target.checked)} aria-label="표시된 업무 전체 선택" />}<span className="nm">매체 · 업무</span></div><div className="g-hstack" style={{ width: `${ganttTrackWidth}px` }}><div className="g-months">{months.map((month) => <div className={`g-m month-tone-${month.tone}`} key={month.key} style={{ width: `${month.count * GANTT_DAY_WIDTH}px` }}>{month.label}</div>)}</div><div className="g-days">{days.map((day, dayIndex) => <div key={day.iso} data-gantt-day-index={dayIndex} className={`g-d${ganttMonthClass(day)}${day.weekend ? " we" : ""}${day.weekday === "일" ? " sun" : ""}${day.iso === today ? " ref" : ""}`}><span>{day.day}</span><span className="dw">{day.weekday}</span></div>)}</div></div></div>
         {ganttWindow.before > 0 && <div aria-hidden="true" style={{ height: ganttWindow.before }} />}
         {ganttWindowRows.slice(ganttWindow.start, ganttWindow.end).map(row => {
           const group = row.group;
           const color = ganttCategoryColor(group.label);
           if (row.task) return renderGanttTaskRow(row.task, group.label, color);
+          if (row.customGroup) return <div key={row.id} data-window-id={row.id} className="g-grow is-custom-group">
+            <div className="g-lbl"><TaskGroupLabel group={row.customGroup} expanded={expandedGroups.has(row.customGroup.id)} onToggle={toggleGroup} canWrite={canWrite} selectedTaskIds={selectedTaskIds} onSelect={selectTask} /></div>
+            <div className="g-track g-gtrack" style={{width:ganttTrackWidth}}>{days.map((day, index) => <div key={day.iso} className={`g-c ${day.weekend ? "we" : ""} ${day.iso === today ? "ref" : ""}`}>{row.customGroup.dates.has(day.iso) && <span className="g-custom-summary" style={{left:0,width:GANTT_DAY_WIDTH}} />}</div>)}</div>
+          </div>;
           const groupDone = group.tasks.filter(task => task.statusCode === "DONE").length;
           return <div key={row.id} data-window-id={row.id} className="g-grow"><div className="g-lbl" style={{ "--rail": color }}><span className="nm">{group.label}</span><span className="g-gcount">{groupDone}/{group.tasks.length}</span></div><div className="g-track g-gtrack" style={{ width: `${ganttTrackWidth}px` }}>{days.map((day, dayIndex) => <div key={`${group.label}-${day.iso}`} data-gantt-day-index={dayIndex} className={`g-c${ganttMonthClass(day)} ${day.weekend ? "we" : ""} ${day.iso === today ? "ref" : ""}`} />)}{todayIndex >= 0 && <div className="g-refline" style={{ left: `${todayIndex * GANTT_DAY_WIDTH}px` }} />}</div></div>;
         })}
         {ganttWindow.after > 0 && <div aria-hidden="true" style={{ height: ganttWindow.after }} />}
       </div></div>}
       {displayMode === "gantt" && <div className="g-legend">{ganttGroups.map((group) => <span key={group.label}><i style={{ background: ganttCategoryColor(group.label) }} />{group.label}</span>)}<span><i style={{ background: "#8a93a3", opacity: .3 }} />예정 = 옅게</span><span><i className="g-overdue-hold-legend" />기한 초과 보류</span><span><i className="g-weekend-legend" />주말</span><span><i className="g-today-legend" />기준일 {today}</span></div>}
+      {groupDialog && <div className="modal-backdrop" onKeyDown={event => { if (event.key === "Escape" && !groupBusyRef.current) setGroupDialog(false); }}>
+        <form className="task-group-dialog" role="dialog" aria-modal="true" aria-labelledby="task-group-title" onSubmit={event => { event.preventDefault(); void saveTaskGroup(); }} onKeyDown={event => {
+          if (event.key !== "Tab") return;
+          const controls = [...event.currentTarget.querySelectorAll("input:not(:disabled),button:not(:disabled)")];
+          const first = controls[0], last = controls.at(-1);
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+        }}>
+          <h3 id="task-group-title">선택한 {selectedTaskIds.size}개 업무 그룹</h3>
+          <p>업무와 일정은 그대로 유지됩니다. 그룹 접기는 고객사 비공개 설정과 다릅니다. 기존 공개 설정은 바뀌지 않습니다.</p>
+          <label>그룹 이름<input autoFocus maxLength={100} value={groupName} disabled={bulkSave.status === "saving"} onChange={event => setGroupName(event.target.value)} placeholder="예: 외부유입 실행작업" /></label>
+          {bulkSave.error && <p role="alert">{bulkSave.error}</p>}
+          <footer><button type="button" className="btn" disabled={bulkSave.status === "saving"} onClick={() => setGroupDialog(false)}>취소</button><button type="submit" className="btn primary" disabled={!groupName.trim() || bulkSave.status === "saving"}>{bulkSave.status === "saving" ? "저장 중…" : "그룹 만들기"}</button></footer>
+        </form></div>}
       {editingTaskId && canWrite && <TaskEditModal key={editingTaskId} task={tasks.find((task) => task.id === editingTaskId)} tasks={tasks} clientName={project.clientName} onUpdate={onUpdate} onClose={() => setEditingTaskId(null)} />}
     </section>
     {!summaryOnly && !activityMode && <ProjectIssuePanel issues={issues} project={project} canWrite={canWriteIssues} actorName={actorName} onCreate={onIssueCreate} onUpdate={onIssueUpdate} onArchive={onIssueArchive} />}
@@ -1198,3 +1263,10 @@ function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite,
 
 
 export { IssueRequestCreateModal, GANTT_DAY_WIDTH, statusClass, formatSyncTime, EmptyState, LoadingState, ErrorState, FormSelect, trackerStatusOptions, trackerStatusLabels, editableTaskStatusCode, trackerDate, TaskEditModal, taskActivityValue, taskActivityDateFilters, taskActivityDateLabel, TaskActivityLog, taskDurationDays, taskInlineDraft, validInlineTaskUrl, compactTaskDateLabel, CompactTaskDateInput, TaskRowActions, TaskScheduleInlineRow, TaskScheduleInlineTable, scheduleStatusFilters, scheduleCategoryFilters, scheduleWeekFilters, ScheduleFilterButtons, TaskScheduleFilters, TaskWorkspaceTabs, issueStatusOrder, issueStatusLabels, ProjectIssueRow, ProjectIssuePanel, TaskScheduleTimeline, localDateValue };
+function TaskGroupLabel({ group, expanded, onToggle, canWrite, selectedTaskIds, onSelect }) {
+  return <div className="task-custom-group-label">
+    {canWrite && <input type="checkbox" aria-label={group.name + " 그룹 업무 선택"} checked={group.tasks.every(task => selectedTaskIds?.has(task.id))} onChange={event => group.tasks.forEach(task => onSelect?.(task.id, event.target.checked))} />}
+    <button type="button" aria-expanded={expanded} onClick={() => onToggle?.(group.id)}><span aria-hidden="true">{expanded ? "⌄" : "›"}</span><span>{group.name}</span></button>
+    <small>{group.done}/{group.tasks.length} 완료</small>
+  </div>;
+}

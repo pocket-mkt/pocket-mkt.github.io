@@ -54,7 +54,7 @@ test("간트는 사각형 드래그로 일정 추가와 삭제를 구분하고 �
   assert.match(appSource, /mode: active \? "erase" : "paint"/);
   assert.match(appSource, /schedule_dates_json: serializeScheduleDates\(dates\)/);
   assert.doesNotMatch(appSource, /\.\.\.taskUpdateSubmissionFields\(taskUpdateInitialFields\(row\.task\)\)/);
-  assert.match(appSource, /await onBatchUpdate\(batch\)/);
+  assert.match(appSource, /await onBatchUpdate\(batch, \{ undoGroupId \}\)/);
   assert.match(appSource, /offset \+= 40/);
   assert.match(appSource, /window\.addEventListener\("pointermove"/);
   assert.match(styleSource, /\.g-c\.on::before/);
@@ -64,18 +64,19 @@ test("간트는 사각형 드래그로 일정 추가와 삭제를 구분하고 �
 test("간트 드래그 행은 매체로 묶인 일정표와 실제 화면 순서가 동일하다", () => {
   assert.match(appSource, /groupTaskScheduleByMedia\(ganttVisibleTasks\)/);
   assert.match(appSource, /groupGanttTasks\(filteredTasks, taskScheduleMedia\)/);
-  assert.match(appSource, /const ganttTasks = filteredTasks/);
+  assert.match(appSource, /const ganttTasks = ganttWindowRows\.filter\(row => row\.task\)\.map\(row => row\.task\)/);
   assert.match(appSource, /ganttTasksRef\.current = ganttTasks/);
   assert.match(appSource, /const rows = ganttTasksRef\.current\.map/);
   assert.match(appSource, /const rowIndex = ganttRowIndexById\.get\(task\.id\)/);
   assert.doesNotMatch(appSource, /filteredTasks\.findIndex\(\(item\) => item\.id === task\.id\)/);
 });
 
-test("번호 회차 업무도 일정표와 간트에서 접지 않고 개별 행으로 표시한다", () => {
+test("자동 회차 묶음 대신 명시적으로 선택한 사용자 그룹만 접는다", () => {
   assert.doesNotMatch(appSource, /const displayRows = groupTaskScheduleSeries\(tasks\)/);
   assert.doesNotMatch(appSource, /ganttSeriesGroups/);
   assert.doesNotMatch(appSource, /expandedSeries/);
-  assert.match(appSource, /tasks\.forEach\(\(task, index\) =>/);
+  assert.match(appSource, /customTaskRows\(tasks, expandedGroups\)/);
+  assert.match(appSource, /displayRows\.forEach\(\(row, index\) =>/);
   assert.match(appSource, /if \(row\.task\) return renderGanttTaskRow\(row\.task/);
 });
 
@@ -140,7 +141,7 @@ test("포켓은 선택한 업무를 고객사에서 일괄 숨기거나 다시 �
 });
 
 test("업무표와 간트는 다중 이동·Shift 범위 선택·일괄 소프트 삭제를 제공한다", () => {
-  assert.match(appSource, /selectTaskRange\(filteredTasks, current, anchorTaskId, taskId, checked\)/);
+  assert.match(appSource, /selectTaskRange\(visibleTasks, current, anchorTaskId, taskId, checked\)/);
   assert.match(appSource, /event\.nativeEvent\?\.shiftKey \|\| event\.shiftKey/);
   assert.match(appSource, /selectedTaskIds\.has\(taskId\)[\s\S]*filteredTasks\.filter/);
   assert.match(appSource, /reorderTaskSchedule\(filteredTasks, sourceIds, targetTaskId, position\)/);

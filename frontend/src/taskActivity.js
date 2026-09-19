@@ -1,4 +1,5 @@
 const USER_FACING_TASK_FIELDS = new Set([
+  "task_group_name",
   "title",
   "status_code",
   "description",
@@ -15,8 +16,8 @@ const USER_FACING_TASK_FIELDS = new Set([
   "visibility_code",
 ]);
 
-const MEANINGFUL_ACTIONS_WITHOUT_CHANGES = new Set(["CREATED", "ARCHIVED", "APPROVED", "REJECTED"]);
-const USER_TASK_ACTIONS = new Set(["CREATED", "UPDATED", "ARCHIVED"]);
+const MEANINGFUL_ACTIONS_WITHOUT_CHANGES = new Set(["CREATED", "ARCHIVED", "RESTORED", "APPROVED", "REJECTED"]);
+const USER_TASK_ACTIONS = new Set(["CREATED", "UPDATED", "ARCHIVED", "RESTORED"]);
 
 function readableActor(value) {
   const actor = String(value || "").trim();
@@ -93,6 +94,7 @@ export function taskActivitySentence(item = {}) {
   const action = String(item.actionCode || "").toUpperCase();
   if (action === "CREATED") return "업무가 추가되었습니다.";
   if (action === "ARCHIVED") return "업무가 보관되었습니다.";
+  if (action === "RESTORED") return "삭제한 업무를 되돌렸습니다.";
   if (action === "APPROVED") return "업무가 승인되었습니다.";
   if (action === "REJECTED") return "업무가 반려되었습니다.";
   return "업무 정보가 변경되었습니다.";

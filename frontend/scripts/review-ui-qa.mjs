@@ -10,6 +10,7 @@ import { existsSync } from "node:fs";
 const bundle = await build({
   stdin: { contents: `
 import React, { lazy, Suspense, useState } from 'react';
+import { runTaskGroupsQa } from './scripts/task-groups-browser-fixture.jsx';
 import { runMeetingSearchQa } from './scripts/meeting-search-browser-fixture.jsx';
 import { runKpiFunnelQa } from './scripts/kpi-funnel-browser-fixture.jsx';
 import BlogStatusView from './src/BlogStatusView.jsx';
@@ -48,6 +49,7 @@ const bootstrapState = {status:'ready',data:{projects:{A:{id:'A',allowedPages:['
 let overviewState;
 const overviewCalls = [];
 const source = {overview: params => { const pending=deferred(); overviewCalls.push({...params,...pending}); return pending.promise; }};
+window.runTaskGroupsQa = () => runTaskGroupsQa(render,tick,check);
 window.runCopyQa = async () => {
  const tasks=[1,2].map(id=>({id:String(id),title:'복사 테스트 '+id,streamCode:'MARKETING',categoryCode:'NAVER',phaseCode:'M1',statusCode:'NOT_STARTED',responsibleOrgCode:'NS',plannedStartDate:'2026-09-19',dueDate:'2026-09-21',scheduleDates:['2026-09-19','2026-09-21']}));
  const project={id:'copy',clientName:'테스트',startDate:'2026-09-01',endDate:'2026-09-30'};
@@ -591,15 +593,16 @@ try {
   await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
   await send('Page.navigate',{url});
   for(let i=0;i<100;i++){if(await evaluate('typeof window.runLargeListQa === "function"'))break;await delay(100);}
-  if(process.env.COPY_ONLY==='1') {
+  if(process.env.COPY_ONLY==='1' || process.env.GROUPS_ONLY==='1') {
     for (const width of [1440, 390]) {
       await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<500});
-      console.log(JSON.stringify({viewport:width,copy:await evaluate('window.runCopyQa()')}));
+      console.log(JSON.stringify({viewport:width,copy:await evaluate('window.runCopyQa()'),groups:await evaluate('window.runTaskGroupsQa()')}));
     }
     if(errors.length)throw Error(errors.join('; '));
     process.exitCode=0;
   } else {
   if(process.env.KPI_ONLY!=='1') {
+  console.log(JSON.stringify({groups:await evaluate('window.runTaskGroupsQa()')}));
   console.log(JSON.stringify({issueEdit:await evaluate('window.runIssueEditQa()')}));
   console.log(JSON.stringify({largeList:await evaluate('window.runLargeListQa()')}));
   }

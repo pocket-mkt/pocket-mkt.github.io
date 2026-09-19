@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { verifyMeetingSearchSecurity } from './meeting-search-security-qa.mjs';
 import { verifyKpiFunnelSecurity } from './kpi-funnel-security-qa.mjs';
+import { verifyTaskGroupsUndo } from './task-groups-undo-security-qa.mjs';
 
 const migrationsDir = fileURLToPath(new URL("../../supabase/migrations/", import.meta.url)).replace(/\\$/, "");
 const db = new PGlite();
@@ -566,4 +567,5 @@ await expectDenied('select public.read_client_progress(1)', 'anonymous customer 
 console.log(JSON.stringify({clientProgressRoleProjection:'pass',clientProgressOnlyBoundary:'pass',clientProgressAnonymousAndDisabled:'blocked'}));
 await verifyMeetingSearchSecurity(db, userIds, assert);
 await verifyKpiFunnelSecurity(db, userIds, assert);
+await verifyTaskGroupsUndo(db, userIds, assert);
 await db.close();

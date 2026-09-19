@@ -459,5 +459,16 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
     accessAdminMutate,
     mutate,
     mutateBatch,
+    undoTasks: async (params = {}) => {
+      const { data, error } = await client.rpc("undo_task_changes", {
+        p_project_id: await resolveProjectId(params.projectId),
+        p_mutation_ids: params.ids, p_undo_id: params.undoId,
+      });
+      if (error) {
+        const failure = new Error(error.code === "40001" ? "다른 변경이 있어 되돌릴 수 없습니다. 최신 업무를 확인해 주세요." : "되돌리기에 실패했습니다. 권한과 연결 상태를 확인해 주세요.");
+        failure.code = error.code; throw failure;
+      }
+      return data;
+    },
   });
 }

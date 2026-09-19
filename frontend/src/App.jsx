@@ -1,3 +1,5 @@
+import TaskUndoControl from "./TaskUndoControl.jsx";
+import "./taskCustomGroups.css";
 import { createTaskCopyPlan, runTaskCopyPlan } from "./taskCopy.js";
 import MeetingText from "./MeetingText.jsx";
 import "./taskChecklist.css";
@@ -316,10 +318,10 @@ function TaskNotificationCenter({ projectId, tasks, loaded, onSelect }) {
   </div>;
 }
 
-export function Topbar({ source, project, activeView, actor, onLogout, live, search, setSearch, notificationTasks, notificationsLoaded, onNotificationSelect, notificationIssues }) {
+export function Topbar({ undoEntry, undoBusy, onUndo, source, project, activeView, actor, onLogout, live, search, setSearch, notificationTasks, notificationsLoaded, onNotificationSelect, notificationIssues }) {
   const workspaceMode = WORKSPACE_VIEWS.has(activeView);
   const workspaceTitle = {portfolio:"통합 관리",permissions:"권한 관리",files:"세부 로그"}[activeView];
-return <header className="topbar"><div className="topbar-leading"><CompanyBrand /><div className={`topbar-project-context${workspaceMode ? " is-workspace" : ""}`}><small>{workspaceMode ? "전체 프로젝트" : project.clientName}</small><strong title={workspaceMode ? workspaceTitle : project.name}>{workspaceMode ? workspaceTitle : project.name}</strong></div></div><div className="topbar-actions">{!workspaceMode && <><label className="global-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="업무 검색" /></label><TaskNotificationCenter projectId={project.id} tasks={notificationTasks} loaded={notificationsLoaded} onSelect={onNotificationSelect} /></>}{activeView === "portfolio" && source && actor?.role !== "client" && <WorkspaceNotifications issues={notificationIssues} key={actor?.id || actor?.userId} source={source} actorId={actor?.id || actor?.userId || "internal"} onSelect={onNotificationSelect} />}<ActorBadge actor={actor} onLogout={onLogout} live={live} /></div></header>;
+return <header className="topbar"><div className="topbar-leading"><CompanyBrand /><div className={`topbar-project-context${workspaceMode ? " is-workspace" : ""}`}><small>{workspaceMode ? "전체 프로젝트" : project.clientName}</small><strong title={workspaceMode ? workspaceTitle : project.name}>{workspaceMode ? workspaceTitle : project.name}</strong></div></div><div className="topbar-actions">{!workspaceMode && <><label className="global-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="업무 검색" /></label><TaskNotificationCenter projectId={project.id} tasks={notificationTasks} loaded={notificationsLoaded} onSelect={onNotificationSelect} /></>}{activeView === "portfolio" && source && actor?.role !== "client" && <WorkspaceNotifications issues={notificationIssues} key={actor?.id || actor?.userId} source={source} actorId={actor?.id || actor?.userId || "internal"} onSelect={onNotificationSelect} />}{actor?.role !== "client" && onUndo && <TaskUndoControl entry={undoEntry} busy={undoBusy} onUndo={onUndo} />}<ActorBadge actor={actor} onLogout={onLogout} live={live} /></div></header>;
 }
 
 function ProjectCreateModal({ onClose, onSubmit }) {
@@ -1117,6 +1119,9 @@ function clearBootstrapSessionCache() {
 
 export function App() {
   // Hooks must run before every login/bootstrap early return.
+  const [undoEntry, setUndoEntry] = useState(null);
+  const [undoBusy, setUndoBusy] = useState(false);
+  const undoBusyRef = useRef(false);
   const copyPlansRef = useRef(new Map());
   const copyBusyRef = useRef(false);
   const [{ source, error: configError }] = useState(sourceFactory);
@@ -1199,8 +1204,19 @@ export function App() {
       }
     }
   }, []);
-  const mutateWithSaveLock = useCallback((label, options) => runSheetWrite(label, () => source.mutate(options)), [runSheetWrite, source]);
-  const mutateBatchWithSaveLock = useCallback((label, options) => runSheetWrite(label, () => source.mutateBatch(options)), [runSheetWrite, source]);
+  const rememberTaskUndo = useCallback((options, result) => {
+    const records = result?.data?.results ? result.data.results.map(item => item.record || item.item) : [result?.data?.record || result?.data?.item];
+    const ids = [...new Set(records.filter(record => record?.last_mutation_id && (record?.task_id || record?.id)).map(record => record.last_mutation_id))];
+    const taskOnly = options.mutations ? options.mutations.every(item => String(item.entityType).toLowerCase() === "task") : String(options.mutation?.entityType).toLowerCase() === "task";
+    if (taskOnly && ids.length) setUndoEntry(previous => {
+      const combined = options.undoGroupId && previous?.undoGroupId === options.undoGroupId
+        ? [...new Set([...previous.ids, ...ids])] : ids;
+      return combined.length > 1000 ? null : { projectId: options.projectId, ids: combined, undoGroupId: options.undoGroupId, undoId: globalThis.crypto.randomUUID() };
+    });
+  }, []);
+  const mutateWithSaveLock = useCallback((label, options) => runSheetWrite(label, () => source.mutate(options).then(result => { rememberTaskUndo(options, result); return result; })), [runSheetWrite, source, rememberTaskUndo]);
+  const mutateBatchWithSaveLock = useCallback((label, options) => runSheetWrite(label, () => source.mutateBatch(options).then(result => { rememberTaskUndo(options, result); return result; })), [runSheetWrite, source, rememberTaskUndo]);
+  useEffect(() => { setUndoEntry(null); }, [session]);
   const accessMutateWithSaveLock = useCallback((label, options) => runSheetWrite(label, () => source.accessAdminMutate(options)), [runSheetWrite, source]);
 
   useEffect(() => source?.subscribe(setSourceState), [source]);
@@ -1794,6 +1810,25 @@ export function App() {
     }
   };
 
+  const undoLastTaskChange = async () => {
+    if (!undoEntry || undoBusyRef.current || sheetSaveLock.visible) return;
+    const entry = undoEntry;
+    undoBusyRef.current = true; setUndoBusy(true);
+    try {
+      discardResourceRead(entry.projectId, "tasks");
+      await runSheetWrite("직전 업무 변경을 되돌리고 있습니다.", () => source.undoTasks(entry));
+      setUndoEntry(current => current === entry ? null : current);
+      invalidateResource(entry.projectId, "tasks");
+      invalidateWorkspaceSummaries();
+      setTaskActivityState({ ...blankTaskActivity, projectId: entry.projectId });
+      setSaveNotice("직전 업무 변경을 되돌렸습니다. 되돌린 내용도 변경 이력에 남습니다.");
+    } catch (error) {
+      setSaveNotice(error.message || "되돌리지 못했습니다.");
+      if (error.code === "40001" || error.code === "42501") setUndoEntry(null);
+      invalidateResource(entry.projectId, "tasks");
+    } finally { undoBusyRef.current = false; setUndoBusy(false); }
+  };
+
   const updateTask = async (task, fields) => {
     if (!canWriteTasks) {
       const readOnlyError = new Error("이 계정은 업무를 수정할 권한이 없습니다.");
@@ -1879,7 +1914,7 @@ export function App() {
     discardResourceRead(projectId, "tasks");
     try {
       await runTaskCopyPlan(plan, async mutations => {
-        const result = await mutateBatchWithSaveLock("선택 업무를 복사하고 있습니다.", { projectId, mutations });
+        const result = await mutateBatchWithSaveLock("선택 업무를 복사하고 있습니다.", { projectId, mutations, undoGroupId: plan.mutations[0].mutationId });
         for (const item of result?.data?.results || []) {
           if (item?.record) {
             const task = tasksViewModel({ data: { items: [item.record], totalMatching: 1 }, generatedAt: result.generatedAt }).items[0];
@@ -1897,7 +1932,7 @@ export function App() {
     }
   };
 
-  const updateTasksBatch = async (updates) => {
+  const updateTasksBatch = async (updates, { undoGroupId } = {}) => {
     if (!canWriteTasks) {
       const readOnlyError = new Error("이 계정은 업무를 수정할 권한이 없습니다.");
       readOnlyError.code = "forbidden";
@@ -1915,7 +1950,7 @@ export function App() {
     patchTaskBatchResource(projectId, state => applyTaskChanges(state, projectId, optimistic));
     try {
       const result = await mutateBatchWithSaveLock(`${updates.length}개 업무 변경사항을 한 번에 기록하고 있습니다.`, {
-        projectId,
+        projectId, undoGroupId,
         mutations: updates.map(({ task, operation = "UPDATE", fields = {} }) => ({
           entityType: "task",
           operation,
@@ -2338,7 +2373,7 @@ export function App() {
       <ProjectSidebar project={project} clients={bootstrapState.data.clients} activeClient={selectedClient.id} onSelectClient={selectClient} onCreateProject={() => setProjectCreateOpen(true)} onImportQuote={() => setQuoteImportOpen(true)} canCreateProject={live && ["pocket", "ns"].includes(role) && typeof source.createProject === "function"} navigation={navigation} onToggleNavigation={toggleNavigation} role={role} activeView={view} activePlanVariant={authorizedPlanVariant} onView={navigateToView} open={navigation.isDrawerOpen} onClose={() => setSidebarOpen(false)} taskCount={taskCount} visible={navigation.projectSidebarVisible} />
       {navigation.isDrawerOpen && <button className="mobile-overlay" type="button" onClick={() => setSidebarOpen(false)} aria-label="메뉴 닫기" />}
 {notificationIssue && role !== "client" && <NotificationIssueDialog key={`${notificationIssue.projectId}:${notificationIssue.id}`} request={notificationIssue} source={source} actorName={actor?.displayName || actor?.name || ""} canWrite={canWriteTasks} onUpdate={updateProjectIssue} onArchive={archiveProjectIssue} onClose={()=>setNotificationIssue(null)}/>}
-<div className="app-main"><Topbar notificationIssues={view === "portfolio" ? currentPage.data?.issues : []} source={source} project={project} activeView={view} actor={actor} onLogout={logout} live={live && source.config.loginEnabled} search={search} setSearch={setSearch} notificationTasks={notificationTasks} notificationsLoaded={notificationsLoaded} onNotificationSelect={openNotificationTask} /><main className="content-canvas"><ScreenBoundary key={`${activeProjectId}:${view}`}><AppContent source={source} actorName={actor?.displayName || actor?.name || (role === "ns" ? "NS" : "포켓컴퍼니")} view={view} planVariant={authorizedPlanVariant} project={project} role={role} search={search} setView={navigateToView} pageState={currentPage} taskActivityState={taskActivityState} onLoadTaskActivity={loadTaskActivity} onRetry={refreshCurrentPage} onCreate={setCreateEntity} onTaskUpdate={updateTask} onTaskArchive={archiveTask} onTaskBatchUpdate={updateTasksBatch} onTaskCopy={copyTasks} onProjectUpdate={updateProjectStartDate} onIssueCreate={createProjectIssue} onIssueUpdate={updateProjectIssue} onIssueArchive={archiveProjectIssue} onDailyMeetingSave={saveDailyMeeting} onCredentialSave={saveProjectCredential} onCredentialArchive={archiveProjectCredential} onCredentialReveal={revealProjectCredential} onKpiSave={saveKpiDefinition} onKpiArchive={archiveKpiDefinition} onAccessSave={saveAccessAccount} onOpenProject={openDashboardProject} canWrite={(view === "tasks" || view === "schedule" || view === "progress" || view === "daily" || view === "credentials" || view === "portfolio") ? canWriteTasks : canWrite} /></ScreenBoundary></main><footer className="app-footer"><span>{connectionReady ? "데이터 연결됨" : "연결 확인 중"}</span><span>마지막 동기화 {formatSyncTime(sourceState.lastSuccessfulAt)}</span></footer></div>
+<div className="app-main"><Topbar undoEntry={undoEntry} undoBusy={undoBusy || sheetSaveLock.visible} onUndo={undoLastTaskChange} notificationIssues={view === "portfolio" ? currentPage.data?.issues : []} source={source} project={project} activeView={view} actor={actor} onLogout={logout} live={live && source.config.loginEnabled} search={search} setSearch={setSearch} notificationTasks={notificationTasks} notificationsLoaded={notificationsLoaded} onNotificationSelect={openNotificationTask} /><main className="content-canvas"><ScreenBoundary key={`${activeProjectId}:${view}`}><AppContent source={source} actorName={actor?.displayName || actor?.name || (role === "ns" ? "NS" : "포켓컴퍼니")} view={view} planVariant={authorizedPlanVariant} project={project} role={role} search={search} setView={navigateToView} pageState={currentPage} taskActivityState={taskActivityState} onLoadTaskActivity={loadTaskActivity} onRetry={refreshCurrentPage} onCreate={setCreateEntity} onTaskUpdate={updateTask} onTaskArchive={archiveTask} onTaskBatchUpdate={updateTasksBatch} onTaskCopy={copyTasks} onProjectUpdate={updateProjectStartDate} onIssueCreate={createProjectIssue} onIssueUpdate={updateProjectIssue} onIssueArchive={archiveProjectIssue} onDailyMeetingSave={saveDailyMeeting} onCredentialSave={saveProjectCredential} onCredentialArchive={archiveProjectCredential} onCredentialReveal={revealProjectCredential} onKpiSave={saveKpiDefinition} onKpiArchive={archiveKpiDefinition} onAccessSave={saveAccessAccount} onOpenProject={openDashboardProject} canWrite={(view === "tasks" || view === "schedule" || view === "progress" || view === "daily" || view === "credentials" || view === "portfolio") ? canWriteTasks : canWrite} /></ScreenBoundary></main><footer className="app-footer"><span>{connectionReady ? "데이터 연결됨" : "연결 확인 중"}</span><span>마지막 동기화 {formatSyncTime(sourceState.lastSuccessfulAt)}</span></footer></div>
       {createEntity && <CreateRecordModal entityType={createEntity} role={role} clientName={project.clientName} tasks={notificationTasks} onClose={() => setCreateEntity(null)} onSubmit={createRecord} />}
       {projectCreateOpen && <ProjectCreateModal onClose={() => setProjectCreateOpen(false)} onSubmit={createProject} />}
       {quoteImportOpen && <Suspense fallback={<LoadingState label="견적서 화면을 여는 중입니다." />}><QuoteImportModal currentProject={project} onClose={() => setQuoteImportOpen(false)} onCreateProject={createProject} onAppendProject={appendQuoteToProject} /></Suspense>}

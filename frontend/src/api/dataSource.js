@@ -376,6 +376,7 @@ export function createHubDataSource(options = {}) {
     importQuoteTasks: (input) => domainWrite("importQuoteTasks", input),
     mutate,
     mutateBatch,
+    undoTasks: (params) => domainWrite("undoTasks", params),
   };
   for (const name of ["login", "bootstrap", "operationsDashboard", "workspace", "overview", "plan", "tasks", "clientProgress", "dailyMeetings", "contents", "tracking", "performance", "files", "activity", "permissions", "credentials", "accessAdminMutate", "createProject", "importQuoteTasks", "mutate", "mutateBatch"]) {
     api[name] = diagnostics.wrap(name, api[name]);
