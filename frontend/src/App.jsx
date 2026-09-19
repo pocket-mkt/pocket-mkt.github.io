@@ -1116,6 +1116,9 @@ function clearBootstrapSessionCache() {
 }
 
 export function App() {
+  // Hooks must run before every login/bootstrap early return.
+  const copyPlansRef = useRef(new Map());
+  const copyBusyRef = useRef(false);
   const [{ source, error: configError }] = useState(sourceFactory);
   const [sourceState, setSourceState] = useState(() => source?.getState() || { mode: "live", phase: "error", error: configError });
   // A valid server-issued preview session is safe to reuse. The backend still
@@ -1861,8 +1864,6 @@ export function App() {
     }
   };
 
-  const copyPlansRef = useRef(new Map());
-  const copyBusyRef = useRef(false);
   const copyTasks = async (selectedTasks) => {
     if (!canWriteTasks) throw new Error("업무를 복사할 권한이 없습니다.");
     if (copyBusyRef.current) throw new Error("업무 복사가 진행 중입니다.");
