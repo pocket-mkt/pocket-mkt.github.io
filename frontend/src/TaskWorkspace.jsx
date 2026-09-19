@@ -532,7 +532,7 @@ function ProjectIssuePanel({ issues, project, canWrite, actorName, onCreate, onU
   </section>;
 }
 
-function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, canWriteIssues, actorName, canEditProject, canManageVisibility = false, onUpdate, onArchive, onBatchUpdate, onProjectUpdate, onCreate, onIssueCreate, onIssueUpdate, onIssueArchive, displayMode, onViewChange, canViewActivity, activityState, onLoadActivity, summaryOnly = false, showOwners = true }) {
+function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite, canWriteIssues, actorName, canEditProject, canManageVisibility = false, onUpdate, onArchive, onBatchUpdate, onProjectUpdate, onCreate, onIssueCreate, onIssueUpdate, onIssueArchive, displayMode, onViewChange, canViewActivity, activityState, onLoadActivity, summaryOnly = false, showOwners = true }) {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [scheduleFilter, setScheduleFilter] = useState("ALL");
@@ -545,6 +545,28 @@ function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, canWrit
   const [bulkVisibility, setBulkVisibility] = useState("");
   const [bulkSave, setBulkSave] = useState({ status: "idle", error: "" });
   const [bulkDeleteArmed, setBulkDeleteArmed] = useState(false);
+  const copySelectionRef = useRef(null);
+  const copyBusyRef = useRef(false);
+  const applyBulkCopy = async () => {
+    if (!canWrite || !onCopy || copyBusyRef.current || bulkSave.status === "saving") return;
+    const selected = copySelectionRef.current || tasks.filter(task => selectedTaskIds.has(task.id));
+    if (!selected.length || !window.confirm(`선택한 ${selected.length}개 업무를 정말 복사하시겠습니까?\n\n원본은 유지됩니다. 일정·담당·내용은 복사하고 완료 링크와 보류 이력은 제외합니다.`)) return;
+    copySelectionRef.current = selected;
+    copyBusyRef.current = true;
+    setBulkDeleteArmed(false);
+    setBulkSave({ status: "saving", error: "" });
+    try {
+      await onCopy(selected);
+      copySelectionRef.current = null;
+      setSelectedTaskIds(new Set());
+      setBulkStatus(""); setBulkOwner(""); setBulkVisibility("");
+      setBulkSave({ status: "saved", error: "" });
+    } catch (error) {
+      setBulkSave({ status: "error", error: "복사 완료 여부를 확인하지 못했습니다. ‘복사 재시도’를 누르면 같은 요청으로 이어서 처리합니다." });
+    } finally {
+      copyBusyRef.current = false;
+    }
+  };
   const [draggingTaskId, setDraggingTaskId] = useState(null);
   const [draggingTaskIds, setDraggingTaskIds] = useState([]);
   const [taskDropIndicator, setTaskDropIndicator] = useState(null);
@@ -588,6 +610,7 @@ function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, canWrit
     setBulkOwner("");
     setBulkVisibility("");
     setBulkSave({ status: "idle", error: "" });
+    if (copySelectionRef.current || copyBusyRef.current) return;
     setBulkDeleteArmed(false);
     setDraggingTaskId(null);
     setDraggingTaskIds([]);
@@ -729,6 +752,7 @@ function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, canWrit
   }, [tasks]);
 
   const selectTask = (taskId, checked, options = {}) => {
+    if (copySelectionRef.current || copyBusyRef.current) return;
     setBulkDeleteArmed(false);
     const anchorTaskId = selectionAnchorRef.current;
     setSelectedTaskIds((current) => {
@@ -1149,7 +1173,7 @@ function TaskScheduleTimeline({ tasks, issues, project, query, canWrite, canWrit
       ...(canWrite ? [{ id: "owner", label: "담당 업무별", value: ownerFilter, options: ownerOptions, onChange: setOwnerFilter }] : []),
     ]} />}
     </>}
-    {!activityMode && canWrite && selectedTaskIds.size > 0 && <section className="task-bulk-toolbar" aria-label="선택 업무 일괄 변경"><strong>{selectedTaskIds.size}개 선택</strong><label><span>상태</span><select value={bulkStatus} disabled={bulkSave.status === "saving"} onChange={(event) => { setBulkStatus(event.target.value); setBulkDeleteArmed(false); }}><option value="">변경 안 함</option>{trackerStatusOptions.map(([code, label]) => <option value={code} key={code}>{label}</option>)}</select></label><label><span>담당</span><select value={bulkOwner} disabled={bulkSave.status === "saving"} onChange={(event) => { setBulkOwner(event.target.value); setBulkDeleteArmed(false); }}><option value="">변경 안 함</option>{taskResponsibleOrgOptions(project.clientName).map(([code, label]) => <option value={code} key={code}>{label}</option>)}</select></label>{canManageVisibility && <label className="task-bulk-visibility"><span>고객사</span><select value={bulkVisibility} disabled={bulkSave.status === "saving"} onChange={(event) => { setBulkVisibility(event.target.value); setBulkDeleteArmed(false); }}><option value="">변경 안 함</option><option value="PROJECT_TEAM">숨김 · 내부만</option><option value="CLIENT">공개</option></select></label>}<button type="button" className="btn primary" disabled={bulkSave.status === "saving"} onClick={() => void applyBulkUpdate()}>{bulkSave.status === "saving" ? <LoaderCircle size={13} className="spin" /> : <Check size={13} />}일괄 적용</button><button type="button" className={`btn task-bulk-delete${bulkDeleteArmed ? " is-armed" : ""}`} disabled={bulkSave.status === "saving"} onClick={() => void applyBulkArchive()}>{bulkSave.status === "saving" && bulkDeleteArmed ? <LoaderCircle size={13} className="spin" /> : <Trash2 size={13} />}{bulkDeleteArmed ? `${selectedTaskIds.size}개 삭제 확정` : "선택 삭제"}</button><button type="button" className="btn" disabled={bulkSave.status === "saving"} onClick={() => { setSelectedTaskIds(new Set()); selectionAnchorRef.current = null; setBulkStatus(""); setBulkOwner(""); setBulkVisibility(""); setBulkDeleteArmed(false); setBulkSave({ status: "idle", error: "" }); }}>선택 해제</button>{bulkSave.error && <small role="alert">{bulkSave.error}</small>}</section>}
+    {!activityMode && canWrite && selectedTaskIds.size > 0 && <section className="task-bulk-toolbar" aria-label="선택 업무 일괄 변경"><strong>{selectedTaskIds.size}개 선택</strong>{onCopy && <button type="button" className="btn" disabled={bulkSave.status === "saving"} onClick={() => void applyBulkCopy()}>{copyBusyRef.current ? "복사 중…" : copySelectionRef.current ? "복사 재시도" : "복사"}</button>}<label><span>상태</span><select value={bulkStatus} disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current)} onChange={(event) => { setBulkStatus(event.target.value); setBulkDeleteArmed(false); }}><option value="">변경 안 함</option>{trackerStatusOptions.map(([code, label]) => <option value={code} key={code}>{label}</option>)}</select></label><label><span>담당</span><select value={bulkOwner} disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current)} onChange={(event) => { setBulkOwner(event.target.value); setBulkDeleteArmed(false); }}><option value="">변경 안 함</option>{taskResponsibleOrgOptions(project.clientName).map(([code, label]) => <option value={code} key={code}>{label}</option>)}</select></label>{canManageVisibility && <label className="task-bulk-visibility"><span>고객사</span><select value={bulkVisibility} disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current)} onChange={(event) => { setBulkVisibility(event.target.value); setBulkDeleteArmed(false); }}><option value="">변경 안 함</option><option value="PROJECT_TEAM">숨김 · 내부만</option><option value="CLIENT">공개</option></select></label>}<button type="button" className="btn primary" disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current)} onClick={() => void applyBulkUpdate()}>{bulkSave.status === "saving" ? <LoaderCircle size={13} className="spin" /> : <Check size={13} />}일괄 적용</button><button type="button" className={`btn task-bulk-delete${bulkDeleteArmed ? " is-armed" : ""}`} disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current)} onClick={() => void applyBulkArchive()}>{bulkSave.status === "saving" && bulkDeleteArmed ? <LoaderCircle size={13} className="spin" /> : <Trash2 size={13} />}{bulkDeleteArmed ? `${selectedTaskIds.size}개 삭제 확정` : "선택 삭제"}</button><button type="button" className="btn" disabled={bulkSave.status === "saving" || Boolean(copySelectionRef.current)} onClick={() => { setSelectedTaskIds(new Set()); selectionAnchorRef.current = null; setBulkStatus(""); setBulkOwner(""); setBulkVisibility(""); setBulkDeleteArmed(false); setBulkSave({ status: "idle", error: "" }); }}>선택 해제</button>{bulkSave.error && <small role="alert">{bulkSave.error}</small>}</section>}
     <section ref={schedulePanelRef} className="task-timeline panel campaign-schedule-surface reference-schedule-panel" aria-label="업무 일정">
       <header className="campaign-schedule-table-heading panel-head reference-panel-head"><div><h2>{summaryOnly ? "프로젝트 간트" : activityMode ? "업무 로그" : displayMode === "gantt" ? "타임라인" : "업무 일정"}</h2><span className="hint">{activityMode ? "업무명과 변경 내용을 확인할 수 있는 누적 사용자 작업 이력" : <>{filteredTasks.length}건 표시{displayMode === "gantt" ? " · 머리글과 왼쪽 업무명 고정" : canWrite ? " · 업무명 수정 · 이동 손잡이로 순서 변경" : " · 업무명과 일정을 확인"}</>}</span>{!activityMode && ganttSave.status !== "idle" && <small className={`gantt-save-state is-${ganttSave.status}`}>{ganttSave.status === "saving" ? `업무 저장 중 ${ganttSave.saved}/${ganttSave.total}` : ganttSave.status === "saved" ? `${ganttSave.saved}개 업무 일정 저장 완료` : ganttSave.error}</small>}</div><div>{activityMode ? <button className="btn" type="button" onClick={() => onLoadActivity?.()} disabled={activityState?.status === "loading" || activityState?.loadingMore}>{activityState?.status === "loading" ? <LoaderCircle size={13} className="spin" /> : <RefreshCw size={13} />}새로고침</button> : <>{canWrite && onCreate && <button type="button" className="btn task-schedule-create" onClick={() => onCreate("task-completed")}><Check size={13} />완료 업무 추가</button>}{canWrite && onCreate && <button type="button" className="btn primary task-schedule-create" onClick={() => onCreate("task")}><Plus size={13} />업무 추가</button>}</>}</div></header>
       {displayMode === "gantt" && canWrite && <div className="g-hint"><span>✎</span><span>칸을 클릭하면 칠해지고, 다시 누르면 지워집니다. 옆으로 끌면 여러 칸을 한 번에 — 시작일·종료일·기간은 칠한 범위에 맞춰 자동으로 바뀝니다.</span></div>}

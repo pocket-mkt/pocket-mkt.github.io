@@ -48,6 +48,29 @@ const bootstrapState = {status:'ready',data:{projects:{A:{id:'A',allowedPages:['
 let overviewState;
 const overviewCalls = [];
 const source = {overview: params => { const pending=deferred(); overviewCalls.push({...params,...pending}); return pending.promise; }};
+window.runCopyQa = async () => {
+ const tasks=[1,2].map(id=>({id:String(id),title:'복사 테스트 '+id,streamCode:'MARKETING',categoryCode:'NAVER',phaseCode:'M1',statusCode:'NOT_STARTED',responsibleOrgCode:'NS',plannedStartDate:'2026-09-19',dueDate:'2026-09-21',scheduleDates:['2026-09-19','2026-09-21']}));
+ const project={id:'copy',clientName:'테스트',startDate:'2026-09-01',endDate:'2026-09-30'};
+ const originalConfirm=window.confirm;
+ let writes=[],confirmText='',approved=false,release;
+ window.confirm=text=>{confirmText=text;return approved;};
+ try {
+ for(const mode of ['table','gantt']){
+  await render(<div/>);
+  await render(<TaskScheduleTimeline tasks={tasks} issues={[]} project={project} query="" canWrite displayMode={mode} onCopy={selected=>{writes.push(selected);return new Promise(resolve=>{release=resolve;});}}/>);
+  document.querySelector('[aria-label="표시된 업무 전체 선택"]').click();await tick();
+  const copy=()=>[...document.querySelectorAll('.task-bulk-toolbar button')].find(b=>b.textContent==='복사');
+  const before=writes.length;
+  copy().click();await tick();check(writes.length===before,'cancel wrote data');check(confirmText.includes('2개'),'wrong confirmation count');
+  approved=true;const button=copy();button.click();button.click();await tick();
+  check(writes.length===before+1&&writes.at(-1).length===2,'duplicate submit or wrong selection');
+  release();await tick();check(!document.querySelector('.task-bulk-toolbar'),'selection not cleared');approved=false;
+ }
+ await render(<div/>);await render(<TaskScheduleTimeline tasks={tasks} issues={[]} project={project} query="" canWrite={false} displayMode="gantt" onCopy={()=>{throw Error('read-only write');}}/>);
+ check(!document.querySelector('[aria-label="표시된 업무 전체 선택"]'),'customer selection exposed');
+ return {cancel:true,confirmCount:2,singleSubmit:true,table:true,gantt:true,readOnly:true};
+ }finally{window.confirm=originalConfirm;}
+};
 window.runIssueEditQa = async () => {
  const issue={id:'44',relatedTask:'기존 제목',body:'기존 내용',owner:'허준',kind:'기존 유형',requester:'NS',dueDate:'2026-09-01',statusCode:'DONE',remarks:'이전 답변',rowVersion:4};
  const writes=[];let reject=false;
@@ -568,6 +591,14 @@ try {
   await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
   await send('Page.navigate',{url});
   for(let i=0;i<100;i++){if(await evaluate('typeof window.runLargeListQa === "function"'))break;await delay(100);}
+  if(process.env.COPY_ONLY==='1') {
+    for (const width of [1440, 390]) {
+      await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<500});
+      console.log(JSON.stringify({viewport:width,copy:await evaluate('window.runCopyQa()')}));
+    }
+    if(errors.length)throw Error(errors.join('; '));
+    process.exitCode=0;
+  } else {
   if(process.env.KPI_ONLY!=='1') {
   console.log(JSON.stringify({issueEdit:await evaluate('window.runIssueEditQa()')}));
   console.log(JSON.stringify({largeList:await evaluate('window.runLargeListQa()')}));
@@ -635,6 +666,7 @@ try {
     await writeFile(`../artifacts/client-progress/detail-log-${width}.png`,Buffer.from(logShot.data,'base64'));
   }
   if(errors.length)throw Error(errors.join('; '));
+  }
 } finally {
   socket?.close();chrome.kill();server.closeAllConnections();server.close();
 }

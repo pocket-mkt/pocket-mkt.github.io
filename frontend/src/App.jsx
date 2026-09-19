@@ -1,3 +1,4 @@
+import { createTaskCopyPlan, runTaskCopyPlan } from "./taskCopy.js";
 import MeetingText from "./MeetingText.jsx";
 import "./taskChecklist.css";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -779,7 +780,7 @@ function TrackerTaskRow({ task, role, clientName, canWrite, onUpdate, isDone }) 
 
 
 
-function TasksView({ role, query, taskPage, activityState, onLoadActivity, onCreate, canWrite, actorName, onUpdate, onArchive, onBatchUpdate, onProjectUpdate, onIssueCreate, onIssueUpdate, onIssueArchive, initialSection = "schedule" }) {
+function TasksView({ onCopy, role, query, taskPage, activityState, onLoadActivity, onCreate, canWrite, actorName, onUpdate, onArchive, onBatchUpdate, onProjectUpdate, onIssueCreate, onIssueUpdate, onIssueArchive, initialSection = "schedule" }) {
   const editable = Boolean(canWrite);
   const schedule = useMemo(() => trackerSchedule(taskPage.project?.startDate), [taskPage.project?.startDate]);
   const tasks = useMemo(() => (taskPage.items || []).map((task) => {
@@ -796,7 +797,7 @@ function TasksView({ role, query, taskPage, activityState, onLoadActivity, onCre
   }, [displayMode, activityState?.status, onLoadActivity]);
   const selectTaskView = (nextView) => setDisplayMode(nextView === "gantt" || nextView === "activity" ? nextView : "table");
 
-  return <Suspense fallback={<LoadingState label="업무 화면을 준비하고 있습니다." />}><div className="view-stack campaign-schedule-root"><TaskScheduleTimeline tasks={tasks} issues={taskPage.issues || []} project={taskPage.project || {}} query={query} canWrite={editable} canWriteIssues={Boolean(editable && taskPage.issueCanWrite)} actorName={actorName} canEditProject={Boolean(editable && role === "pocket")} canManageVisibility={Boolean(editable && role === "pocket")} onUpdate={onUpdate} onArchive={onArchive} onBatchUpdate={onBatchUpdate} onProjectUpdate={onProjectUpdate} onCreate={onCreate} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} displayMode={displayMode} onViewChange={selectTaskView} canViewActivity={role !== "client"} activityState={activityState} onLoadActivity={onLoadActivity} /></div></Suspense>;
+  return <Suspense fallback={<LoadingState label="업무 화면을 준비하고 있습니다." />}><div className="view-stack campaign-schedule-root"><TaskScheduleTimeline tasks={tasks} issues={taskPage.issues || []} project={taskPage.project || {}} query={query} canWrite={editable} canWriteIssues={Boolean(editable && taskPage.issueCanWrite)} actorName={actorName} canEditProject={Boolean(editable && role === "pocket")} canManageVisibility={Boolean(editable && role === "pocket")} onUpdate={onUpdate} onArchive={onArchive} onBatchUpdate={onBatchUpdate} onCopy={onCopy} onProjectUpdate={onProjectUpdate} onCreate={onCreate} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} displayMode={displayMode} onViewChange={selectTaskView} canViewActivity={role !== "client"} activityState={activityState} onLoadActivity={onLoadActivity} /></div></Suspense>;
 }
 
 
@@ -1076,7 +1077,7 @@ export function ProjectClientProgressView({ project, taskPage }) {
   />} /></Suspense>;
 }
 
-function AppContent({ view, planVariant, project, role, search, setView, pageState, taskActivityState, onLoadTaskActivity, onRetry, onCreate, onTaskUpdate, onTaskArchive, onTaskBatchUpdate, onProjectUpdate, onIssueCreate, onIssueUpdate, onIssueArchive, onDailyMeetingSave, onCredentialSave, onCredentialArchive, onCredentialReveal, onKpiSave, onKpiArchive, onAccessSave, onOpenProject, canWrite, source, actorName }) {
+function AppContent({ onTaskCopy, view, planVariant, project, role, search, setView, pageState, taskActivityState, onLoadTaskActivity, onRetry, onCreate, onTaskUpdate, onTaskArchive, onTaskBatchUpdate, onProjectUpdate, onIssueCreate, onIssueUpdate, onIssueArchive, onDailyMeetingSave, onCredentialSave, onCredentialArchive, onCredentialReveal, onKpiSave, onKpiArchive, onAccessSave, onOpenProject, canWrite, source, actorName }) {
   const resolveTaskLink = useMemo(() => createDeadlineLinkResolver(async projectId => {
     if (role === "client") throw new Error("내부 운영 계정만 접근할 수 있습니다.");
     return tasksViewModel(await source.tasks({projectId})).items.map(({id,completionUrl})=>({id,completionUrl}));
@@ -1090,7 +1091,7 @@ function AppContent({ view, planVariant, project, role, search, setView, pageSta
   if (view === "client-progress") return <InternalPreviewTaskEditor key={project.id} project={project} role={role} canWrite={canWrite} source={source} onUpdate={onTaskUpdate}><ProjectClientProgressView project={project} taskPage={data} /></InternalPreviewTaskEditor>;
   if (view === "progress") return role === "client" ? <LoadingState label="고객용 진행상황으로 이동합니다." /> : <ProjectProgressView key={project.id} project={project} role={role} taskPage={data} source={source} actorName={actorName} canWrite={canWrite} onTaskUpdate={onTaskUpdate} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} onNavigate={setView} />;
   if (view === "plan") return <PlanView plan={data} project={project} planVariant={planVariant} />;
-  if (view === "tasks" || view === "schedule") return <TasksView role={role} query={search} taskPage={{ ...data, project: { id: project.id, clientId: project.clientId, clientName: project.clientName, name: project.name, permissionCode: project.permissionCode, allowedPages: project.allowedPages, phaseCode: project.phaseCode, phase: project.phase, startDate: project.startDate, endDate: project.endDate, rowVersion: project.rowVersion, ...(data.project || {}) } }} activityState={taskActivityState} onLoadActivity={onLoadTaskActivity} onCreate={onCreate} actorName={actorName} onUpdate={onTaskUpdate} onArchive={onTaskArchive} onBatchUpdate={onTaskBatchUpdate} onProjectUpdate={onProjectUpdate} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} canWrite={canWrite} initialSection="schedule" />;
+  if (view === "tasks" || view === "schedule") return <TasksView role={role} query={search} taskPage={{ ...data, project: { id: project.id, clientId: project.clientId, clientName: project.clientName, name: project.name, permissionCode: project.permissionCode, allowedPages: project.allowedPages, phaseCode: project.phaseCode, phase: project.phase, startDate: project.startDate, endDate: project.endDate, rowVersion: project.rowVersion, ...(data.project || {}) } }} activityState={taskActivityState} onLoadActivity={onLoadTaskActivity} onCreate={onCreate} actorName={actorName} onUpdate={onTaskUpdate} onArchive={onTaskArchive} onBatchUpdate={onTaskBatchUpdate} onCopy={onTaskCopy} onProjectUpdate={onProjectUpdate} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} canWrite={canWrite} initialSection="schedule" />;
   if (view === "daily") return role !== "client" && Array.isArray(data.projects)
     ? <Suspense fallback={<LoadingState label="전체 업체 회의록을 준비하고 있습니다." />}><WorkspaceDailyMeetingsView dashboard={data} canWrite={canWrite} onSearchMeetings={source.searchMeetings} onSave={onDailyMeetingSave} onLoadWeek={(startDate, endDate) => source.operationsDashboard({ startDate, endDate }).then(operationsDashboardViewModel)} /></Suspense>
     : <DailyMeetingsView role={role} meetings={data.items || []} canWrite={canWrite && role !== "client"} onSave={onDailyMeetingSave} />;
@@ -1860,6 +1861,41 @@ export function App() {
     }
   };
 
+  const copyPlansRef = useRef(new Map());
+  const copyBusyRef = useRef(false);
+  const copyTasks = async (selectedTasks) => {
+    if (!canWriteTasks) throw new Error("업무를 복사할 권한이 없습니다.");
+    if (copyBusyRef.current) throw new Error("업무 복사가 진행 중입니다.");
+    const projectId = activeProjectId;
+    const key = JSON.stringify([projectId, selectedTasks.map(task => task.id)]);
+    let plan = copyPlansRef.current.get(key);
+    if (!plan) {
+      const current = resourceCacheRef.current.get(`${projectId}:tasks`)?.state?.data?.items || resourceState.data?.items || [];
+      plan = createTaskCopyPlan(selectedTasks, Math.max(0, ...current.map(task => Number(task.sortOrder) || 0)));
+      copyPlansRef.current.set(key, plan);
+    }
+    copyBusyRef.current = true;
+    discardResourceRead(projectId, "tasks");
+    try {
+      await runTaskCopyPlan(plan, async mutations => {
+        const result = await mutateBatchWithSaveLock("선택 업무를 복사하고 있습니다.", { projectId, mutations });
+        for (const item of result?.data?.results || []) {
+          if (item?.record) {
+            const task = tasksViewModel({ data: { items: [item.record], totalMatching: 1 }, generatedAt: result.generatedAt }).items[0];
+            appendTaskResource(projectId, task);
+          }
+        }
+      });
+      copyPlansRef.current.delete(key);
+      setSaveNotice(`${selectedTasks.length}개 업무를 복사했습니다.`);
+    } finally {
+      copyBusyRef.current = false;
+      invalidateWorkspaceSummaries();
+      invalidateResource(projectId, "tasks");
+      setTaskActivityState({ ...blankTaskActivity, projectId });
+    }
+  };
+
   const updateTasksBatch = async (updates) => {
     if (!canWriteTasks) {
       const readOnlyError = new Error("이 계정은 업무를 수정할 권한이 없습니다.");
@@ -2301,7 +2337,7 @@ export function App() {
       <ProjectSidebar project={project} clients={bootstrapState.data.clients} activeClient={selectedClient.id} onSelectClient={selectClient} onCreateProject={() => setProjectCreateOpen(true)} onImportQuote={() => setQuoteImportOpen(true)} canCreateProject={live && ["pocket", "ns"].includes(role) && typeof source.createProject === "function"} navigation={navigation} onToggleNavigation={toggleNavigation} role={role} activeView={view} activePlanVariant={authorizedPlanVariant} onView={navigateToView} open={navigation.isDrawerOpen} onClose={() => setSidebarOpen(false)} taskCount={taskCount} visible={navigation.projectSidebarVisible} />
       {navigation.isDrawerOpen && <button className="mobile-overlay" type="button" onClick={() => setSidebarOpen(false)} aria-label="메뉴 닫기" />}
 {notificationIssue && role !== "client" && <NotificationIssueDialog key={`${notificationIssue.projectId}:${notificationIssue.id}`} request={notificationIssue} source={source} actorName={actor?.displayName || actor?.name || ""} canWrite={canWriteTasks} onUpdate={updateProjectIssue} onArchive={archiveProjectIssue} onClose={()=>setNotificationIssue(null)}/>}
-<div className="app-main"><Topbar notificationIssues={view === "portfolio" ? currentPage.data?.issues : []} source={source} project={project} activeView={view} actor={actor} onLogout={logout} live={live && source.config.loginEnabled} search={search} setSearch={setSearch} notificationTasks={notificationTasks} notificationsLoaded={notificationsLoaded} onNotificationSelect={openNotificationTask} /><main className="content-canvas"><ScreenBoundary key={`${activeProjectId}:${view}`}><AppContent source={source} actorName={actor?.displayName || actor?.name || (role === "ns" ? "NS" : "포켓컴퍼니")} view={view} planVariant={authorizedPlanVariant} project={project} role={role} search={search} setView={navigateToView} pageState={currentPage} taskActivityState={taskActivityState} onLoadTaskActivity={loadTaskActivity} onRetry={refreshCurrentPage} onCreate={setCreateEntity} onTaskUpdate={updateTask} onTaskArchive={archiveTask} onTaskBatchUpdate={updateTasksBatch} onProjectUpdate={updateProjectStartDate} onIssueCreate={createProjectIssue} onIssueUpdate={updateProjectIssue} onIssueArchive={archiveProjectIssue} onDailyMeetingSave={saveDailyMeeting} onCredentialSave={saveProjectCredential} onCredentialArchive={archiveProjectCredential} onCredentialReveal={revealProjectCredential} onKpiSave={saveKpiDefinition} onKpiArchive={archiveKpiDefinition} onAccessSave={saveAccessAccount} onOpenProject={openDashboardProject} canWrite={(view === "tasks" || view === "schedule" || view === "progress" || view === "daily" || view === "credentials" || view === "portfolio") ? canWriteTasks : canWrite} /></ScreenBoundary></main><footer className="app-footer"><span>{connectionReady ? "데이터 연결됨" : "연결 확인 중"}</span><span>마지막 동기화 {formatSyncTime(sourceState.lastSuccessfulAt)}</span></footer></div>
+<div className="app-main"><Topbar notificationIssues={view === "portfolio" ? currentPage.data?.issues : []} source={source} project={project} activeView={view} actor={actor} onLogout={logout} live={live && source.config.loginEnabled} search={search} setSearch={setSearch} notificationTasks={notificationTasks} notificationsLoaded={notificationsLoaded} onNotificationSelect={openNotificationTask} /><main className="content-canvas"><ScreenBoundary key={`${activeProjectId}:${view}`}><AppContent source={source} actorName={actor?.displayName || actor?.name || (role === "ns" ? "NS" : "포켓컴퍼니")} view={view} planVariant={authorizedPlanVariant} project={project} role={role} search={search} setView={navigateToView} pageState={currentPage} taskActivityState={taskActivityState} onLoadTaskActivity={loadTaskActivity} onRetry={refreshCurrentPage} onCreate={setCreateEntity} onTaskUpdate={updateTask} onTaskArchive={archiveTask} onTaskBatchUpdate={updateTasksBatch} onTaskCopy={copyTasks} onProjectUpdate={updateProjectStartDate} onIssueCreate={createProjectIssue} onIssueUpdate={updateProjectIssue} onIssueArchive={archiveProjectIssue} onDailyMeetingSave={saveDailyMeeting} onCredentialSave={saveProjectCredential} onCredentialArchive={archiveProjectCredential} onCredentialReveal={revealProjectCredential} onKpiSave={saveKpiDefinition} onKpiArchive={archiveKpiDefinition} onAccessSave={saveAccessAccount} onOpenProject={openDashboardProject} canWrite={(view === "tasks" || view === "schedule" || view === "progress" || view === "daily" || view === "credentials" || view === "portfolio") ? canWriteTasks : canWrite} /></ScreenBoundary></main><footer className="app-footer"><span>{connectionReady ? "데이터 연결됨" : "연결 확인 중"}</span><span>마지막 동기화 {formatSyncTime(sourceState.lastSuccessfulAt)}</span></footer></div>
       {createEntity && <CreateRecordModal entityType={createEntity} role={role} clientName={project.clientName} tasks={notificationTasks} onClose={() => setCreateEntity(null)} onSubmit={createRecord} />}
       {projectCreateOpen && <ProjectCreateModal onClose={() => setProjectCreateOpen(false)} onSubmit={createProject} />}
       {quoteImportOpen && <Suspense fallback={<LoadingState label="견적서 화면을 여는 중입니다." />}><QuoteImportModal currentProject={project} onClose={() => setQuoteImportOpen(false)} onCreateProject={createProject} onAppendProject={appendQuoteToProject} /></Suspense>}

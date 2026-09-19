@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- Bulk task copy (2026-09-19): use the existing selection toolbar in table/Gantt, confirm the selected count before CREATE, and cancel without writes. Preserve reusable fields/sparse dates and visibility; omit identity/completion/hold history. Reuse mutation IDs on retry and the existing authorized audited save path.
+
 - Meeting search (2026-09-15): daily search queries all dates through authenticated daily_meetings RLS, filtered before 20-row pagination. No schema/grant changes, private-content browser persistence, project-by-project preloads or fetch buttons. Debounce and cancel stale reads; expose failures and retry. All keywords use literal case-insensitive substring matching; SEO was only an example, never add special keyword synonyms or a related-terms control. Show company/date/field/snippet, escaped highlights and full original inline. Preserve existing weekday navigation and customer boundaries.
 
 - Gantt hold preservation (2026-09-11): freeze the existing overdue-hold interval on resume or reschedule in server-owned overdue_hold_ranges; retain it through completion and future edits, including in safe client projection. Never reconstruct already-lost historical dates. Render saved intervals independently of current task bounds. Pointer painting applies only to visited cells, not the anchor/end rectangle; edits to unrelated task fields preserve explicit sparse schedule dates. Explicit date-range form edits retain their intentional range behavior.
