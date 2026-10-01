@@ -1,0 +1,6 @@
+.campaign-schedule-board.is-gantt-fullscreen{position:fixed;inset:14px;z-index:85;width:auto;background:#f6f8fb;border:1px solid #d8e2ef;border-radius:14px;padding:12px;overflow:auto}
+.gantt-fullscreen-backdrop{position:fixed;inset:0;z-index:84;background:rgba(15,23,42,.5)}
+.is-gantt-fullscreen>.quote-summary,.is-gantt-fullscreen>.campaign-board-progress,.is-gantt-fullscreen>.campaign-schedule-toolbar{display:none}
+.is-gantt-fullscreen>.task-timeline{margin-bottom:0}.is-gantt-fullscreen .reference-gantt-scroll{max-height:calc(100dvh - 285px);height:calc(100dvh - 285px);min-height:180px}
+.is-gantt-fullscreen .reference-panel-head{position:sticky;top:0;background:white;z-index:15}.is-gantt-fullscreen .task-schedule-fullscreen{border-color:#9eb6d8;background:#edf3fc;color:#173d75}
+@media(max-width:760px){.campaign-schedule-board.is-gantt-fullscreen{inset:5px;padding:8px;border-radius:10px}.is-gantt-fullscreen .reference-gantt-scroll{max-height:calc(100dvh - 380px);height:calc(100dvh - 380px);min-height:140px}.is-gantt-fullscreen .schedule-filter-panel{max-height:145px;overflow:auto}}

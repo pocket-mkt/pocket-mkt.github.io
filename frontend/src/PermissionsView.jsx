@@ -1,7 +1,7 @@
 import { useState } from "react";
 import "./permissionsView.css";
 import { X, AlertCircle, LoaderCircle, Plus, ShieldCheck, Pencil, FolderOpen } from "lucide-react";
-import { ACCESS_PAGE_OPTIONS, PROJECT_NAVIGATION_GROUP, normalizeAllowedPages, accountSubmission, removeAccessSubmission } from "./accessPermissions.js";
+import { ACCESS_PAGE_OPTIONS, PROJECT_NAVIGATION_GROUP, CLIENT_SHARING_NAVIGATION_GROUP, normalizeAllowedPages, accountSubmission, removeAccessSubmission } from "./accessPermissions.js";
 
 function FormSelect({ label, value, onChange, options }) {
   return <label className="create-field"><span>{label}</span><select value={value} onChange={(event) => onChange(event.target.value)}>{options.map(([code, text]) => <option key={code} value={code}>{text}</option>)}</select></label>;
@@ -36,13 +36,19 @@ function AccessAccountModal({ account, projects, onClose, onSave, canDisableAcco
       id: "main",
       label: "기본 메뉴",
       description: "프로젝트 공통 정보와 성과·기록 화면",
-      pages: ACCESS_PAGE_OPTIONS.filter((page) => !PROJECT_NAVIGATION_GROUP.pageIds.includes(page.id)),
+      pages: ACCESS_PAGE_OPTIONS.filter((page) => !PROJECT_NAVIGATION_GROUP.pageIds.includes(page.id) && !['plan','progress','performance'].includes(page.id)),
     },
     {
       id: PROJECT_NAVIGATION_GROUP.id,
       label: PROJECT_NAVIGATION_GROUP.label,
       description: "왼쪽 프로젝트 메뉴에 표시할 하위 화면",
-      pages: ACCESS_PAGE_OPTIONS.filter((page) => PROJECT_NAVIGATION_GROUP.pageIds.includes(page.id)),
+      pages: ACCESS_PAGE_OPTIONS.filter((page) => PROJECT_NAVIGATION_GROUP.pageIds.includes(page.id) && !['plan','progress','performance'].includes(page.id)),
+    },
+    {
+      id: CLIENT_SHARING_NAVIGATION_GROUP.id,
+      label: CLIENT_SHARING_NAVIGATION_GROUP.label,
+      description: "진행상황·업무·성과 열람 권한으로 고객 공개 월별 보고서도 볼 수 있습니다.",
+      pages: ACCESS_PAGE_OPTIONS.filter(page => ['plan','progress','performance'].includes(page.id)),
     },
   ];
   const setField = (key, value) => setFields((current) => ({ ...current, [key]: value }));

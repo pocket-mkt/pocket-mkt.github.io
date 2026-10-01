@@ -46,11 +46,24 @@ export async function runTaskMonthQa(render, tick, check) {
     if (!client) {
       [...document.querySelectorAll('.task-workspace-tabs button')].find(button => button.textContent === '간트').click(); await tick();
       expect(['old-active', 'current', 'old-done'], 'selection survives table to Gantt switch');
+      const gantt = document.querySelector('#gantt');
+      const previousWrites = writes;
+      document.querySelector('.task-schedule-fullscreen').click(); await tick();
+      check(document.querySelector('[aria-label="간트 전체화면"][role="dialog"]') && document.querySelector('#gantt') === gantt, 'Gantt fullscreen remounted chart');
+      expect(['old-active','current','old-done'], 'fullscreen changed month filter');
+      check(document.body.style.overflow === 'hidden', 'fullscreen did not lock background scroll');
+      document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true})); await tick();
+      check(!document.querySelector('[aria-label="간트 전체화면"]') && writes === previousWrites, 'fullscreen close mutated or stayed open');
       await toggle(previous); expect(['current'], 'Gantt current month only');
       await render(<Fixture projectId="other-project" />);
       check(button(current).getAttribute('aria-pressed') === 'true' && button(previous).getAttribute('aria-pressed') === 'false', 'project change resets selection');
     } else {
       check(!document.querySelector('.task-done-check,.g-action,.reference-task-select,.task-bulk-toolbar'), 'customer remains read only');
+      document.querySelector('.task-schedule-fullscreen').click(); await tick();
+      check(!document.querySelector('.g-action,.task-done-check'), 'customer fullscreen gained editing');
+      const box = document.querySelector('[aria-label="간트 전체화면"]').getBoundingClientRect();
+      check(box.width >= innerWidth - 35 && box.right <= innerWidth, 'fullscreen size wrong: '+JSON.stringify({width:box.width,right:box.right,left:box.left,viewport:innerWidth}));
+      document.querySelector('.task-schedule-fullscreen').click(); await tick();
     }
     check(document.documentElement.scrollWidth <= innerWidth + 1, 'month controls overflow viewport');
   }

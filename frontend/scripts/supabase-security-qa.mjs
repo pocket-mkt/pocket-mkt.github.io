@@ -4,6 +4,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { verifyMeetingSearchSecurity } from './meeting-search-security-qa.mjs';
 import { verifyKpiFunnelSecurity } from './kpi-funnel-security-qa.mjs';
 import { verifyTaskGroupsUndo } from './task-groups-undo-security-qa.mjs';
+import { verifyMonthlyReportsSecurity } from './monthly-reports-security-qa.mjs';
 
 const migrationsDir = fileURLToPath(new URL("../../supabase/migrations/", import.meta.url)).replace(/\\$/, "");
 const db = new PGlite();
@@ -96,7 +97,9 @@ await db.exec(`
 `);
 
 for (const file of readdirSync(migrationsDir).filter((name) => name.endsWith(".sql")).sort()) {
-  await db.exec(readFileSync(`${migrationsDir}/${file}`, "utf8"));
+  // Git's Windows checkout may mix CRLF/LF; match the Linux deployment inputs.
+  try { await db.exec(readFileSync(`${migrationsDir}/${file}`, "utf8").replace(/\r\n/g, '\n')); }
+  catch (error) { throw new Error(`Migration ${file}: ${error.code || 'error'} ${error.message}`); }
 }
 
 await db.exec(`
@@ -121,8 +124,8 @@ await db.exec(`
     (1, 'P0', 'MARKETING', '팀 전용 업무', null, null, null, 'NS', 'POCKET', 'PROJECT_TEAM', '${userIds.manager}', '${userIds.manager}');
 `);
 
-assert(await scalar("select count(*)::int as count from pg_tables where schemaname = 'public'") === 27, "table count mismatch");
-assert(await scalar("select count(*)::int as count from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relrowsecurity") === 27, "RLS coverage mismatch");
+assert(await scalar("select count(*)::int as count from pg_tables where schemaname = 'public'") === 28, "table count mismatch");
+assert(await scalar("select count(*)::int as count from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relrowsecurity") === 28, "RLS coverage mismatch");
 assert(await scalar("select count(*)::int as count from information_schema.columns where table_schema='public' and table_name='profiles' and column_name='email'") === 0, "public profile still exposes email");
 assert(await scalar("select count(*)::int as count from information_schema.role_table_grants where grantee='anon' and table_schema='public'") === 0, "anon grants found");
 assert(await scalar("select count(*)::int as count from information_schema.routine_privileges where grantee='PUBLIC' and specific_schema in ('public','private')") === 0, "PUBLIC function execute grants found");
@@ -518,8 +521,8 @@ console.log(JSON.stringify({
   nsAllProjectsAndFutureMemberships: "pass",
   operationsDashboardBoundary: "pass",
   migrations: readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).length,
-  tables: 27,
-  rlsTables: 27,
+  tables: 28,
+  rlsTables: 28,
   pageBoundary: "pass",
   visibilityBoundary: "pass",
   tenantWriteBoundary: "pass",
@@ -568,4 +571,5 @@ console.log(JSON.stringify({clientProgressRoleProjection:'pass',clientProgressOn
 await verifyMeetingSearchSecurity(db, userIds, assert);
 await verifyKpiFunnelSecurity(db, userIds, assert);
 await verifyTaskGroupsUndo(db, userIds, assert);
+await verifyMonthlyReportsSecurity(db, userIds, assert);
 await db.close();

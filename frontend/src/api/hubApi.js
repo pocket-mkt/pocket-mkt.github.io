@@ -21,6 +21,8 @@ export const READ_ACTIONS = Object.freeze({
   credentials: "project_credentials",
   blog: "blog_targets",
   kpiFunnel: "read_kpi_funnel",
+  monthlyReports: "list_monthly_reports",
+  monthlyReport: "read_monthly_report",
 });
 
 function scopeQuery(params = {}) {

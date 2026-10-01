@@ -81,7 +81,7 @@ test("자동 회차 묶음 대신 명시적으로 선택한 사용자 그룹만 
 });
 
 test("참고 캠페인 일정 화면이 업무 화면의 최상위 구조이며 로그는 툴바에서 연다", () => {
-  assert.match(appSource, /className="campaign-schedule-board"/);
+  assert.match(appSource, /className=\{`campaign-schedule-board/);
   assert.match(appSource, /className="campaign-board-progress is-checklist"/);
   assert.match(appSource, /onClick=\{\(\) => onChange\("activity"\)\}/);
   assert.match(appSource, /<TaskScheduleInlineTable[^>]+tasks=\{filteredTasks\}/);
@@ -208,7 +208,7 @@ test("기존 총괄 진입은 내부 통합관리로, 고객은 허용 일정으
 
 test("통합 관리는 프로젝트 선택보다 위의 독립 탐색 항목이며 프로젝트 컨텍스트를 비활성화한다", () => {
   assert.match(appSource, /className="sidebar-global-nav"/);
-  assert.match(appSource, /const projectNavItems = visibleNavItems\.filter\(\(item\) => !WORKSPACE_VIEWS.has\(item.id\)\)/);
+  assert.match(appSource, /const projectNavItems = visibleNavItems\.filter\(\(item\) => !WORKSPACE_VIEWS.has\(item.id\) && !CLIENT_SHARING_NAVIGATION_GROUP/);
   assert.match(appSource, /const projectContextActive = !WORKSPACE_VIEWS.has\(activeView\)/);
   assert.match(appSource, /workspaceMode \? "전체 프로젝트" : project\.clientName/);
   assert.doesNotMatch(appSource, /view === "portfolio" && role !== "client"/);
@@ -316,9 +316,10 @@ test("견적서를 검토한 뒤 새 프로젝트 또는 현재 프로젝트 업
   assert.match(styleSource, /\.quote-item-table/);
 });
 
-test("왼쪽 프로젝트 메뉴는 기존 화면과 실행계획 하위 화면을 연결한다", () => {
+test("왼쪽 프로젝트와 클라이언트 공유 메뉴는 기존 실행계획 경로와 권한을 유지한다", () => {
   assert.match(appSource, /function ProjectSidebar/);
-  assert.match(appSource, /visibleNavItems\.map/);
-  assert.match(appSource, /visiblePlanChildren\.map/);
-  assert.match(appSource, /onView\("plan", child\.id\)/);
+  assert.match(appSource, /sharingNavItems\.map/);
+  assert.match(appSource, /client-sharing-links/);
+  assert.match(appSource, /onView\("plan", "internal"\)/);
+  assert.match(appSource, /item\.id === "plan" \? "client"/);
 });

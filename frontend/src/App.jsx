@@ -11,6 +11,7 @@ import { statusClass, formatSyncTime, EmptyState, LoadingState, ErrorState, Form
 const DetailLogView = lazy(() => import("./DetailLogView.jsx"));
 const BlogStatusView = lazy(() => import('./BlogStatusView.jsx'));
 const KpiFunnelView = lazy(() => import('./KpiFunnelView.jsx'));
+const MonthlyReportsView = lazy(() => import('./MonthlyReportsView.jsx'));
 import WorkspaceNotifications from "./WorkspaceNotifications.jsx";
 import NotificationIssueDialog from "./NotificationIssueDialog.jsx";
 import InternalPreviewTaskEditor from "./InternalPreviewTaskEditor.jsx";
@@ -34,7 +35,7 @@ import { normalizeScheduleDates } from "./taskGantt.js";
 import { isNewTask, unacknowledgedNewTasks } from "./taskFreshness.js";
 import { effectiveTaskScheduleState } from "./taskScheduleStatus.js";
 import { KPI_CHANNEL_OPTIONS, KPI_PERIOD_OPTIONS, KPI_UNIT_OPTIONS, kpiInitialFields, kpiSubmissionFields } from "./kpiForm.js";
-import { NAVIGATION_PAGE_OPTIONS, PROJECT_NAVIGATION_GROUP, firstAllowedView, isViewAllowed } from "./accessPermissions.js";
+import { NAVIGATION_PAGE_OPTIONS, PROJECT_NAVIGATION_GROUP, CLIENT_SHARING_NAVIGATION_GROUP, firstAllowedView, isViewAllowed } from "./accessPermissions.js";
 import { dailyMetricSeries, trackingFunnel, trackingSignals, TRACKING_METRICS } from "./performanceTracking.js";
 import { clearResourceSessionCache, removeResourceSessionCache, scheduleResourceSessionCacheWrite } from "./resourceSessionCache.js";
 import { useOverviewResource } from "./useOverviewResource.js";
@@ -67,6 +68,7 @@ const navIcons = {
   credentials: KeyRound,
   blog: BookOpenText,
   performance: BarChart3,
+  reports: FileUp,
   files: Activity,
 };
 const navItems = [
@@ -157,22 +159,22 @@ export function LoginScreen({ onLogin, error, loading, configured }) {
 }
 
 export function ProjectSidebar({ project, role, activeView, activePlanVariant, onView, open, onClose, taskCount, visible, clients = [], activeClient, onSelectClient, onCreateProject, onImportQuote, canCreateProject, navigation, onToggleNavigation }) {
-  const [planExpanded, setPlanExpanded] = useState(activeView === "plan");
   const [projectExpanded, setProjectExpanded] = useState(true);
+  const [sharingExpanded, setSharingExpanded] = useState(true);
 
   useEffect(() => {
-    if (activeView === "plan") setPlanExpanded(true);
     if (PROJECT_NAVIGATION_GROUP.pageIds.includes(activeView) || activeView === "schedule") setProjectExpanded(true);
+    if (CLIENT_SHARING_NAVIGATION_GROUP.pageIds.includes(activeView)) setSharingExpanded(true);
   }, [activeView]);
 
-  const visiblePlanChildren = role === "client" ? [PLAN_VARIANTS.client] : Object.values(PLAN_VARIANTS);
   const visibleNavItems = navItems.filter((item) => {
     if (item.accessManagerOnly) return canManageClientAccess(role);
     if (role !== "client") return true;
     return isViewAllowed(item.id, project.allowedPages);
   });
   const workspaceNavItems = visibleNavItems.filter((item) => WORKSPACE_VIEWS.has(item.id)).sort((a,b) => ["portfolio","permissions","files"].indexOf(a.id) - ["portfolio","permissions","files"].indexOf(b.id));
-  const projectNavItems = visibleNavItems.filter((item) => !WORKSPACE_VIEWS.has(item.id));
+  const sharingNavItems = visibleNavItems.filter(item => CLIENT_SHARING_NAVIGATION_GROUP.pageIds.includes(item.id));
+  const projectNavItems = visibleNavItems.filter((item) => !WORKSPACE_VIEWS.has(item.id) && !CLIENT_SHARING_NAVIGATION_GROUP.pageIds.includes(item.id));
   const projectNavChildren = projectNavItems.filter(item => PROJECT_NAVIGATION_GROUP.pageIds.includes(item.id));
   const projectContextActive = !WORKSPACE_VIEWS.has(activeView);
 
@@ -184,7 +186,7 @@ export function ProjectSidebar({ project, role, activeView, activePlanVariant, o
       {workspaceNavItems.length > 0 && <nav className="sidebar-global-nav" aria-label="공통 관리">{workspaceNavItems.map(item=>{const Icon=item.icon;return <button key={item.id} type="button" className={activeView===item.id?"is-active":""} aria-current={activeView===item.id?"page":undefined} onClick={()=>{onView(item.id);onClose();}}><Icon size={18}/><span><strong>{item.label}</strong></span><ChevronRight size={15}/></button>;})}</nav>}
       <section className="sidebar-projects"><span className="sidebar-section-label">프로젝트</span><nav className="sidebar-company-list" aria-label="프로젝트 회사 선택">{clients.map(client => { const selected = projectContextActive && client.id === activeClient; return <button key={client.id} type="button" className={selected ? "is-active" : ""} aria-current={selected ? "true" : undefined} onClick={() => { onSelectClient(client.id); onClose(); }}><span>{client.name}</span>{selected && <Check size={15} strokeWidth={2.5} />}</button>; })}</nav>{projectContextActive && <p className="sidebar-current-project" title={project.name}>{project.name}</p>}</section>
       <span className="sidebar-section-label sidebar-pages-label">메뉴</span>
-      <nav className="project-nav">{projectNavItems.map((item) => {
+      <nav className="project-nav">{role !== "client" && <button type="button" className={activeView === "plan" && activePlanVariant === "internal" ? "is-active" : ""} onClick={() => { onView("plan", "internal"); onClose(); }}><BookOpenText size={17} /><span>실행계획 · 내부</span></button>}{projectNavItems.map((item) => {
         const Icon = item.icon;
         if (PROJECT_NAVIGATION_GROUP.pageIds.includes(item.id)) {
           if (item.id !== projectNavChildren[0]?.id) return null;
@@ -197,21 +199,15 @@ export function ProjectSidebar({ project, role, activeView, activePlanVariant, o
             })}</div>}
           </div>;
         }
-        if (item.id !== "plan") return <button key={item.id} className={`${activeView === item.id || (item.id === "tasks" && activeView === "schedule") || (item.id === "tasks" && activeView === "progress") ? "is-active" : ""} ${item.nested ? "is-nested" : ""}`} onClick={() => { onView(item.id); onClose(); }}><Icon size={17} strokeWidth={1.8} /><span>{item.label}</span>{item.id === "tasks" && taskCount > 0 && <em>{taskCount}</em>}</button>;
-        return <div key={item.id} className={`project-nav-tree ${planExpanded ? "is-expanded" : ""}`}>
-          <button type="button" className={activeView === "plan" ? "is-active" : ""} onClick={() => {
-            if (activeView !== "plan") onView("plan", DEFAULT_PLAN_VARIANT);
-            setPlanExpanded((current) => activeView === "plan" ? !current : true);
-          }} aria-expanded={planExpanded}>
-            <Icon size={17} strokeWidth={1.8} /><span>{item.label}</span><ChevronDown className="nav-tree-chevron" size={14} />
-          </button>
-          {planExpanded && <div className="project-nav-children">
-            {visiblePlanChildren.map((child) => {
-              return <button key={child.id} type="button" className={activeView === "plan" && activePlanVariant === child.id ? "is-active" : ""} onClick={() => { onView("plan", child.id); onClose(); }} aria-current={activeView === "plan" && activePlanVariant === child.id ? "page" : undefined}><span className="nav-child-branch" aria-hidden="true" /><span>{child.label}</span></button>;
-            })}
-          </div>}
-        </div>;
-      })}</nav>
+        return <button key={item.id} className={activeView === item.id ? "is-active" : ""} onClick={() => { onView(item.id); onClose(); }}><Icon size={17} strokeWidth={1.8} /><span>{item.label}</span></button>;
+      })}{sharingNavItems.length > 0 && <div className={`project-nav-tree client-sharing-tree ${sharingExpanded ? "is-expanded" : ""}`}>
+        <button type="button" className="project-group-toggle" onClick={() => setSharingExpanded(current => !current)} aria-expanded={sharingExpanded} aria-controls="client-sharing-links"><FolderOpen size={17} /><span>클라이언트 공유</span><ChevronDown className="nav-tree-chevron" size={14} /></button>
+        {sharingExpanded && <div id="client-sharing-links" className="project-nav-children">{sharingNavItems.map(item => {
+          const Icon = item.icon;
+          const active = activeView === item.id && (item.id !== "plan" || activePlanVariant === "client");
+          return <button key={item.id} type="button" className={active ? "is-active" : ""} aria-current={active ? "page" : undefined} onClick={() => { onView(item.id, item.id === "plan" ? "client" : undefined); onClose(); }}><Icon size={16} /><span>{item.id === "client-progress" ? "진행상황" : item.label}</span></button>;
+        })}</div>}
+      </div>}</nav>
       </div>
       {canCreateProject && <footer className="sidebar-project-tools"><button type="button" className="sidebar-project-create" onClick={() => { onCreateProject(); onClose(); }}><Plus size={16} strokeWidth={2.3} />프로젝트 생성</button><button type="button" className="sidebar-project-import" onClick={() => { onImportQuote(); onClose(); }}><FileUp size={16} strokeWidth={2} />견적서 불러오기</button></footer>}
       </div>
@@ -1085,6 +1081,7 @@ function AppContent({ onTaskCopy, view, planVariant, project, role, search, setV
     return tasksViewModel(await source.tasks({projectId})).items.map(({id,completionUrl})=>({id,completionUrl}));
   }), [source, role, pageState.data]);
   if(view==='blog') return role==='client'?<ErrorState error={new Error('내부 운영 계정만 접근할 수 있습니다.')} />:<Suspense fallback={<LoadingState/>}><BlogStatusView key={project.id} project={project} source={source} canWrite={['ADMIN','EDIT'].includes(project.permissionCode)||role==='pocket'} /></Suspense>;
+  if(view==='reports') return <Suspense fallback={<LoadingState/>}><MonthlyReportsView key={project.id} project={project} source={source} canWrite={role!=='client'&&(['ADMIN','EDIT'].includes(project.permissionCode)||role==='pocket')} /></Suspense>;
   if(view==='performance') return <Suspense fallback={<LoadingState/>}><KpiFunnelView key={project.id} project={project} source={source} canWrite={role!=='client'&&(['ADMIN','EDIT'].includes(project.permissionCode)||role==='pocket')} legacy={role!=='client'&&pageState.data?<PerformanceView performance={pageState.data} canWrite={canWrite} onKpiSave={onKpiSave} onKpiArchive={onKpiArchive}/>:null} legacyError={role!=='client'&&pageState.status==='error'}/></Suspense>;
   if (pageState.status === "loading" && !pageState.data) return <LoadingState />;
   if (pageState.status === "error" && !pageState.data) return <ErrorState error={pageState.error} onRetry={onRetry} />;
