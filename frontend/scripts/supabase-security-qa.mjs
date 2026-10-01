@@ -5,6 +5,7 @@ import { verifyMeetingSearchSecurity } from './meeting-search-security-qa.mjs';
 import { verifyKpiFunnelSecurity } from './kpi-funnel-security-qa.mjs';
 import { verifyTaskGroupsUndo } from './task-groups-undo-security-qa.mjs';
 import { verifyMonthlyReportsSecurity } from './monthly-reports-security-qa.mjs';
+import { verifyScheduleImport } from './schedule-import-security-qa.mjs';
 
 const migrationsDir = fileURLToPath(new URL("../../supabase/migrations/", import.meta.url)).replace(/\\$/, "");
 const db = new PGlite();
@@ -572,4 +573,5 @@ await verifyMeetingSearchSecurity(db, userIds, assert);
 await verifyKpiFunnelSecurity(db, userIds, assert);
 await verifyTaskGroupsUndo(db, userIds, assert);
 await verifyMonthlyReportsSecurity(db, userIds, assert);
+await verifyScheduleImport(db, userIds, assert);
 await db.close();

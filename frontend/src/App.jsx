@@ -54,6 +54,8 @@ const ProgressView = lazy(() => import("./ProgressView.jsx").then((module) => ({
 const ClientProgressView = lazy(() => import("./ClientProgressView.jsx").then((module) => ({ default: module.ClientProgressView })));
 const TaskCreateModal = lazy(() => import("./TaskCreateModal.jsx").then((module) => ({ default: module.TaskCreateModal })));
 const QuoteImportModal = lazy(() => import("./QuoteImportModal.jsx"));
+const ScheduleImportModal = lazy(() => import('./ScheduleImportModal.jsx'));
+import { runScheduleImportPlan } from './scheduleImport.js';
 const PermissionsView = lazy(() => import("./PermissionsView.jsx"));
 
 const navIcons = {
@@ -158,7 +160,7 @@ export function LoginScreen({ onLogin, error, loading, configured }) {
   );
 }
 
-export function ProjectSidebar({ project, role, activeView, activePlanVariant, onView, open, onClose, taskCount, visible, clients = [], activeClient, onSelectClient, onCreateProject, onImportQuote, canCreateProject, navigation, onToggleNavigation }) {
+export function ProjectSidebar({ project, role, activeView, activePlanVariant, onView, open, onClose, taskCount, visible, clients = [], activeClient, onSelectClient, onCreateProject, onImportQuote, onImportSchedule, canCreateProject, navigation, onToggleNavigation }) {
   const [projectExpanded, setProjectExpanded] = useState(true);
   const [sharingExpanded, setSharingExpanded] = useState(true);
 
@@ -210,7 +212,7 @@ export function ProjectSidebar({ project, role, activeView, activePlanVariant, o
         })}</div>}
       </div>}</nav>
       </div>
-      {canCreateProject && <footer className="sidebar-project-tools"><button type="button" className="sidebar-project-create" onClick={() => { onCreateProject(); onClose(); }}><Plus size={16} strokeWidth={2.3} />프로젝트 생성</button><button type="button" className="sidebar-project-import" onClick={() => { onImportQuote(); onClose(); }}><FileUp size={16} strokeWidth={2} />견적서 불러오기</button></footer>}
+      {canCreateProject && <footer className="sidebar-project-tools"><button type="button" className="sidebar-project-create" onClick={() => { onCreateProject(); onClose(); }}><Plus size={16} strokeWidth={2.3} />프로젝트 생성</button><button type="button" className="sidebar-project-import" onClick={() => { onImportQuote(); onClose(); }}><FileUp size={16} strokeWidth={2} />견적서 불러오기</button>{onImportSchedule && <button type="button" className="sidebar-project-import" onClick={() => { onImportSchedule(); onClose(); }}><CalendarDays size={16} strokeWidth={2} />일정 불러오기</button>}</footer>}
       </div>
     </aside>
   );
@@ -787,10 +789,10 @@ function TasksView({ onCopy, role, query, taskPage, activityState, onLoadActivit
     const normalizedTask = { ...task, status: task.statusCode === "CANCELLED" ? "취소" : task.status };
     return withDisplayDeadline(normalizedTask, calculatedDue ? `${trackerTaskDueLabel(calculatedDue)} · ${trackerDdayLabel(calculatedDue)}` : "");
   }), [taskPage.items, schedule]);
-  const [displayMode, setDisplayMode] = useState(initialSection === "activity" ? "activity" : "table");
+  const [displayMode, setDisplayMode] = useState(taskPage.project?.scheduleFocus ? "gantt" : initialSection === "activity" ? "activity" : "table");
   useEffect(() => {
-    setDisplayMode(initialSection === "activity" ? "activity" : "table");
-  }, [taskPage.project?.id, initialSection]);
+    setDisplayMode(taskPage.project?.scheduleFocus ? "gantt" : initialSection === "activity" ? "activity" : "table");
+  }, [taskPage.project?.id, taskPage.project?.scheduleFocus?.id, initialSection]);
   useEffect(() => {
     if (displayMode === "activity" && activityState?.status === "idle") onLoadActivity?.();
   }, [displayMode, activityState?.status, onLoadActivity]);
@@ -1076,7 +1078,8 @@ export function ProjectClientProgressView({ project, taskPage }) {
   />} /></Suspense>;
 }
 
-function AppContent({ onTaskCopy, view, planVariant, project, role, search, setView, pageState, taskActivityState, onLoadTaskActivity, onRetry, onCreate, onTaskUpdate, onTaskArchive, onTaskBatchUpdate, onProjectUpdate, onIssueCreate, onIssueUpdate, onIssueArchive, onDailyMeetingSave, onCredentialSave, onCredentialArchive, onCredentialReveal, onKpiSave, onKpiArchive, onAccessSave, onOpenProject, canWrite, source, actorName }) {
+function AppContent({ taskMonthFocus, onTaskCopy, view, planVariant, project, role, search, setView, pageState, taskActivityState, onLoadTaskActivity, onRetry, onCreate, onTaskUpdate, onTaskArchive, onTaskBatchUpdate, onProjectUpdate, onIssueCreate, onIssueUpdate, onIssueArchive, onDailyMeetingSave, onCredentialSave, onCredentialArchive, onCredentialReveal, onKpiSave, onKpiArchive, onAccessSave, onOpenProject, canWrite, source, actorName }) {
+  if (taskMonthFocus?.projectId === String(project.id)) project = { ...project, scheduleFocus: taskMonthFocus };
   const resolveTaskLink = useMemo(() => createDeadlineLinkResolver(async projectId => {
     if (role === "client") throw new Error("내부 운영 계정만 접근할 수 있습니다.");
     return tasksViewModel(await source.tasks({projectId})).items.map(({id,completionUrl})=>({id,completionUrl}));
@@ -1091,7 +1094,7 @@ function AppContent({ onTaskCopy, view, planVariant, project, role, search, setV
   if (view === "client-progress") return <InternalPreviewTaskEditor key={project.id} project={project} role={role} canWrite={canWrite} source={source} onUpdate={onTaskUpdate}><ProjectClientProgressView project={project} taskPage={data} /></InternalPreviewTaskEditor>;
   if (view === "progress") return role === "client" ? <LoadingState label="고객용 진행상황으로 이동합니다." /> : <ProjectProgressView key={project.id} project={project} role={role} taskPage={data} source={source} actorName={actorName} canWrite={canWrite} onTaskUpdate={onTaskUpdate} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} onNavigate={setView} />;
   if (view === "plan") return <PlanView plan={data} project={project} planVariant={planVariant} />;
-  if (view === "tasks" || view === "schedule") return <TasksView role={role} query={search} taskPage={{ ...data, project: { id: project.id, clientId: project.clientId, clientName: project.clientName, name: project.name, permissionCode: project.permissionCode, allowedPages: project.allowedPages, phaseCode: project.phaseCode, phase: project.phase, startDate: project.startDate, endDate: project.endDate, rowVersion: project.rowVersion, ...(data.project || {}) } }} activityState={taskActivityState} onLoadActivity={onLoadTaskActivity} onCreate={onCreate} actorName={actorName} onUpdate={onTaskUpdate} onArchive={onTaskArchive} onBatchUpdate={onTaskBatchUpdate} onCopy={onTaskCopy} onProjectUpdate={onProjectUpdate} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} canWrite={canWrite} initialSection="schedule" />;
+  if (view === "tasks" || view === "schedule") return <TasksView role={role} query={search} taskPage={{ ...data, project: { id: project.id, clientId: project.clientId, clientName: project.clientName, name: project.name, permissionCode: project.permissionCode, allowedPages: project.allowedPages, phaseCode: project.phaseCode, phase: project.phase, startDate: project.startDate, endDate: project.endDate, rowVersion: project.rowVersion, ...(data.project || {}), scheduleFocus: project.scheduleFocus } }} activityState={taskActivityState} onLoadActivity={onLoadTaskActivity} onCreate={onCreate} actorName={actorName} onUpdate={onTaskUpdate} onArchive={onTaskArchive} onBatchUpdate={onTaskBatchUpdate} onCopy={onTaskCopy} onProjectUpdate={onProjectUpdate} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} canWrite={canWrite} initialSection="schedule" />;
   if (view === "daily") return role !== "client" && Array.isArray(data.projects)
     ? <Suspense fallback={<LoadingState label="전체 업체 회의록을 준비하고 있습니다." />}><WorkspaceDailyMeetingsView dashboard={data} canWrite={canWrite} onSearchMeetings={source.searchMeetings} onSave={onDailyMeetingSave} onLoadWeek={(startDate, endDate) => source.operationsDashboard({ startDate, endDate }).then(operationsDashboardViewModel)} /></Suspense>
     : <DailyMeetingsView role={role} meetings={data.items || []} canWrite={canWrite && role !== "client"} onSave={onDailyMeetingSave} />;
@@ -1147,6 +1150,9 @@ export function App() {
   const [createEntity, setCreateEntity] = useState(null);
   const [projectCreateOpen, setProjectCreateOpen] = useState(false);
   const [quoteImportOpen, setQuoteImportOpen] = useState(false);
+  const [scheduleImportOpen, setScheduleImportOpen] = useState(false);
+  const [taskMonthFocus, setTaskMonthFocus] = useState(null);
+  const scheduleImportBusyRef = useRef(false);
   const [saveNotice, setSaveNotice] = useState(null);
   const [sheetSaveLock, setSheetSaveLock] = useState({ visible: false, label: "" });
   const sheetWriteCountRef = useRef(0);
@@ -1214,7 +1220,7 @@ export function App() {
   }, []);
   const mutateWithSaveLock = useCallback((label, options) => runSheetWrite(label, () => source.mutate(options).then(result => { rememberTaskUndo(options, result); return result; })), [runSheetWrite, source, rememberTaskUndo]);
   const mutateBatchWithSaveLock = useCallback((label, options) => runSheetWrite(label, () => source.mutateBatch(options).then(result => { rememberTaskUndo(options, result); return result; })), [runSheetWrite, source, rememberTaskUndo]);
-  useEffect(() => { setUndoEntry(null); }, [session]);
+  useEffect(() => { setUndoEntry(null); setScheduleImportOpen(false); setTaskMonthFocus(null); }, [session]);
   const accessMutateWithSaveLock = useCallback((label, options) => runSheetWrite(label, () => source.accessAdminMutate(options)), [runSheetWrite, source]);
 
   useEffect(() => source?.subscribe(setSourceState), [source]);
@@ -1930,6 +1936,34 @@ export function App() {
     }
   };
 
+  const importSchedule = async (plan, onProgress) => {
+    const projectId = plan.projectId;
+    const target = bootstrapState.data?.projects?.[projectId];
+    if (!live || !["pocket", "ns"].includes(role) || !target || !["ADMIN", "EDIT"].includes(target.permissionCode)) throw new Error("선택한 프로젝트에 업무를 추가할 권한이 없습니다.");
+    if (scheduleImportBusyRef.current) throw new Error("일정 가져오기가 진행 중입니다.");
+    scheduleImportBusyRef.current = true;
+    discardResourceRead(projectId, "tasks");
+    try {
+      await runScheduleImportPlan(plan, async mutations => {
+        const result = await mutateBatchWithSaveLock("선택한 일정을 업무로 등록하고 있습니다.", { projectId, mutations, undoGroupId: plan.mutations[0].mutationId });
+        const records = result?.data?.results || [];
+        if (records.length !== mutations.length || records.some(item => !item?.record)) throw new Error("일부 저장 응답을 확인하지 못했습니다. 같은 요청으로 다시 확인해 주세요.");
+        for (const item of records) {
+          const task = tasksViewModel({ data: { items: [item.record], totalMatching: 1 }, generatedAt: result.generatedAt }).items[0];
+          appendTaskResource(projectId, task);
+        }
+      }, onProgress);
+      setTaskMonthFocus({ projectId, month: plan.month, id: plan.mutations[0].mutationId });
+      openDashboardProject(projectId, "schedule");
+      setSaveNotice(`${plan.mutations.length}개 일정을 ${plan.month} 업무로 등록했습니다.`);
+    } finally {
+      scheduleImportBusyRef.current = false;
+      invalidateWorkspaceSummaries();
+      invalidateResource(projectId, "tasks");
+      setTaskActivityState({ ...blankTaskActivity, projectId });
+    }
+  };
+
   const updateTasksBatch = async (updates, { undoGroupId } = {}) => {
     if (!canWriteTasks) {
       const readOnlyError = new Error("이 계정은 업무를 수정할 권한이 없습니다.");
@@ -2368,13 +2402,14 @@ export function App() {
 
   return (
     <div className={`app-shell has-sidebar-workspace ${navigation.projectSidebarCollapsed ? "is-sidebar-collapsed" : ""} ${navigation.isDrawerOpen ? "is-navigation-drawer-open" : ""} ${role === "client" ? "is-client-view" : ""} ${sheetSaveLock.visible ? "is-sheet-saving" : ""}`} aria-busy={sheetSaveLock.visible}>
-      <ProjectSidebar project={project} clients={bootstrapState.data.clients} activeClient={selectedClient.id} onSelectClient={selectClient} onCreateProject={() => setProjectCreateOpen(true)} onImportQuote={() => setQuoteImportOpen(true)} canCreateProject={live && ["pocket", "ns"].includes(role) && typeof source.createProject === "function"} navigation={navigation} onToggleNavigation={toggleNavigation} role={role} activeView={view} activePlanVariant={authorizedPlanVariant} onView={navigateToView} open={navigation.isDrawerOpen} onClose={() => setSidebarOpen(false)} taskCount={taskCount} visible={navigation.projectSidebarVisible} />
+      <ProjectSidebar project={project} clients={bootstrapState.data.clients} activeClient={selectedClient.id} onSelectClient={selectClient} onCreateProject={() => setProjectCreateOpen(true)} onImportQuote={() => setQuoteImportOpen(true)} onImportSchedule={() => setScheduleImportOpen(true)} canCreateProject={live && ["pocket", "ns"].includes(role) && typeof source.createProject === "function"} navigation={navigation} onToggleNavigation={toggleNavigation} role={role} activeView={view} activePlanVariant={authorizedPlanVariant} onView={navigateToView} open={navigation.isDrawerOpen} onClose={() => setSidebarOpen(false)} taskCount={taskCount} visible={navigation.projectSidebarVisible} />
       {navigation.isDrawerOpen && <button className="mobile-overlay" type="button" onClick={() => setSidebarOpen(false)} aria-label="메뉴 닫기" />}
 {notificationIssue && role !== "client" && <NotificationIssueDialog key={`${notificationIssue.projectId}:${notificationIssue.id}`} request={notificationIssue} source={source} actorName={actor?.displayName || actor?.name || ""} canWrite={canWriteTasks} onUpdate={updateProjectIssue} onArchive={archiveProjectIssue} onClose={()=>setNotificationIssue(null)}/>}
-<div className="app-main"><Topbar undoEntry={undoEntry} undoBusy={undoBusy || sheetSaveLock.visible} onUndo={undoLastTaskChange} notificationIssues={view === "portfolio" ? currentPage.data?.issues : []} source={source} project={project} activeView={view} actor={actor} onLogout={logout} live={live && source.config.loginEnabled} search={search} setSearch={setSearch} notificationTasks={notificationTasks} notificationsLoaded={notificationsLoaded} onNotificationSelect={openNotificationTask} /><main className="content-canvas"><ScreenBoundary key={`${activeProjectId}:${view}`}><AppContent source={source} actorName={actor?.displayName || actor?.name || (role === "ns" ? "NS" : "포켓컴퍼니")} view={view} planVariant={authorizedPlanVariant} project={project} role={role} search={search} setView={navigateToView} pageState={currentPage} taskActivityState={taskActivityState} onLoadTaskActivity={loadTaskActivity} onRetry={refreshCurrentPage} onCreate={setCreateEntity} onTaskUpdate={updateTask} onTaskArchive={archiveTask} onTaskBatchUpdate={updateTasksBatch} onTaskCopy={copyTasks} onProjectUpdate={updateProjectStartDate} onIssueCreate={createProjectIssue} onIssueUpdate={updateProjectIssue} onIssueArchive={archiveProjectIssue} onDailyMeetingSave={saveDailyMeeting} onCredentialSave={saveProjectCredential} onCredentialArchive={archiveProjectCredential} onCredentialReveal={revealProjectCredential} onKpiSave={saveKpiDefinition} onKpiArchive={archiveKpiDefinition} onAccessSave={saveAccessAccount} onOpenProject={openDashboardProject} canWrite={(view === "tasks" || view === "schedule" || view === "progress" || view === "daily" || view === "credentials" || view === "portfolio") ? canWriteTasks : canWrite} /></ScreenBoundary></main><footer className="app-footer"><span>{connectionReady ? "데이터 연결됨" : "연결 확인 중"}</span><span>마지막 동기화 {formatSyncTime(sourceState.lastSuccessfulAt)}</span></footer></div>
+<div className="app-main"><Topbar undoEntry={undoEntry} undoBusy={undoBusy || sheetSaveLock.visible} onUndo={undoLastTaskChange} notificationIssues={view === "portfolio" ? currentPage.data?.issues : []} source={source} project={project} activeView={view} actor={actor} onLogout={logout} live={live && source.config.loginEnabled} search={search} setSearch={setSearch} notificationTasks={notificationTasks} notificationsLoaded={notificationsLoaded} onNotificationSelect={openNotificationTask} /><main className="content-canvas"><ScreenBoundary key={`${activeProjectId}:${view}`}><AppContent taskMonthFocus={taskMonthFocus} source={source} actorName={actor?.displayName || actor?.name || (role === "ns" ? "NS" : "포켓컴퍼니")} view={view} planVariant={authorizedPlanVariant} project={project} role={role} search={search} setView={navigateToView} pageState={currentPage} taskActivityState={taskActivityState} onLoadTaskActivity={loadTaskActivity} onRetry={refreshCurrentPage} onCreate={setCreateEntity} onTaskUpdate={updateTask} onTaskArchive={archiveTask} onTaskBatchUpdate={updateTasksBatch} onTaskCopy={copyTasks} onProjectUpdate={updateProjectStartDate} onIssueCreate={createProjectIssue} onIssueUpdate={updateProjectIssue} onIssueArchive={archiveProjectIssue} onDailyMeetingSave={saveDailyMeeting} onCredentialSave={saveProjectCredential} onCredentialArchive={archiveProjectCredential} onCredentialReveal={revealProjectCredential} onKpiSave={saveKpiDefinition} onKpiArchive={archiveKpiDefinition} onAccessSave={saveAccessAccount} onOpenProject={openDashboardProject} canWrite={(view === "tasks" || view === "schedule" || view === "progress" || view === "daily" || view === "credentials" || view === "portfolio") ? canWriteTasks : canWrite} /></ScreenBoundary></main><footer className="app-footer"><span>{connectionReady ? "데이터 연결됨" : "연결 확인 중"}</span><span>마지막 동기화 {formatSyncTime(sourceState.lastSuccessfulAt)}</span></footer></div>
       {createEntity && <CreateRecordModal entityType={createEntity} role={role} clientName={project.clientName} tasks={notificationTasks} onClose={() => setCreateEntity(null)} onSubmit={createRecord} />}
       {projectCreateOpen && <ProjectCreateModal onClose={() => setProjectCreateOpen(false)} onSubmit={createProject} />}
       {quoteImportOpen && <Suspense fallback={<LoadingState label="견적서 화면을 여는 중입니다." />}><QuoteImportModal currentProject={project} onClose={() => setQuoteImportOpen(false)} onCreateProject={createProject} onAppendProject={appendQuoteToProject} /></Suspense>}
+      {scheduleImportOpen && live && ["pocket", "ns"].includes(role) && <Suspense fallback={<LoadingState label="일정 가져오기 화면을 여는 중입니다." />}><ScheduleImportModal currentProject={project} projects={Object.values(bootstrapState.data.projects).filter(item => ["ADMIN", "EDIT"].includes(item.permissionCode))} source={source} onImport={importSchedule} onClose={() => setScheduleImportOpen(false)} /></Suspense>}
       {saveNotice && <div className="save-toast" role="status"><Check size={16} />{saveNotice}</div>}
       {sheetSaveLock.visible && <GlobalSaveOverlay label={sheetSaveLock.label} />}
     </div>

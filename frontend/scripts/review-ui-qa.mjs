@@ -13,6 +13,7 @@ import React, { lazy, Suspense, useState } from 'react';
 import { runTaskGroupsQa } from './scripts/task-groups-browser-fixture.jsx';
 import { runTaskMonthQa } from './scripts/task-month-browser-fixture.jsx';
 import { runMonthlyReportsQa } from './scripts/monthly-reports-browser-fixture.jsx';
+import { runScheduleImportQa } from './scripts/schedule-import-browser-fixture.jsx';
 import { taskMonthKey } from './src/taskMonth.js';
 import { runMeetingSearchQa } from './scripts/meeting-search-browser-fixture.jsx';
 import { runKpiFunnelQa } from './scripts/kpi-funnel-browser-fixture.jsx';
@@ -49,6 +50,7 @@ const render = async element => { root.render(element); await tick(); };
 const qaExecutionMonth = taskMonthKey(new Date()) + '-01';
 window.runTaskMonthQa = () => runTaskMonthQa(render, tick, check);
 window.runMonthlyReportsQa = () => runMonthlyReportsQa(render, tick, check);
+window.runScheduleImportQa = () => runScheduleImportQa(render, tick, check);
 window.runMeetingSearchQa = () => runMeetingSearchQa(render, tick, check);
 window.runKpiFunnelQa = () => runKpiFunnelQa(render, tick, check);
 const bootstrapState = {status:'ready',data:{projects:{A:{id:'A',allowedPages:['overview']}, B:{id:'B',allowedPages:['overview']}}}};
@@ -632,6 +634,10 @@ try {
       await writeFile(`../artifacts/client-progress/kpi-${width}.png`,Buffer.from(shot.data,'base64'));
       continue;
     }
+    console.log(JSON.stringify({viewport:width,scheduleImport:await evaluate('window.runScheduleImportQa()')}));
+    const importShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await mkdir('../artifacts/client-progress',{recursive:true});
+    await writeFile('../artifacts/client-progress/schedule-import-'+width+'.png',Buffer.from(importShot.data,'base64'));
     console.log(JSON.stringify({viewport:width,reports:await evaluate('window.runMonthlyReportsQa()')}));
     const reportShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await mkdir('../artifacts/client-progress',{recursive:true});

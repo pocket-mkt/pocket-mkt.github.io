@@ -676,6 +676,13 @@ function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite,
     setSelectedMonths(new Set([taskMonthKey(localDateValue())]));
   }, [project.id]);
   useEffect(() => {
+    const month = taskMonthKey(project.scheduleFocus?.month);
+    if (!month) return;
+    setSelectedMonths(new Set([month]));
+    setStatusFilter("ALL"); setCategoryFilter("ALL"); setScheduleFilter("ALL"); setMediaFilter("ALL"); setOwnerFilter("ALL");
+    setSelectedTaskIds(new Set()); selectionAnchorRef.current = null;
+  }, [project.id, project.scheduleFocus?.id]);
+  useEffect(() => {
     setFreshnessNow(Date.now());
     const timer = globalThis.setInterval?.(() => setFreshnessNow(Date.now()), 60 * 1000);
     return () => globalThis.clearInterval?.(timer);
