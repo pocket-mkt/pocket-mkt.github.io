@@ -21,10 +21,10 @@ export const ACCESS_PAGE_OPTIONS = Object.freeze(PAGE_CATALOG.filter((page) => p
 export const NAVIGATION_PAGE_OPTIONS = Object.freeze(PAGE_CATALOG.filter((page) => page.navigation));
 // Navigation folder only: never create a route or grant from this group ID.
 export const PROJECT_NAVIGATION_GROUP = Object.freeze({
-  id: "project-pages", label: "프로젝트", pageIds: Object.freeze(["tasks", "progress", "daily", "blog", "credentials"]),
+  id: "project-pages", label: "프로젝트", pageIds: Object.freeze(["tasks", "progress", "daily", "blog", "credentials", "performance"]),
 });
 export const CLIENT_SHARING_NAVIGATION_GROUP = Object.freeze({
-  id: "client-sharing", label: "클라이언트 공유", pageIds: Object.freeze(["plan", "client-progress", "performance", "reports"]),
+  id: "client-sharing", label: "클라이언트 공유", pageIds: Object.freeze(["plan", "client-progress", "reports"]),
 });
 
 export const ACCESS_PAGE_KEYS = Object.freeze(ACCESS_PAGE_OPTIONS.map((page) => page.id));

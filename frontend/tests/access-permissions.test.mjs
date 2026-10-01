@@ -29,7 +29,7 @@ test("운영 메뉴와 고객 권한 선택지는 페이지 카탈로그에서 �
 });
 
 test("프로젝트는 업무·진행상황·회의록·내부 계정대장의 탐색 폴더이다", () => {
-  assert.deepEqual(PROJECT_NAVIGATION_GROUP.pageIds, ["tasks", "progress", "daily", "blog", "credentials"]);
+  assert.deepEqual(PROJECT_NAVIGATION_GROUP.pageIds, ["tasks", "progress", "daily", "blog", "credentials", "performance"]);
   assert.equal(PROJECT_NAVIGATION_GROUP.label, "프로젝트");
   assert.equal(NAVIGATION_PAGE_OPTIONS.some(page => page.id === PROJECT_NAVIGATION_GROUP.id), false);
   assert.equal(ACCESS_PAGE_KEYS.includes(PROJECT_NAVIGATION_GROUP.id), false);
@@ -60,7 +60,7 @@ test("고객에게 허용된 첫 화면과 실행계획 하위 경로를 판정�
   assert.equal(isViewAllowed('reports', ['tasks']), true);
   assert.equal(isViewAllowed('reports', ['daily','overview']), false);
   assert.equal(isViewAllowed(CLIENT_SHARING_NAVIGATION_GROUP.id, ACCESS_PAGE_KEYS), false);
-  assert.deepEqual(CLIENT_SHARING_NAVIGATION_GROUP.pageIds, ['plan','client-progress','performance','reports']);
+  assert.deepEqual(CLIENT_SHARING_NAVIGATION_GROUP.pageIds, ['plan','client-progress','reports']);
 });
 
 test("고객 계정 저장 요청은 프로젝트와 페이지 권한을 명시한다", () => {

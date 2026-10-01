@@ -170,6 +170,7 @@ export function ProjectSidebar({ project, role, activeView, activePlanVariant, o
   const visibleNavItems = navItems.filter((item) => {
     if (item.accessManagerOnly) return canManageClientAccess(role);
     if (role !== "client") return true;
+    if (item.id === "performance") return false;
     return isViewAllowed(item.id, project.allowedPages);
   });
   const workspaceNavItems = visibleNavItems.filter((item) => WORKSPACE_VIEWS.has(item.id)).sort((a,b) => ["portfolio","permissions","files"].indexOf(a.id) - ["portfolio","permissions","files"].indexOf(b.id));
