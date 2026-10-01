@@ -37,34 +37,18 @@ export function inferredTaskExecutionMonth(task = {}, fallbackMonth = "") {
   );
 }
 
-function taskDone(task = {}) {
-  return ["DONE", "COMPLETED"].includes(String(task.statusCode || task.status_code || "").toUpperCase());
+export function tasksForExecutionMonths(tasks = [], selectedMonths = [], fallbackMonth = "") {
+  const months = new Set([...selectedMonths].map((month) => taskMonthKey(month)).filter(Boolean));
+  return tasks.filter((task) => months.has(inferredTaskExecutionMonth(task, fallbackMonth)));
 }
 
-function taskMonthBounds(month) {
+export function toggleTaskMonth(selectedMonths, month) {
+  const next = new Set(selectedMonths);
   const key = taskMonthKey(month);
-  if (!key) return null;
-  return { start: `${key}-01`, end: `${shiftTaskMonth(key, 1)}-01` };
-}
-
-export function taskMonthRelation(task = {}, selectedMonth, fallbackMonth = selectedMonth) {
-  const selected = taskMonthKey(selectedMonth);
-  const execution = inferredTaskExecutionMonth(task, fallbackMonth);
-  if (!selected || !execution || execution > selected) return null;
-  if (execution === selected) return "CURRENT";
-
-  const bounds = taskMonthBounds(selected);
-  const completed = String(task.completedDate || task.completed_at || task.completedAt || "").slice(0, 10);
-  if (completed && completed >= bounds.start && completed < bounds.end) return "CARRYOVER";
-  if (!taskDone(task)) return "CARRYOVER";
-
-  const start = String(task.plannedStartDate || task.planned_start_date || "").slice(0, 10);
-  const due = String(task.dueDate || task.due_date || "").slice(0, 10);
-  return start && due && start < bounds.end && due >= bounds.start ? "CARRYOVER" : null;
-}
-
-export function tasksForExecutionMonth(tasks = [], selectedMonth, fallbackMonth = selectedMonth) {
-  return tasks.filter((task) => taskMonthRelation(task, selectedMonth, fallbackMonth));
+  if (!key) return next;
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
+  return next;
 }
 
 export function taskMonthOptions(tasks = [], currentValue = new Date()) {

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { TaskScheduleTimeline } from '../src/TaskWorkspace.jsx';
 import TaskUndoControl from '../src/TaskUndoControl.jsx';
+import { taskMonthKey } from '../src/taskMonth.js';
 
 export async function runTaskGroupsQa(render,tick,check) {
- const initial=[1,2,3].map(id=>({id:String(id),title:'그룹 업무 '+id,rowVersion:1,streamCode:'MARKETING',categoryCode:'NAVER',statusCode:'NOT_STARTED',scheduleDates:['2026-09-19','2026-09-21'],plannedStartDate:'2026-09-19',dueDate:'2026-09-21'}));
+ const initial=[1,2,3].map(id=>({id:String(id),title:'그룹 업무 '+id,executionMonth:taskMonthKey(new Date())+'-01',rowVersion:1,streamCode:'MARKETING',categoryCode:'NAVER',statusCode:'NOT_STARTED',scheduleDates:['2026-09-19','2026-09-21'],plannedStartDate:'2026-09-19',dueDate:'2026-09-21'}));
  const project={id:'groups',clientName:'QA',startDate:'2026-09-01',endDate:'2026-09-30'};
  let writes=[];
  function Fixture({mode}) {

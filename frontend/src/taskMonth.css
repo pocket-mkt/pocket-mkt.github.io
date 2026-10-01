@@ -3,14 +3,16 @@
 .task-month-switcher header>div{display:flex;align-items:baseline;gap:8px}
 .task-month-switcher header strong{font-size:14px;color:#10233f}
 .task-month-switcher header span,.task-month-switcher header small{font-size:11px;color:#6f7f95}
-.task-month-switcher header small{white-space:nowrap;color:#38557b}
+.task-month-switcher header small{color:#38557b;line-height:1.6;overflow-wrap:anywhere}
 .task-month-buttons{display:flex;justify-content:flex-end;gap:6px;overflow-x:auto;padding:2px}
-.task-month-buttons button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:116px;height:36px;padding:0 13px;border:1px solid #d6e0ed;border-radius:9px;background:#fff;color:#53647b;font:600 12px/1 Pretendard,sans-serif;white-space:nowrap;cursor:pointer}
+.task-month-buttons button{display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;gap:7px;min-width:116px;height:36px;padding:0 13px;border:1px solid #d6e0ed;border-radius:9px;background:#fff;color:#53647b;font:600 12px/1 Pretendard,sans-serif;white-space:nowrap;cursor:pointer}
+.task-month-buttons button>i{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border:1px solid currentColor;border-radius:3px;opacity:.8}
+.task-month-buttons button>small{font-size:10px;font-weight:500;opacity:.85}
+.task-month-buttons button:focus-visible{outline:2px solid #2458a6;outline-offset:2px}
 .task-month-buttons button:hover{border-color:#9db7df;color:#173b70}
 .task-month-buttons button.is-active{border-color:#2458a6;background:#173d75;color:#fff;box-shadow:0 4px 12px rgba(23,61,117,.14)}
 .task-month-buttons em{padding:3px 5px;border-radius:999px;background:#e7f0ff;color:#2458a6;font-size:9px;font-style:normal}
 .task-month-buttons .is-active em{background:rgba(255,255,255,.17);color:#fff}
 .task-month-badge{display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:999px;background:#eaf2ff;color:#285998;font-size:9px;font-weight:800;font-style:normal;white-space:nowrap}
-.task-month-badge.is-carryover{background:#fff1dc;color:#9a5b00}
 .g-lbl .task-month-badge{flex:0 0 auto}
 @media (max-width:760px){.task-month-switcher{grid-template-columns:1fr;gap:8px;padding:10px 12px}.task-month-buttons{justify-content:flex-start}.task-month-switcher header>div{align-items:flex-start;flex-direction:column;gap:2px}}

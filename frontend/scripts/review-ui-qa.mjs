@@ -11,6 +11,8 @@ const bundle = await build({
   stdin: { contents: `
 import React, { lazy, Suspense, useState } from 'react';
 import { runTaskGroupsQa } from './scripts/task-groups-browser-fixture.jsx';
+import { runTaskMonthQa } from './scripts/task-month-browser-fixture.jsx';
+import { taskMonthKey } from './src/taskMonth.js';
 import { runMeetingSearchQa } from './scripts/meeting-search-browser-fixture.jsx';
 import { runKpiFunnelQa } from './scripts/kpi-funnel-browser-fixture.jsx';
 import BlogStatusView from './src/BlogStatusView.jsx';
@@ -43,6 +45,8 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 40));
 const check = (ok, message) => { if (!ok) throw Error(message); };
 const deferred = () => { let resolve; const promise = new Promise(done => resolve = done); return {promise, resolve}; };
 const render = async element => { root.render(element); await tick(); };
+const qaExecutionMonth = taskMonthKey(new Date()) + '-01';
+window.runTaskMonthQa = () => runTaskMonthQa(render, tick, check);
 window.runMeetingSearchQa = () => runMeetingSearchQa(render, tick, check);
 window.runKpiFunnelQa = () => runKpiFunnelQa(render, tick, check);
 const bootstrapState = {status:'ready',data:{projects:{A:{id:'A',allowedPages:['overview']}, B:{id:'B',allowedPages:['overview']}}}};
@@ -51,7 +55,7 @@ const overviewCalls = [];
 const source = {overview: params => { const pending=deferred(); overviewCalls.push({...params,...pending}); return pending.promise; }};
 window.runTaskGroupsQa = () => runTaskGroupsQa(render,tick,check);
 window.runCopyQa = async () => {
- const tasks=[1,2].map(id=>({id:String(id),title:'복사 테스트 '+id,streamCode:'MARKETING',categoryCode:'NAVER',phaseCode:'M1',statusCode:'NOT_STARTED',responsibleOrgCode:'NS',plannedStartDate:'2026-09-19',dueDate:'2026-09-21',scheduleDates:['2026-09-19','2026-09-21']}));
+ const tasks=[1,2].map(id=>({id:String(id),title:'복사 테스트 '+id,executionMonth:qaExecutionMonth,streamCode:'MARKETING',categoryCode:'NAVER',phaseCode:'M1',statusCode:'NOT_STARTED',responsibleOrgCode:'NS',plannedStartDate:'2026-09-19',dueDate:'2026-09-21',scheduleDates:['2026-09-19','2026-09-21']}));
  const project={id:'copy',clientName:'테스트',startDate:'2026-09-01',endDate:'2026-09-30'};
  const originalConfirm=window.confirm;
  let writes=[],confirmText='',approved=false,release;
@@ -144,7 +148,7 @@ window.benchmarkQa = async () => {
 
  for(const count of [100,500,1000]) for(const mode of ['table','gantt']) {
   await render(<div/>);
-  const tasks=tasksViewModel({data:{items:Array.from({length:count},(_,i)=>({task_id:i+1,project_id:1,title:'QA 업무 '+(i+1),category_code:'YOUTUBE',workstream_code:'MARKETING',status_mode:'MANUAL',status_code:'IN_PROGRESS',progress_percent:30,execution_month:'2026-10-01',planned_start_date:'2026-09-01',due_date:'2026-09-30',schedule_dates_json:'["2026-09-01"]',visibility_code:'CLIENT'})),totalMatching:count}}).items;
+const tasks=tasksViewModel({data:{items:Array.from({length:count},(_,i)=>({task_id:i+1,project_id:1,title:'QA 업무 '+(i+1),category_code:'YOUTUBE',workstream_code:'MARKETING',status_mode:'MANUAL',status_code:'IN_PROGRESS',progress_percent:30,execution_month:qaExecutionMonth,planned_start_date:'2026-09-01',due_date:'2026-09-30',schedule_dates_json:'["2026-09-01"]',visibility_code:'CLIENT'})),totalMatching:count}}).items;
   const started=performance.now();
   await render(<TaskScheduleTimeline tasks={tasks} issues={[]} project={{id:1,clientName:'QA',name:'QA'}} query="" canWrite={true} onUpdate={async()=>{}} onBatchUpdate={async()=>{}} displayMode={mode} onViewChange={()=>{}}/>);
   await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
@@ -153,7 +157,7 @@ window.benchmarkQa = async () => {
  return results;
 };
 window.runLargeListQa = async () => {
- const tasks=tasksViewModel({data:{items:Array.from({length:500},(_,i)=>({task_id:i+1,project_id:1,title:'QA 업무 '+(i+1),description:'여러 줄로 표시하는 업무 설명',category_code:'YOUTUBE',workstream_code:'MARKETING',status_mode:'MANUAL',status_code:'IN_PROGRESS',progress_percent:30,execution_month:'2026-10-01',planned_start_date:'2026-09-01',due_date:'2026-09-30',visibility_code:'CLIENT'})),totalMatching:500}}).items;
+ const tasks=tasksViewModel({data:{items:Array.from({length:500},(_,i)=>({task_id:i+1,project_id:1,title:'QA 업무 '+(i+1),description:'여러 줄로 표시하는 업무 설명',category_code:'YOUTUBE',workstream_code:'MARKETING',status_mode:'MANUAL',status_code:'IN_PROGRESS',progress_percent:30,execution_month:qaExecutionMonth,planned_start_date:'2026-09-01',due_date:'2026-09-30',visibility_code:'CLIENT'})),totalMatching:500}}).items;
  for(const mode of ['table','gantt']) {
   const writes=[];
   await render(<div/>);
@@ -208,7 +212,7 @@ function IssueTabsQa() {
  return <ProjectIssuePanel issues={issues} project={{id:'QA',clientName:'QA'}} canWrite actorName="QA" onUpdate={async(issue,fields)=>{const next={...issue,statusCode:fields.status_code||issue.statusCode};setIssues(items=>items.map(item=>item.id===issue.id?next:item));return next;}} onArchive={async(issue)=>setIssues(items=>items.filter(item=>item.id!==issue.id))} onCreate={async()=>{}}/>;
 }
 window.runLocalSortQa = async () => {
- const tasks=tasksViewModel({data:{items:['IN_PROGRESS','DONE','DONE','DELAYED'].map((status,i)=>({task_id:i+1,project_id:1,title:'정렬 검증 '+i,category_code:i%2?'YOUTUBE':'INSTAGRAM',workstream_code:'DESIGN',responsible_org_code:i<2?'POCKET':'NS',status_mode:'MANUAL',status_code:status,execution_month:'2026-10-01',planned_start_date:'2026-10-01',due_date:'2099-12-31',visibility_code:'CLIENT'}))}}).items;
+ const tasks=tasksViewModel({data:{items:['IN_PROGRESS','DONE','DONE','DELAYED'].map((status,i)=>({task_id:i+1,project_id:1,title:'정렬 검증 '+i,category_code:i%2?'YOUTUBE':'INSTAGRAM',workstream_code:'DESIGN',responsible_org_code:i<2?'POCKET':'NS',status_mode:'MANUAL',status_code:status,execution_month:qaExecutionMonth,planned_start_date:'2026-10-01',due_date:'2099-12-31',visibility_code:'CLIENT'}))}}).items;
  let writes=0;
  const view=id=><TaskScheduleTimeline tasks={tasks} issues={[]} project={{id,clientName:'QA',name:'QA'}} query="" canWrite onUpdate={async()=>{writes++;}} onBatchUpdate={async()=>{writes++;}} displayMode="table" onViewChange={()=>{}}/>;
  await render(<div/>);await render(view(1));
@@ -230,7 +234,7 @@ window.runLocalSortQa = async () => {
  return ['cross-media stable sorting, cycles, latest priority, zero writes, project/remount reset, drag safety'];
 };
 window.runChecklistQa = async () => {
- const tasks=tasksViewModel({data:{items:['NOT_STARTED','IN_PROGRESS','DELAYED','DONE','ON_HOLD'].map((status,i)=>({task_id:i+1,project_id:1,title:'완료 체크 검증 업무 '+i,category_code:'INSTAGRAM',workstream_code:'DESIGN',responsible_org_code:'NS',status_mode:'MANUAL',status_code:status,progress_percent:45,execution_month:'2026-10-01',planned_start_date:'2026-09-01',due_date:'2026-09-30',visibility_code:'CLIENT'}))}}).items;
+ const tasks=tasksViewModel({data:{items:['NOT_STARTED','IN_PROGRESS','DELAYED','DONE','ON_HOLD'].map((status,i)=>({task_id:i+1,project_id:1,title:'완료 체크 검증 업무 '+i,category_code:'INSTAGRAM',workstream_code:'DESIGN',responsible_org_code:'NS',status_mode:'MANUAL',status_code:status,progress_percent:45,execution_month:qaExecutionMonth,planned_start_date:'2026-09-01',due_date:'2026-09-30',visibility_code:'CLIENT'}))}}).items;
  const writes=[];
  for(const mode of ['table','gantt']) {
   await render(<div/>);
@@ -247,7 +251,7 @@ window.runChecklistQa = async () => {
  return ['table/Gantt completion indicators, canonical check/uncheck writes, five ordered statuses, no percentage input'];
 };
 window.showChoiceQa = async () => {
- const tasks=tasksViewModel({data:{items:Array.from({length:4},(_,i)=>({task_id:i+1,project_id:1,title:'콘텐츠 제작 / 업로드 '+(i+1),description:'카드뉴스 기획 및 디자인 제작',category_code:'INSTAGRAM',workstream_code:'DESIGN',responsible_org_code:'NS',status_mode:'MANUAL',status_code:'IN_PROGRESS',progress_percent:30,execution_month:'2026-10-01',planned_start_date:'2026-09-01',due_date:'2026-09-30',visibility_code:'CLIENT'}))}}).items;
+ const tasks=tasksViewModel({data:{items:Array.from({length:4},(_,i)=>({task_id:i+1,project_id:1,title:'콘텐츠 제작 / 업로드 '+(i+1),description:'카드뉴스 기획 및 디자인 제작',category_code:'INSTAGRAM',workstream_code:'DESIGN',responsible_org_code:'NS',status_mode:'MANUAL',status_code:'IN_PROGRESS',progress_percent:30,execution_month:qaExecutionMonth,planned_start_date:'2026-09-01',due_date:'2026-09-30',visibility_code:'CLIENT'}))}}).items;
  await render(<TaskScheduleTimeline tasks={tasks} issues={[]} project={{id:1,clientName:'UND',name:'QA'}} query="" canWrite={true} onUpdate={async()=>{}} onBatchUpdate={async()=>{}} displayMode="table" onViewChange={()=>{}}/>);
  const choice=document.querySelector('.reference-task-owner .task-choice-trigger');choice.scrollIntoView({block:'center',inline:'center'});await tick();choice.click();await tick();
  check(getComputedStyle(document.querySelector('.reference-task-status .task-choice-trigger')).fontSize==='12px','actual status font overridden');
@@ -522,7 +526,7 @@ await render(<div className="has-sidebar-workspace" style={{width:'calc(100vw - 
  check(document.querySelector('[role="dialog"] select'),'confirmation request controls missing');
  results.push('issues: actual project panel opens lazy request dialog');
  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
- const page=tasksViewModel({data:{items:Array.from({length:8},(_,index)=>({task_id:index+1,project_id:1,title:'공개 업무 '+(index+1),description:'고객에게 공개된 업무 내용',category_code:'YOUTUBE',workstream_code:'MARKETING',status_mode:'MANUAL',status_code:index===7?'NOT_STARTED':index===6?'IN_PROGRESS':'DONE',progress_percent:index<6?100:30,execution_month:'2026-10-01',planned_start_date:today,due_date:today,visibility_code:'CLIENT',updated_at:today,completion_url:'https://example.com/result'})),totalMatching:8,project:{project_id:1}}});
+ const page=tasksViewModel({data:{items:Array.from({length:8},(_,index)=>({task_id:index+1,project_id:1,title:'공개 업무 '+(index+1),description:'고객에게 공개된 업무 내용',category_code:'YOUTUBE',workstream_code:'MARKETING',status_mode:'MANUAL',status_code:index===7?'NOT_STARTED':index===6?'IN_PROGRESS':'DONE',progress_percent:index<6?100:30,execution_month:qaExecutionMonth,planned_start_date:today,due_date:today,visibility_code:'CLIENT',updated_at:today,completion_url:'https://example.com/result'})),totalMatching:8,project:{project_id:1}}});
  await render(<ProjectClientProgressView project={{id:1,name:'QA 고객 공개 프로젝트'}} taskPage={page}/>);
  for(let i=0;i<100 && !document.querySelector('.client-progress-view .reference-gantt');i++) await tick();
  check(document.querySelector('.client-progress-view'),'client progress route did not render');
@@ -626,6 +630,10 @@ try {
       await writeFile(`../artifacts/client-progress/kpi-${width}.png`,Buffer.from(shot.data,'base64'));
       continue;
     }
+    console.log(JSON.stringify({viewport:width,months:await evaluate('window.runTaskMonthQa()')}));
+    const monthShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await mkdir('../artifacts/client-progress',{recursive:true});
+    await writeFile('../artifacts/client-progress/task-months-'+width+'.png',Buffer.from(monthShot.data,'base64'));
     console.log(JSON.stringify({viewport:width,localSort:await evaluate('window.runLocalSortQa()')}));
     const sortShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await mkdir('../artifacts/client-progress',{recursive:true});
