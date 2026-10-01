@@ -20,6 +20,8 @@ import { buildGanttAxis, ganttMonthClass, ganttTaskLabelWidth, groupGanttTasks, 
 import { buildTaskTimeline, filterTaskSchedule, groupTaskScheduleByMedia, reorderTaskSchedule, selectTaskRange, taskHiddenFromClient, taskScheduleCategory, taskScheduleMedia, taskScheduleMediaCode, taskScheduleStatusGroup, toggleScheduleStatusFilter } from "./taskTimeline.js";
 
 import { isNewTask } from "./taskFreshness.js";
+import { taskMonthKey, taskMonthLabel, taskMonthOptions, taskMonthRelation, tasksForExecutionMonth } from "./taskMonth.js";
+import "./taskMonth.css";
 
 import IssueRequestCard from "./IssueRequestCard.jsx";
 
@@ -87,6 +89,7 @@ function TaskEditModal({ task, tasks = [], clientName, onClose, onUpdate }) {
       <form onSubmit={submit}>
         <label className="create-field is-wide"><span>업무명</span><input autoFocus required maxLength={200} value={fields.title} disabled={saving} onChange={(event) => setField("title", event.target.value)} /></label>
         <label className="create-field is-wide"><span>매체</span><select name="category_code" value={fields.category_code} disabled={saving} onChange={event => setField("category_code", event.target.value)}>{taskChannelOptions([...tasks, task]).map(([code,label]) => <option key={code} value={code}>{label}</option>)}</select></label>
+        <label className="create-field"><span>진행 월</span><input type="month" required value={fields.execution_month} disabled={saving} onChange={(event) => setField("execution_month", event.target.value)} /></label>
         <div className="create-field is-wide task-edit-status"><span>상태</span><div className="tracker-status-actions">{trackerStatusOptions.map(([code, label]) => <button key={code} type="button" disabled={saving} className={fields.status_code === code ? "is-active" : ""} onClick={() => setField("status_code", code)}>{label}</button>)}</div></div>
         <label className="create-field"><span>시작일</span><input type="date" value={fields.planned_start_date} max={fields.due_date || undefined} disabled={saving} onChange={(event) => setField("planned_start_date", event.target.value)} /></label>
         <label className="create-field"><span>종료일</span><input type="date" value={fields.due_date} min={fields.planned_start_date || undefined} disabled={saving} onChange={(event) => setField("due_date", event.target.value)} /></label>
@@ -236,7 +239,7 @@ function TaskRowActions({ task, onEdit, onArchive, disabled = false, compact = f
   </div>;
 }
 
-function TaskScheduleInlineRow({ task, project, canWrite, onUpdate, onEdit, onArchive, displayedStart, displayedEnd, newTask, rowClass, mediaColor, mediaGroupStart, selected, onSelect, reorderEnabled, dragging, dropPosition, onDragStart, onDragEnd, onDragOver, onDrop }) {
+function TaskScheduleInlineRow({ task, project, selectedMonth, canWrite, onUpdate, onEdit, onArchive, displayedStart, displayedEnd, newTask, rowClass, mediaColor, mediaGroupStart, selected, onSelect, reorderEnabled, dragging, dropPosition, onDragStart, onDragEnd, onDragOver, onDrop }) {
   const [draft, setDraft] = useState(() => taskInlineDraft(task, displayedStart, displayedEnd));
   const [savingField, setSavingField] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -340,12 +343,13 @@ function TaskScheduleInlineRow({ task, project, canWrite, onUpdate, onEdit, onAr
   const progress = Math.max(0, Math.min(100, Number(draft.progress_percent) || 0));
   const disabled = !canWrite || Boolean(savingField);
   const customerHidden = taskHiddenFromClient(task);
+  const monthRelation = taskMonthRelation(task, selectedMonth);
 
   return <tr data-window-id={task.id} className={`task-schedule-row reference-task-row ${rowClass}${mediaGroupStart ? " is-media-group-start" : ""}${newTask ? " is-new-task" : ""}${savingField ? " is-saving" : ""}${saveError ? " has-save-error" : ""}${selected ? " is-selected" : ""}${dragging ? " is-dragging" : ""}${dropPosition ? ` is-drop-${dropPosition}` : ""}`} style={{ "--media-color": mediaColor }} onDragOver={(event) => onDragOver?.(event, task.id)} onDrop={(event) => { if (!reorderEnabled) return; event.preventDefault(); onDrop?.(task.id); }}>
     {canWrite && <td className="reference-task-select"><div className="reference-task-cell"><input type="checkbox" checked={selected} onChange={(event) => onSelect?.(task.id, event.target.checked, { shiftKey: event.nativeEvent?.shiftKey || event.shiftKey })} aria-label={`${task.title} 선택`} /></div></td>}
     <td className="reference-task-media" aria-label={media}><div className="reference-task-cell"><span><i aria-hidden="true" />{media}</span></div></td>
     <td className="reference-task-workstream"><div className="reference-task-cell">{taskScheduleCategory(task)}</div></td>
-    <td className="reference-task-name"><div className="reference-task-cell">{canWrite && <span className="task-reorder-handle" draggable={reorderEnabled} onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", String(task.id)); onDragStart?.(task.id); }} onDragEnd={onDragEnd} aria-label={`${task.title} 순서 이동`} title={reorderEnabled ? "끌어서 업무 순서 이동" : "필터·개인 정렬을 기본값으로 돌리면 순서를 이동할 수 있습니다"}><GripVertical size={14} /><small>이동</small></span>}<input className="task-inline-input task-name" aria-label={`${task.title} 업무명`} maxLength={500} readOnly={!canWrite} disabled={Boolean(savingField)} value={draft.title} onChange={(event) => setField("title", event.target.value)} onBlur={(event) => void commitField("title", event.currentTarget.value)} onKeyDown={(event) => commitOnEnter(event, "title")} />{newTask && <em className="task-new-badge">신규</em>}{customerHidden && <em className="task-client-hidden-badge" title="고객사 계정에는 표시되지 않습니다"><LockKeyhole size={9} />고객 숨김</em>}{saveError && <small className="task-inline-error" role="alert">{saveError}</small>}</div></td>
+    <td className="reference-task-name"><div className="reference-task-cell">{canWrite && <span className="task-reorder-handle" draggable={reorderEnabled} onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", String(task.id)); onDragStart?.(task.id); }} onDragEnd={onDragEnd} aria-label={`${task.title} 순서 이동`} title={reorderEnabled ? "끌어서 업무 순서 이동" : "필터·개인 정렬을 기본값으로 돌리면 순서를 이동할 수 있습니다"}><GripVertical size={14} /><small>이동</small></span>}<input className="task-inline-input task-name" aria-label={`${task.title} 업무명`} maxLength={500} readOnly={!canWrite} disabled={Boolean(savingField)} value={draft.title} onChange={(event) => setField("title", event.target.value)} onBlur={(event) => void commitField("title", event.currentTarget.value)} onKeyDown={(event) => commitOnEnter(event, "title")} />{monthRelation === "CARRYOVER" && <em className="task-month-badge is-carryover">이월</em>}{monthRelation === "CURRENT" && <em className="task-month-badge">당월</em>}{newTask && <em className="task-new-badge">신규</em>}{customerHidden && <em className="task-client-hidden-badge" title="고객사 계정에는 표시되지 않습니다"><LockKeyhole size={9} />고객 숨김</em>}{saveError && <small className="task-inline-error" role="alert">{saveError}</small>}</div></td>
     <td className="reference-task-detail"><div className="reference-task-cell"><textarea className="task-inline-textarea" aria-label={`${task.title} 세부내용`} rows="1" maxLength={20000} readOnly={!canWrite} disabled={Boolean(savingField)} value={draft.description} placeholder={canWrite ? "세부내용" : ""} onChange={(event) => setField("description", event.target.value)} onBlur={(event) => void commitField("description", event.currentTarget.value)} onKeyDown={(event) => commitOnEnter(event, "description")} /></div></td>
     <td className="reference-task-dates"><div className="reference-task-cell task-inline-date-range" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) void commitField("date_range"); }}><CompactTaskDateInput label={`${task.title} 시작일`} readOnly={!canWrite} disabled={disabled} value={draft.planned_start_date} max={draft.due_date || undefined} onChange={(event) => setField("planned_start_date", event.target.value)} /><ArrowRight size={10} aria-hidden="true" /><CompactTaskDateInput label={`${task.title} 종료일`} readOnly={!canWrite} disabled={disabled} value={draft.due_date} min={draft.planned_start_date || undefined} onChange={(event) => setField("due_date", event.target.value)} /></div></td>
     <td className="reference-task-duration"><div className="reference-task-cell">{duration === null ? "–" : `${duration}일`}</div></td>
@@ -358,7 +362,7 @@ function TaskScheduleInlineRow({ task, project, canWrite, onUpdate, onEdit, onAr
   </tr>;
 }
 
-function TaskScheduleInlineTable({ expandedGroups = new Set(), onToggleGroup, sortRules, onSortCycle, tasks, project, canWrite, onUpdate, onEdit, onArchive, ganttDrafts, freshnessNow, scheduleClass, mediaColor, selectedTaskIds, onSelectTask, onSelectAll, reorderEnabled, draggingTaskIds, dropIndicator, onDragStart, onDragEnd, onDragOverTask, onDropTask }) {
+function TaskScheduleInlineTable({ expandedGroups = new Set(), onToggleGroup, sortRules, onSortCycle, tasks, project, selectedMonth, canWrite, onUpdate, onEdit, onArchive, ganttDrafts, freshnessNow, scheduleClass, mediaColor, selectedTaskIds, onSelectTask, onSelectAll, reorderEnabled, draggingTaskIds, dropIndicator, onDragStart, onDragEnd, onDragOverTask, onDropTask }) {
   const scrollRef = useRef(null);
   const displayRows = customTaskRows(tasks, expandedGroups);
   const windowed = useWindowedRows(displayRows, scrollRef, { disabled: Boolean(draggingTaskIds?.length) });
@@ -380,7 +384,7 @@ function TaskScheduleInlineTable({ expandedGroups = new Set(), onToggleGroup, so
     if (index < windowed.start || index >= windowed.end) return;
     const scheduleDates = ganttDrafts?.get(task.id) || taskScheduleDates(task);
     const bounds = scheduleDateBounds(scheduleDates);
-    bodyRows.push(<TaskScheduleInlineRow key={task.id} task={task} project={project} canWrite={canWrite} onUpdate={onUpdate} onEdit={onEdit} onArchive={onArchive} displayedStart={bounds.start || task.plannedStartDate || ""} displayedEnd={bounds.end || task.dueDate || ""} newTask={isNewTask(task, freshnessNow)} rowClass={scheduleClass(task)} mediaColor={mediaColor(media)} mediaGroupStart={mediaGroupStart} selected={selectedTaskIds?.has(task.id)} onSelect={onSelectTask} reorderEnabled={reorderEnabled} dragging={draggingTaskIds?.includes(task.id)} dropPosition={dropIndicator?.taskId === task.id ? dropIndicator.position : ""} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragOver={onDragOverTask} onDrop={onDropTask} />);
+    bodyRows.push(<TaskScheduleInlineRow key={task.id} task={task} project={project} selectedMonth={selectedMonth} canWrite={canWrite} onUpdate={onUpdate} onEdit={onEdit} onArchive={onArchive} displayedStart={bounds.start || task.plannedStartDate || ""} displayedEnd={bounds.end || task.dueDate || ""} newTask={isNewTask(task, freshnessNow)} rowClass={scheduleClass(task)} mediaColor={mediaColor(media)} mediaGroupStart={mediaGroupStart} selected={selectedTaskIds?.has(task.id)} onSelect={onSelectTask} reorderEnabled={reorderEnabled} dragging={draggingTaskIds?.includes(task.id)} dropPosition={dropIndicator?.taskId === task.id ? dropIndicator.position : ""} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragOver={onDragOverTask} onDrop={onDropTask} />);
   });
   return <div ref={scrollRef} className="task-schedule-matrix-scroll reference-task-scroll"><table className={`task-schedule-matrix is-detailed reference-task-table${canWrite ? " has-row-selection" : ""}`} style={{ "--schedule-min-width": canWrite ? "1336px" : "1252px" }}><colgroup>{canWrite && <col style={{ width: 28 }} />}{columnWidths.map((width, index) => <col key={index} style={width ? { width } : undefined} />)}{canWrite && <col style={{ width: 56 }} />}</colgroup><thead><tr>{canWrite && <th className="reference-task-select"><input type="checkbox" checked={allSelected} onChange={(event) => onSelectAll?.(event.target.checked)} aria-label="표시된 업무 전체 선택" /></th>}<th>매체</th><th>업무분야</th><th>업무</th><th>세부내용</th><th>일정</th><th>기간</th><th>완료 체크</th><TaskSortHeading field="status" label="상태" rules={sortRules} onCycle={onSortCycle} disabled={Boolean(draggingTaskIds?.length)} /><TaskSortHeading field="owner" label="담당" rules={sortRules} onCycle={onSortCycle} disabled={Boolean(draggingTaskIds?.length)} /><th>완료링크</th><th>비고</th>{canWrite && <th>관리</th>}</tr></thead><tbody>{windowed.before > 0 && <tr aria-hidden="true" className="virtual-spacer"><td colSpan={canWrite ? 13 : 11} style={{ height: windowed.before, padding: 0, border: 0 }} /></tr>}{bodyRows}{windowed.after > 0 && <tr aria-hidden="true" className="virtual-spacer"><td colSpan={canWrite ? 13 : 11} style={{ height: windowed.after, padding: 0, border: 0 }} /></tr>}</tbody></table></div>;
 }
@@ -543,6 +547,8 @@ function ProjectIssuePanel({ issues, project, canWrite, actorName, onCreate, onU
 }
 
 function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite, canWriteIssues, actorName, canEditProject, canManageVisibility = false, onUpdate, onArchive, onBatchUpdate, onProjectUpdate, onCreate, onIssueCreate, onIssueUpdate, onIssueArchive, displayMode, onViewChange, canViewActivity, activityState, onLoadActivity, summaryOnly = false, showOwners = true }) {
+  const currentMonth = taskMonthKey(localDateValue());
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [scheduleFilter, setScheduleFilter] = useState("ALL");
@@ -659,6 +665,7 @@ function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite,
     setGanttDrafts(null);
     paintRef.current = null;
     selectionAnchorRef.current = null;
+    setSelectedMonth(taskMonthKey(localDateValue()));
   }, [project.id]);
   useEffect(() => {
     setFreshnessNow(Date.now());
@@ -674,31 +681,39 @@ function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite,
   useEffect(() => { setLocalSort({ projectId: project.id, rules: [] }); }, [project.id]);
   const cycleLocalSort = (field) => { selectionAnchorRef.current = null; setLocalSort({ projectId: project.id, rules: cycleTaskLocalSort(sortRules, field) }); };
   const searchNeedle = String(query || "").trim().toLowerCase();
-  const mediaOptions = useMemo(() => [["ALL", "전체"], ...[...new Set(tasks.map(taskScheduleMedia))].map(media => [media, media])], [tasks]);
+  const monthOptions = useMemo(() => taskMonthOptions(tasks, currentMonth), [tasks, currentMonth]);
+  const monthTasks = useMemo(() => tasksForExecutionMonth(tasks, selectedMonth, currentMonth), [tasks, selectedMonth, currentMonth]);
+  const monthCounts = useMemo(() => monthTasks.reduce((counts, task) => {
+    const relation = taskMonthRelation(task, selectedMonth, currentMonth);
+    if (relation === "CARRYOVER") counts.carryover += 1;
+    else if (relation === "CURRENT") counts.current += 1;
+    return counts;
+  }, { current: 0, carryover: 0 }), [monthTasks, selectedMonth, currentMonth]);
+  const mediaOptions = useMemo(() => [["ALL", "전체"], ...[...new Set(monthTasks.map(taskScheduleMedia))].map(media => [media, media])], [monthTasks]);
   const ownerOptions = [["ALL", "전체"], ["POCKET", "포켓 업무"], ["NS", "NS 업무"]];
   const resetScheduleFilters = () => {
     setStatusFilter("ALL"); setCategoryFilter("ALL"); setScheduleFilter("ALL"); setMediaFilter("ALL"); setOwnerFilter("ALL");
   };
-  const ganttVisibleTasks = useMemo(() => filterTaskSchedule(tasks, {
+  const ganttVisibleTasks = useMemo(() => filterTaskSchedule(monthTasks, {
     status: statusFilter,
     category: categoryFilter,
     schedule: scheduleFilter,
     media: mediaFilter,
     owner: canWrite ? ownerFilter : "ALL",
-  }).filter((task) => !searchNeedle || `${task.title} ${task.description || ""} ${task.parent || ""} ${taskScheduleCategory(task)}`.toLowerCase().includes(searchNeedle)), [tasks, statusFilter, categoryFilter, scheduleFilter, mediaFilter, ownerFilter, canWrite, searchNeedle]);
+  }).filter((task) => !searchNeedle || `${task.title} ${task.description || ""} ${task.parent || ""} ${taskScheduleCategory(task)}`.toLowerCase().includes(searchNeedle)), [monthTasks, statusFilter, categoryFilter, scheduleFilter, mediaFilter, ownerFilter, canWrite, searchNeedle]);
   const filteredTasks = useMemo(() => {
     const base = groupTaskScheduleByMedia(ganttVisibleTasks);
     return displayMode === "table" ? sortTasksLocally(base, sortRules) : base;
   }, [ganttVisibleTasks, displayMode, sortRules]);
   const ganttLabelWidth = useMemo(() => ganttTaskLabelWidth(filteredTasks, { canWrite, showOwners }), [filteredTasks, canWrite, showOwners]);
-  const reorderEnabled = canWrite && !(displayMode === "table" && sortRules.length) && statusFilter === "ALL" && categoryFilter === "ALL" && scheduleFilter === "ALL" && mediaFilter === "ALL" && ownerFilter === "ALL" && !searchNeedle;
-  const statusSummaryTasks = useMemo(() => filterTaskSchedule(tasks, {
+  const reorderEnabled = canWrite && monthTasks.length === tasks.length && !(displayMode === "table" && sortRules.length) && statusFilter === "ALL" && categoryFilter === "ALL" && scheduleFilter === "ALL" && mediaFilter === "ALL" && ownerFilter === "ALL" && !searchNeedle;
+  const statusSummaryTasks = useMemo(() => filterTaskSchedule(monthTasks, {
     status: "ALL",
     category: categoryFilter,
     schedule: scheduleFilter,
     media: mediaFilter,
     owner: canWrite ? ownerFilter : "ALL",
-  }), [tasks, categoryFilter, scheduleFilter, mediaFilter, ownerFilter, canWrite]);
+  }), [monthTasks, categoryFilter, scheduleFilter, mediaFilter, ownerFilter, canWrite]);
   const timeline = useMemo(
     () => buildTaskTimeline(filteredTasks, project),
     [filteredTasks, project.startDate, project.endDate],
@@ -1175,12 +1190,15 @@ function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite,
     const owner = taskResponsibleOrgLabel(task.responsibleOrgCode, project.clientName);
     const newTask = isNewTask(task, freshnessNow);
     const holdRanges = overdueHoldRanges.get(task.id) || [];
+    const monthRelation = taskMonthRelation(task, selectedMonth, currentMonth);
     return <div data-window-id={task.id} data-gantt-row-index={rowIndex} className={`g-row${seriesChild ? " is-series-child" : ""}${newTask ? " is-new-task" : ""}${selectedTaskIds.has(task.id) ? " is-selected" : ""}${draggingTaskIds.includes(task.id) ? " is-dragging" : ""}${taskDropIndicator?.taskId === task.id ? ` is-drop-${taskDropIndicator.position}` : ""}`} key={task.id} style={{ "--fill": ganttFillColor(task), "--rail": color }}>
       <div className="g-lbl" title={`${groupLabel} · ${task.title}`} onDragOver={(event) => handleTaskDragOver(event, task.id)} onDrop={(event) => { if (!reorderEnabled) return; event.preventDefault(); void dropTasksAt(task.id); }}>
         {canWrite && <input type="checkbox" checked={selectedTaskIds.has(task.id)} onChange={(event) => selectTask(task.id, event.target.checked, { shiftKey: event.nativeEvent?.shiftKey || event.shiftKey })} aria-label={`${task.title} 선택`} />}
         {canWrite && <span className="g-reorder-handle" draggable={reorderEnabled} onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", String(task.id)); startTaskDrag(task.id); }} onDragEnd={finishTaskDrag} title={reorderEnabled ? "끌어서 선택 업무 순서 이동" : "필터·개인 정렬을 기본값으로 돌리면 순서를 이동할 수 있습니다"}><GripVertical size={13} /></span>}
         <i className="g-rail-dot" />
         <button type="button" className="g-task-open nm" disabled={!canWrite} onClick={() => canWrite && setEditingTaskId(task.id)}>{task.title}</button>
+        {monthRelation === "CARRYOVER" && <span className="task-month-badge is-carryover">이월</span>}
+        {monthRelation === "CURRENT" && <span className="task-month-badge">당월</span>}
         {newTask && <span className="g-new-badge">신규</span>}
         {taskHiddenFromClient(task) && <span className="g-client-hidden-badge" title="고객사 계정에는 표시되지 않습니다"><LockKeyhole size={9} />고객 숨김</span>}
         {canWrite && <input type="checkbox" className="task-done-check g-done-check" aria-label={`${task.title} 완료 체크`} checked={task.statusCode === "DONE"} disabled={ganttSave.status === "saving"} onPointerDown={event=>event.stopPropagation()} onChange={event=>void updateGanttQuickField(task,"status_code",event.target.checked ? "DONE" : "IN_PROGRESS")}/>}
@@ -1205,14 +1223,18 @@ function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite,
   };
 
   return <div className="campaign-schedule-board" aria-label="캠페인 운영 일정">
+    {!summaryOnly && <QuoteSummary quote={project.quoteData} />}
+    {!activityMode && <section className={`task-month-switcher${summaryOnly ? " is-client" : ""}`} aria-label="업무 진행 월 선택">
+      <header><div><strong>진행 월</strong><span>월별 실행계획과 이월 업무를 구분합니다</span></div><small>{taskMonthLabel(selectedMonth)} · 당월 {monthCounts.current}건 · 이월 {monthCounts.carryover}건</small></header>
+      <div className="task-month-buttons" role="tablist" aria-label="진행 월">{monthOptions.map((month) => <button type="button" role="tab" key={month} aria-selected={selectedMonth === month} className={selectedMonth === month ? "is-active" : ""} onClick={() => { setSelectedMonth(month); setSelectedTaskIds(new Set()); selectionAnchorRef.current = null; }}><span>{taskMonthLabel(month)}</span>{month === currentMonth && <em>당월</em>}</button>)}</div>
+    </section>}
     {!summaryOnly && <>
-    <QuoteSummary quote={project.quoteData} />
     <section className="campaign-board-progress is-checklist" aria-label="업무 완료 현황"><div><span>완료 업무</span><strong>{completed}<em> / {countable.length}건</em></strong><small>미완료 {countable.length-completed}건 · 지연 {delayed}건</small></div><div className="campaign-board-statuses">{[["ALL","전체",countable.length],["TODO","시작 전",notStarted],["ACTIVE","진행중",inProgress],["DELAYED","지연",delayed],["DONE","완료",done],["HOLD","보류",onHold]].map(([code,label,count])=><button type="button" key={code} className={statusFilter===code ? "is-active" : ""} onClick={()=>setStatusFilter(current=>toggleScheduleStatusFilter(current,code))}><span>{label}</span><strong>{count}</strong></button>)}</div></section>
     <div className="campaign-schedule-toolbar reference-toolbar toolbar">
       <TaskWorkspaceTabs activeView={displayMode} onChange={onViewChange} canViewActivity={canViewActivity} />
       {activityMode ? <div className="task-activity-toolbar-copy">사용자가 생성·완료·변경한 업무만 표시합니다.</div> : canEditProject && <div className="schedule-start-date refbox"><label><span>착수일</span><input type="date" value={startDateDraft} disabled={startDateSaving} onChange={(event) => { setStartDateDraft(event.target.value); setStartDateError(""); }} /></label><button type="button" className="btn" disabled={startDateSaving || !startDateDraft || startDateDraft === (project.startDate || "")} onClick={saveProjectStartDate}>{startDateSaving ? "저장 중" : "저장"}</button>{startDateError && <small role="alert">{startDateError}</small>}</div>}
     </div>
-    {!activityMode && <TaskScheduleFilters key={project.id} count={filteredTasks.length} total={tasks.length} onReset={resetScheduleFilters} groups={[
+    {!activityMode && <TaskScheduleFilters key={`${project.id}:${selectedMonth}`} count={filteredTasks.length} total={monthTasks.length} onReset={resetScheduleFilters} groups={[
       { id: "media", label: "매체별", value: mediaFilter, options: mediaOptions, onChange: setMediaFilter },
       { id: "category", label: "업무 분야별", value: categoryFilter, options: scheduleCategoryFilters, onChange: setCategoryFilter },
       { id: "period", label: "기간별", value: scheduleFilter, options: scheduleWeekFilters, onChange: setScheduleFilter },
@@ -1224,7 +1246,7 @@ function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite,
     <section ref={schedulePanelRef} className="task-timeline panel campaign-schedule-surface reference-schedule-panel" aria-label="업무 일정">
       <header className="campaign-schedule-table-heading panel-head reference-panel-head"><div><h2>{summaryOnly ? "프로젝트 간트" : activityMode ? "업무 로그" : displayMode === "gantt" ? "타임라인" : "업무 일정"}</h2><span className="hint">{activityMode ? "업무명과 변경 내용을 확인할 수 있는 누적 사용자 작업 이력" : <>{filteredTasks.length}건 표시{displayMode === "gantt" ? " · 머리글과 왼쪽 업무명 고정" : canWrite ? " · 업무명 수정 · 이동 손잡이로 순서 변경" : " · 업무명과 일정을 확인"}</>}</span>{!activityMode && ganttSave.status !== "idle" && <small className={`gantt-save-state is-${ganttSave.status}`}>{ganttSave.status === "saving" ? `업무 저장 중 ${ganttSave.saved}/${ganttSave.total}` : ganttSave.status === "saved" ? `${ganttSave.saved}개 업무 일정 저장 완료` : ganttSave.error}</small>}</div><div>{activityMode ? <button className="btn" type="button" onClick={() => onLoadActivity?.()} disabled={activityState?.status === "loading" || activityState?.loadingMore}>{activityState?.status === "loading" ? <LoaderCircle size={13} className="spin" /> : <RefreshCw size={13} />}새로고침</button> : <>{canWrite && onCreate && <button type="button" className="btn task-schedule-create" onClick={() => onCreate("task-completed")}><Check size={13} />완료 업무 추가</button>}{canWrite && onCreate && <button type="button" className="btn primary task-schedule-create" onClick={() => onCreate("task")}><Plus size={13} />업무 추가</button>}</>}</div></header>
       {displayMode === "gantt" && canWrite && <div className="g-hint"><span>✎</span><span>칸을 클릭하면 칠해지고, 다시 누르면 지워집니다. 옆으로 끌면 여러 칸을 한 번에 — 시작일·종료일·기간은 칠한 범위에 맞춰 자동으로 바뀝니다.</span></div>}
-      {activityMode ? <TaskActivityLog state={activityState} tasks={tasks} clientName={project.clientName} onRefresh={() => onLoadActivity?.()} onLoadMore={(cursor) => onLoadActivity?.({ append: true, cursor })} /> : filteredTasks.length === 0 ? <EmptyState title={summaryOnly ? "등록된 업무가 없습니다" : "조건에 맞는 업무가 없습니다"} description={summaryOnly ? "업무를 등록하면 같은 일정이 여기에 표시됩니다." : "상태·카테고리·일정 필터를 변경해 주세요."} /> : displayMode === "gantt" && !days.length ? <EmptyState title={`일정 미등록 ${missingSchedule}건`} description="프로젝트 기간 또는 업무 날짜를 먼저 입력해 주세요." /> : displayMode === "table" ? <TaskScheduleInlineTable expandedGroups={expandedGroups} onToggleGroup={toggleGroup} sortRules={sortRules} onSortCycle={cycleLocalSort} tasks={filteredTasks} project={project} canWrite={canWrite} onUpdate={onUpdate} onEdit={setEditingTaskId} onArchive={onArchive} ganttDrafts={ganttDrafts} freshnessNow={freshnessNow} scheduleClass={scheduleClass} mediaColor={ganttCategoryColor} selectedTaskIds={selectedTaskIds} onSelectTask={selectTask} onSelectAll={selectAllVisible} reorderEnabled={reorderEnabled} draggingTaskIds={draggingTaskIds} dropIndicator={taskDropIndicator} onDragStart={startTaskDrag} onDragEnd={finishTaskDrag} onDragOverTask={handleTaskDragOver} onDropTask={(taskId) => void dropTasksAt(taskId)} /> : <div ref={ganttScrollRef} className="reference-gantt-scroll scroll"><div id="gantt" ref={matrixRef} onPointerDown={beginGanttPaint} onPointerMove={highlightGanttAxes} onPointerLeave={clearGanttAxisHighlight} className="gantt reference-gantt" style={{ width: `${ganttLabelWidth + ganttTrackWidth}px`, minWidth: `${ganttLabelWidth + ganttTrackWidth}px`, "--gantt-label-width": `${ganttLabelWidth}px`, "--gantt-day-width": `${GANTT_DAY_WIDTH}px` }}>
+      {activityMode ? <TaskActivityLog state={activityState} tasks={tasks} clientName={project.clientName} onRefresh={() => onLoadActivity?.()} onLoadMore={(cursor) => onLoadActivity?.({ append: true, cursor })} /> : filteredTasks.length === 0 ? <EmptyState title={`${taskMonthLabel(selectedMonth)} 업무가 없습니다`} description="다른 진행 월을 선택하거나 업무의 진행 월을 변경해 주세요." /> : displayMode === "gantt" && !days.length ? <EmptyState title={`일정 미등록 ${missingSchedule}건`} description="프로젝트 기간 또는 업무 날짜를 먼저 입력해 주세요." /> : displayMode === "table" ? <TaskScheduleInlineTable expandedGroups={expandedGroups} onToggleGroup={toggleGroup} sortRules={sortRules} onSortCycle={cycleLocalSort} tasks={filteredTasks} project={project} selectedMonth={selectedMonth} canWrite={canWrite} onUpdate={onUpdate} onEdit={setEditingTaskId} onArchive={onArchive} ganttDrafts={ganttDrafts} freshnessNow={freshnessNow} scheduleClass={scheduleClass} mediaColor={ganttCategoryColor} selectedTaskIds={selectedTaskIds} onSelectTask={selectTask} onSelectAll={selectAllVisible} reorderEnabled={reorderEnabled} draggingTaskIds={draggingTaskIds} dropIndicator={taskDropIndicator} onDragStart={startTaskDrag} onDragEnd={finishTaskDrag} onDragOverTask={handleTaskDragOver} onDropTask={(taskId) => void dropTasksAt(taskId)} /> : <div ref={ganttScrollRef} className="reference-gantt-scroll scroll"><div id="gantt" ref={matrixRef} onPointerDown={beginGanttPaint} onPointerMove={highlightGanttAxes} onPointerLeave={clearGanttAxisHighlight} className="gantt reference-gantt" style={{ width: `${ganttLabelWidth + ganttTrackWidth}px`, minWidth: `${ganttLabelWidth + ganttTrackWidth}px`, "--gantt-label-width": `${ganttLabelWidth}px`, "--gantt-day-width": `${GANTT_DAY_WIDTH}px` }}>
         <div className="g-hrow"><div className="g-lbl g-corner">{canWrite && <input type="checkbox" checked={Boolean(filteredTasks.length && filteredTasks.every((task) => selectedTaskIds.has(task.id)))} onChange={(event) => selectAllVisible(event.target.checked)} aria-label="표시된 업무 전체 선택" />}<span className="nm">매체 · 업무</span></div><div className="g-hstack" style={{ width: `${ganttTrackWidth}px` }}><div className="g-months">{months.map((month) => <div className={`g-m month-tone-${month.tone}`} key={month.key} style={{ width: `${month.count * GANTT_DAY_WIDTH}px` }}>{month.label}</div>)}</div><div className="g-days">{days.map((day, dayIndex) => <div key={day.iso} data-gantt-day-index={dayIndex} className={`g-d${ganttMonthClass(day)}${day.weekend ? " we" : ""}${day.weekday === "일" ? " sun" : ""}${day.iso === today ? " ref" : ""}`}><span>{day.day}</span><span className="dw">{day.weekday}</span></div>)}</div></div></div>
         {ganttWindow.before > 0 && <div aria-hidden="true" style={{ height: ganttWindow.before }} />}
         {ganttWindowRows.slice(ganttWindow.start, ganttWindow.end).map(row => {

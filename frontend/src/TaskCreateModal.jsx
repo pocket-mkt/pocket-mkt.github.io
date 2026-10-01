@@ -64,6 +64,7 @@ export function TaskCreateModal({ completed = false, role, clientName, tasks = [
             <Choices required label="담당" options={owners} value={fields.responsible_org_code} onChange={value => setField("responsible_org_code",value)}/>
           </div>
           <label className="task-create-field"><span>매체 <small>선택</small></span><select name="category_code" value={fields.category_code} onChange={event => setField("category_code", event.target.value)}>{taskChannelOptions(tasks).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
+          <label className="task-create-field"><span>진행 월 <small>필수 · 실행계획 기준</small></span><input name="execution_month" type="month" required value={fields.execution_month} onChange={event => setField("execution_month", event.target.value)} /></label>
           <section className="task-create-schedule" aria-label="업무 일정 설정">
             <div className="task-create-section-heading"><strong><CalendarDays size={15}/> 업무 일정</strong><span>{duration ? `총 ${duration}일` : "일정 미정"}</span></div>
             <div className="task-create-date-presets" role="group" aria-label="일정 빠른 선택">{presets.map(([code,label]) => {

@@ -1,5 +1,6 @@
 import { serializeScheduleDates, taskScheduleDates } from "./taskGantt.js";
 import { normalizeTaskWorkstreamCode } from "./taskForm.js";
+import { normalizeTaskExecutionMonth } from "./taskMonth.js";
 
 // Allowlist only reusable task data; never clone identity or completion/hold history.
 export function taskCopyFields(task, sortOrder) {
@@ -12,6 +13,7 @@ export function taskCopyFields(task, sortOrder) {
     responsible_org_code: task.responsibleOrgCode || "POCKET",
     reviewer_org_code: "POCKET",
     priority_code: task.priorityCode || "NORMAL",
+    execution_month: normalizeTaskExecutionMonth(task.executionMonth, task.plannedStartDate) || null,
     planned_start_date: task.plannedStartDate || null,
     due_date: task.dueDate || null,
     schedule_dates_json: serializeScheduleDates(taskScheduleDates(task)),

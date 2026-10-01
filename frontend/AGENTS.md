@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- Monthly task plans (2026-10-01): schedule table and Gantt share a button-based execution-month selector, defaulting to the current Korea month and retaining prior months. Store one `execution_month` per task; never clone a task for rollover. A prior-month task remains visible in its source month and appears in a later month only while unfinished, scheduled across that month, or completed in that month, labelled `이월`. Task create/edit must expose the execution month and all safe internal/client projections and audit field labels must preserve it.
+
 - Bulk task copy (2026-09-19): use the existing selection toolbar in table/Gantt, confirm the selected count before CREATE, and cancel without writes. Preserve reusable fields/sparse dates and visibility; omit identity/completion/hold history. Reuse mutation IDs on retry and the existing authorized audited save path.
 
 - Meeting search (2026-09-15): daily search queries all dates through authenticated daily_meetings RLS, filtered before 20-row pagination. No schema/grant changes, private-content browser persistence, project-by-project preloads or fetch buttons. Debounce and cancel stale reads; expose failures and retry. All keywords use literal case-insensitive substring matching; SEO was only an example, never add special keyword synonyms or a related-terms control. Show company/date/field/snippet, escaped highlights and full original inline. Preserve existing weekday navigation and customer boundaries.

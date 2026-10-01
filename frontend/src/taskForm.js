@@ -1,4 +1,5 @@
 import { scheduleDateRange, serializeScheduleDates, taskScheduleDates } from "./taskGantt.js";
+import { normalizeTaskExecutionMonth, taskMonthKey } from "./taskMonth.js";
 
 export function taskResponsibleOrgOptions(clientName = "고객사") {
   return [
@@ -94,6 +95,7 @@ export function taskCreateValidationError(fields = {}) {
   if (!TASK_STATUS_CYCLE.includes(String(fields.status_code || "").toUpperCase())) return "현재 상태를 선택해 주세요.";
   if (Boolean(fields.planned_start_date) !== Boolean(fields.due_date)) return "시작일과 종료일을 함께 선택하거나 일정 미정을 선택해 주세요.";
   if (fields.planned_start_date && taskDateRangeDuration(fields) === null) return "종료일은 시작일과 같거나 이후여야 합니다.";
+  if (!taskMonthKey(fields.execution_month)) return "진행 월을 선택해 주세요.";
 
   if (fields.completion_url) {
     try { if (new URL(fields.completion_url).protocol !== "https:") return "완료링크는 https:// 주소를 입력해 주세요."; }
@@ -113,6 +115,7 @@ export function taskCreateInitialFields(role, mode = "default", todayValue = new
     status_code: mode === "completed" ? "DONE" : "NOT_STARTED",
     priority_code: "NORMAL",
     description: "",
+    execution_month: taskMonthKey(todayValue),
     ...taskDateRangePreset(mode === "completed" ? "LAST_7" : "NEXT_7", todayValue),
     progress_percent: mode === "completed" ? 100 : 0,
     completion_url: "",
@@ -125,6 +128,7 @@ export function taskCreateSubmissionFields(fields) {
   const cleaned = Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== ""));
   cleaned.title = String(fields.title || "").trim() || "제목 없는 업무";
   if (cleaned.workstream_code) cleaned.workstream_code = normalizeTaskWorkstreamCode(cleaned.workstream_code);
+  cleaned.execution_month = normalizeTaskExecutionMonth(fields.execution_month, fields.planned_start_date);
   delete cleaned.progress_percent;
   if (cleaned.status_code === "DONE") cleaned.progress_percent = 100;
   if (cleaned.planned_start_date && cleaned.due_date) cleaned.schedule_dates_json = serializeScheduleDates(scheduleDateRange(cleaned.planned_start_date, cleaned.due_date));
@@ -138,6 +142,7 @@ export function taskUpdateInitialFields(task = {}) {
     title: task.title || "",
     status_code: task.statusCode === "COMPLETED" ? "DONE" : task.statusCode || "NOT_STARTED",
     description: task.description || "",
+    execution_month: taskMonthKey(task.executionMonth || task.plannedStartDate || task.createdAt, taskMonthKey(new Date())),
     planned_start_date: task.plannedStartDate || "",
     due_date: task.dueDate || "",
     progress_percent: task.progressPercent ?? 0,
@@ -156,6 +161,7 @@ export function taskUpdateSubmissionFields(fields = {}) {
     title: String(fields.title || "").trim(),
     status_code: String(fields.status_code || "NOT_STARTED").toUpperCase(),
     description: fields.description || "",
+    execution_month: normalizeTaskExecutionMonth(fields.execution_month, plannedStartDate),
     planned_start_date: plannedStartDate,
     due_date: dueDate,
     schedule_dates_json: fields.originalSchedule && fields.originalSchedule.start === plannedStartDate && fields.originalSchedule.end === dueDate

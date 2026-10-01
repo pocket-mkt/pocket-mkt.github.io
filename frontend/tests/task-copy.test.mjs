@@ -9,6 +9,7 @@ test('copy preserves sparse dates and reusable fields, not identity or completio
   assert.deepEqual(task, before);
   assert.deepEqual(JSON.parse(fields.schedule_dates_json), task.scheduleDates);
   assert.equal(fields.status_code, 'NOT_STARTED');
+  assert.equal(fields.execution_month, '2026-09-01');
   assert.equal(fields.workstream_code, 'MARKETING');
   assert.equal(fields.visibility_code, 'POCKET_ONLY');
   for (const key of ['id','completion_url','overdue_hold_ranges','source_task_id','created_at','row_version']) assert.equal(key in fields, false);
@@ -33,5 +34,6 @@ test('unscheduled copies stay unscheduled', () => {
   const copy = taskCopyFields({ title: '미정', scheduleDates: [] }, 10);
   assert.equal(copy.planned_start_date, null);
   assert.equal(copy.due_date, null);
+  assert.equal(copy.execution_month, null);
   assert.deepEqual(JSON.parse(copy.schedule_dates_json), []);
 });

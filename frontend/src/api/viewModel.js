@@ -58,6 +58,7 @@ const TASK_RESPONSIBLE_ORG_LABELS = { POCKET: "포켓", NS: "NS", CLIENT: "고�
 const ACTIVITY_ACTION_LABELS = { CREATED: "추가", UPDATED: "수정", ARCHIVED: "보관", RESTORED: "복구", APPROVED: "승인", REJECTED: "반려" };
 const ACTIVITY_FIELD_LABELS = {
   task_group_name: "업무 그룹",
+  execution_month: "진행 월",
   title: "업무명",
   status_code: "상태",
   description: "세부내용",
@@ -412,6 +413,7 @@ export function tasksViewModel(envelope) {
         sourceTaskId: row.source_task_id || null,
         taskGroupId: row.task_group_id || null,
         taskGroupName: row.task_group_name || null,
+        executionMonth: row.execution_month ? String(row.execution_month).slice(0, 10) : null,
         phaseCode: String(row.phase_code || "").toUpperCase(),
         phase: codeLabel(row.phase_code, PHASE_LABELS),
         streamCode: String(row.workstream_code || "").toUpperCase(),
