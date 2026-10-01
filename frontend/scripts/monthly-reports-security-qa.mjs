@@ -12,7 +12,7 @@ export async function verifyMonthlyReportsSecurity(db, users, assert) {
     assert(error?.code === code, `monthly reports expected ${code}, received ${error?.code}: ${error?.message}`);
   };
   try {
-    await db.exec(`update public.projects set client_view_enabled=true where id=1; update public.project_memberships set allowed_pages=array['performance'],archived_at=null,status_code='ACTIVE' where project_id=1; update public.project_memberships set archived_at=now() where user_id='${users.ns}' and project_id<>1;`);
+    await db.exec(`update public.projects set client_view_enabled=true where id=1; update public.project_memberships set allowed_pages=array['reports'],archived_at=null,status_code='ACTIVE' where project_id=1; update public.project_memberships set archived_at=now() where user_id='${users.ns}' and project_id<>1;`);
     await as('manager'); assert((await list()).items.length === 0, 'new reports not empty');
     const mutation = crypto.randomUUID();
     assert((await save(null, false, mutation)).row_version === 1, 'report not created');
@@ -30,12 +30,20 @@ export async function verifyMonthlyReportsSecurity(db, users, assert) {
     await save(1, true);
     await as('client'); assert((await read()).item.html.includes('QA') && !(await list()).canWrite, 'published not readable/read-only');
     await db.exec(`reset role; update public.project_memberships set allowed_pages=array['progress'] where project_id=1 and user_id='${users.client}';`);
-    await as('client'); assert((await read()).item?.published, 'progress-only customer cannot open published report');
+    await as('client'); await rejects(()=>read(),'42501');
     await db.exec(`reset role; update public.project_memberships set allowed_pages=array['tasks'] where project_id=1 and user_id='${users.client}';`);
-    await as('client'); assert((await read()).item?.published, 'tasks customer cannot open shared report');
+    await as('client'); await rejects(()=>read(),'42501');
+    await db.exec(`reset role; update public.project_memberships set allowed_pages=array['performance'] where project_id=1 and user_id='${users.client}';`);
+    await as('client'); await rejects(()=>read(),'42501');
+    await db.exec(`reset role; update public.project_memberships set allowed_pages=array['reports'] where project_id=1 and user_id='${users.client}';`);
+    await as('client'); assert((await read()).item?.published,'reports-only client cannot read published report');
+    await rejects(()=>db.query('select public.read_client_progress(1)'), '42501');
+    await rejects(()=>db.query('select public.read_task_workspace(1,false)'), '42501');
+    const bootstrap=await query('select public.read_bootstrap() v');
+    assert(bootstrap.projects.some(p=>p.allowed_pages.includes('reports')),'report-only account lost project at bootstrap');
     await db.exec(`reset role; update public.project_memberships set allowed_pages=array['overview'] where project_id=1 and user_id='${users.client}';`);
     await as('client'); await rejects(() => list(), '42501');
-    await db.exec(`reset role; update public.project_memberships set allowed_pages=array['performance'] where project_id=1 and user_id='${users.client}'; update public.projects set client_view_enabled=false where id=1;`);
+    await db.exec(`reset role; update public.project_memberships set allowed_pages=array['reports'] where project_id=1 and user_id='${users.client}'; update public.projects set client_view_enabled=false where id=1;`);
     await as('client'); await rejects(() => read(), '42501');
     await as('manager'); const archiveId = crypto.randomUUID();
     await save(2, false, archiveId, 'ARCHIVE', null);

@@ -4,15 +4,15 @@ export const PAGE_CATALOG = Object.freeze([
   Object.freeze({ id: "plan", label: "실행계획", description: "클라이언트 공유용 실행계획", navigation: true, customerSelectable: true }),
   Object.freeze({ id: "tasks", label: "업무", description: "업무 일정·간트·업무 로그", navigation: true, customerSelectable: true, nested: true }),
   Object.freeze({ id: "progress", label: "진행상황", description: "내부 회의·이슈·업무 의사결정", navigation: true, customerSelectable: false, nested: true }),
-  Object.freeze({ id: "client-progress", label: "진행상황 - 클라이언트", permissionId: "progress", description: "고객 공개 업무 흐름·간트와 월별 마케팅 보고서", navigation: true, customerSelectable: true, nested: true }),
+  Object.freeze({ id: "client-progress", label: "진행상황 - 클라이언트", permissionId: "progress", description: "고객 공개 업무 흐름·간트 (내부 회의·확인요청 제외)", navigation: true, customerSelectable: true, nested: true }),
   Object.freeze({ id: "schedule", label: "일정표", permissionId: "tasks", navigation: false, customerSelectable: false, nested: true }),
   Object.freeze({ id: "daily", label: "데일리 회의록", description: "날짜별 회의 내용과 후속 업무", navigation: true, customerSelectable: true, nested: true }),
   Object.freeze({ id: "blog", label: "블로그 현황", description: "게시 현황·목표 키워드·순위 기록", navigation: true, customerSelectable: false, nested: true }),
   Object.freeze({ id: "credentials", label: "아이디 관리대장", description: "사이트 계정과 비밀번호 보관", navigation: true, customerSelectable: false, nested: true }),
   Object.freeze({ id: "content", label: "콘텐츠", navigation: false, customerSelectable: false }),
   Object.freeze({ id: "tracking", label: "성과 추적", navigation: false, customerSelectable: false }),
-  Object.freeze({ id: "performance", label: "KPI 성과", description: "핵심 KPI와 공개된 월별 마케팅 보고서", navigation: true, customerSelectable: true }),
-  Object.freeze({ id: "reports", label: "월별 마케팅 성과", permissionId: "performance", description: "고객 공개 월별 HTML 보고서", navigation: true, customerSelectable: false }),
+  Object.freeze({ id: "performance", label: "KPI 성과", description: "기존 계정의 KPI 조회 권한. 고객 메뉴에는 표시되지 않습니다.", navigation: true, customerSelectable: true, legacyPermission: true }),
+  Object.freeze({ id: "reports", label: "월별 마케팅 성과", description: "월별 HTML 보고서 중 고객에게 공개한 보고서만 조회", navigation: true, customerSelectable: true }),
   Object.freeze({ id: "files", label: "세부 로그", description: "전체 프로젝트 계정별 작업 이력", navigation: true, customerSelectable: false }),
 ]);
 
@@ -28,6 +28,21 @@ export const CLIENT_SHARING_NAVIGATION_GROUP = Object.freeze({
 });
 
 export const ACCESS_PAGE_KEYS = Object.freeze(ACCESS_PAGE_OPTIONS.map((page) => page.id));
+export const DEFAULT_CUSTOMER_PAGES = Object.freeze(['plan', 'progress', 'reports']);
+
+export function accessProjectLabel(project = {}) {
+  const name = String(project.name || project.projectName || '').trim();
+  const client = String(project.clientName || '').trim();
+  if (!client) return name || '프로젝트 이름 미확인';
+  return name && name !== client ? `${client} · ${name}` : client;
+}
+
+export function projectAccessDraft(account, projectId) {
+  const access = account?.accesses?.find(item => String(item.projectId) === String(projectId));
+  return { projectId: String(projectId || ''), membershipId: access?.id || '',
+    expectedRowVersion: access?.rowVersion || undefined,
+    allowedPages: normalizeAllowedPages(access ? access.allowedPages : DEFAULT_CUSTOMER_PAGES) };
+}
 
 export function normalizeAllowedPages(value) {
   const requested = Array.isArray(value) ? value.map((item) => String(item || "").toLowerCase()) : [];
@@ -35,7 +50,8 @@ export function normalizeAllowedPages(value) {
 }
 
 export function firstAllowedView(value) {
-  const first = normalizeAllowedPages(value)[0] || "overview";
+  const pages = normalizeAllowedPages(value);
+  const first = ['plan', 'progress', 'reports', 'tasks', 'daily', 'overview', 'performance'].find(page => pages.includes(page)) || "overview";
   return first === "progress" ? "client-progress" : first;
 }
 
@@ -46,7 +62,7 @@ export function isViewAllowed(view, allowedPages) {
   if (normalized === "portfolio") return false;
   if (normalized === "credentials") return false;
   if (normalized === "progress") return false;
-  if (normalized === "reports") return normalizeAllowedPages(allowedPages).some(page => ['progress','tasks','performance'].includes(page));
+  if (normalized === "reports") return normalizeAllowedPages(allowedPages).includes('reports');
   if (normalized === "client-progress") return normalizeAllowedPages(allowedPages).some(page => page === "progress" || page === "tasks");
   if (normalized === "content" || normalized === "tracking") return false;
   if (normalized === "schedule") return normalizeAllowedPages(allowedPages).includes("tasks");
@@ -64,6 +80,7 @@ export function accountSubmission(fields = {}) {
     enabled: fields.enabled !== false,
   };
   if (fields.membershipId) submission.membershipId = String(fields.membershipId);
+  if (Number.isSafeInteger(fields.expectedRowVersion) && fields.expectedRowVersion > 0) submission.expectedRowVersion = fields.expectedRowVersion;
   return submission;
 }
 

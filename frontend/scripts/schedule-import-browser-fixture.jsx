@@ -60,7 +60,7 @@ export async function runScheduleImportQa(render,tick,check) {
     // A future import must be visible immediately, without persisting another user's filters.
     const next=shiftTaskMonth(taskMonthKey(new Date()),1),tasks=tasksViewModel({data:{items:[...ledger.values()].map(row=>({...row,execution_month:next+'-01'}))}}).items;
     await render(<div/>);await render(<TasksView role="pocket" taskPage={{items:tasks,project:{...projects[1],scheduleFocus:{month:next,id:'import-complete'}}}} query="" canWrite/>);await settle();
-    for(let attempt=0;attempt<50&&!document.querySelector(`[data-execution-month="${next}"]`);attempt++)await tick();
+    for(let attempt=0;attempt<50&&document.querySelector(`[data-execution-month="${next}"]`)?.getAttribute('aria-pressed')!=='true';attempt++)await tick();
     check(document.querySelector(`[data-execution-month="${next}"]`)?.getAttribute('aria-pressed')==='true','imported month not focused: '+document.body.textContent.slice(0,400));
     check(document.querySelectorAll('.g-row[data-window-id]').length>0,'imported Gantt rows not rendered');
     const tableButton=[...document.querySelectorAll('.task-workspace-tabs button')].find(button=>button.textContent==='일정표');

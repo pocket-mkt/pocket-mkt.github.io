@@ -7,7 +7,7 @@ const ALLOWED_ORIGINS = new Set([
   "http://127.0.0.1:8767",
   "http://localhost:8767",
 ]);
-const PAGE_OPTIONS = ["overview", "plan", "tasks", "progress", "daily", "performance", "files"];
+const PAGE_OPTIONS = ["overview", "plan", "tasks", "progress", "daily", "performance", "reports"];
 
 function cors(req: Request) {
   const origin = req.headers.get("origin") || "";
@@ -106,7 +106,7 @@ Deno.serve(async (req: Request) => {
       const authById = new Map(authUsers.map((user) => [user.id, user]));
       return {
         clients: (clients || []).filter((client) => visibleClientIds.has(String(client.id))).map((client) => ({ client_id: client.legacy_id || String(client.id), display_name: client.display_name, status_code: client.status_code })),
-        projects: visibleProjects.map((project) => ({ project_id: project.legacy_id || String(project.id), client_id: (clients || []).find((client) => client.id === project.client_id)?.legacy_id || String(project.client_id), project_name: project.project_name, status_code: project.status_code })),
+        projects: visibleProjects.map((project) => ({ project_id: project.legacy_id || String(project.id), client_id: (clients || []).find((client) => client.id === project.client_id)?.legacy_id || String(project.client_id), client_name: (clients || []).find((client) => client.id === project.client_id)?.display_name || '', project_name: project.project_name, status_code: project.status_code })),
         accounts: (profiles || []).map((profile) => {
           const user = authById.get(profile.id);
           const accesses = visibleMemberships.filter((membership) => membership.user_id === profile.id && !membership.archived_at).map((membership) => {
@@ -117,6 +117,7 @@ Deno.serve(async (req: Request) => {
               client_id: client?.legacy_id || String(project?.client_id || ""),
               project_id: project?.legacy_id || String(membership.project_id),
               project_name: project?.project_name || "",
+              client_name: client?.display_name || '',
               permission_code: membership.permission_code,
               allowed_pages: membership.allowed_pages || [],
               row_version: membership.row_version,
@@ -147,13 +148,26 @@ Deno.serve(async (req: Request) => {
     const pages = normalizePages(input.allowedPages || input.allowed_pages);
     if (!/^[a-z0-9._-]{2,40}$/.test(account) || !projectLegacyId) return fail(req, 400, "invalid_input", "아이디와 프로젝트를 확인해 주세요.");
 
-    const { data: project, error: projectError } = await admin.from("projects").select("id,legacy_id,client_id").eq("legacy_id", projectLegacyId).is("archived_at", null).maybeSingle();
+    const { data: project, error: projectError } = await admin.from("projects").select("id,legacy_id,client_id,status_code").eq(/^[1-9]\d*$/.test(projectLegacyId) ? "id" : "legacy_id", projectLegacyId).is("archived_at", null).maybeSingle();
     if (projectError) throw projectError;
     if (!project) return fail(req, 404, "not_found", "프로젝트를 찾지 못했습니다.");
+    if (project.status_code === 'DISABLED') return fail(req, 400, 'invalid_input', '중지된 프로젝트에는 권한을 배정할 수 없습니다.');
     if (!canManageProject(project.id)) return fail(req, 403, "forbidden", "이 프로젝트의 고객 권한을 관리할 수 없습니다.");
     if (operation === "DISABLE" && !pocketManager) return fail(req, 403, "forbidden", "전체 계정 비활성화는 포켓 관리자만 할 수 있습니다.");
     const users = await allUsers(admin);
     let authUser = users.find((user) => String(user.email || "").toLowerCase() === email) || null;
+    let targetProfile: Record<string, unknown> | null = null;
+    if (authUser) {
+      const { data, error } = await admin.from('profiles').select('id,organization_code,role_code,status_code,archived_at').eq('id',authUser.id).maybeSingle();
+      if (error) throw error;
+      targetProfile = data;
+      if (!targetProfile || targetProfile.organization_code !== 'CLIENT' || targetProfile.role_code !== 'CLIENT_VIEWER' || targetProfile.archived_at) {
+        return fail(req,403,'forbidden','이 화면에서는 기존 고객 계정만 수정할 수 있습니다. 내부 운영 계정은 변경할 수 없습니다.');
+      }
+      if (nsManager && operation === 'UPSERT' && (input.enabled !== false) !== (targetProfile.status_code === 'ACTIVE')) {
+        return fail(req,403,'forbidden','전체 계정 상태 변경은 포켓 관리자만 할 수 있습니다.');
+      }
+    }
     if (nsManager && authUser) {
       const scopedIds = [...(manageableProjectIds || [])];
       if (!scopedIds.length) return fail(req, 403, "forbidden", "관리 가능한 프로젝트가 없습니다.");
@@ -179,9 +193,16 @@ Deno.serve(async (req: Request) => {
       return response(req, 200, { ok: true, generatedAt: new Date().toISOString(), data: { saved: true, removed: true } });
     }
 
+    const { data: existingMembership, error: membershipReadError } = authUser
+      ? await admin.from('project_memberships').select('id,row_version').eq('project_id',project.id).eq('user_id',authUser.id).maybeSingle()
+      : {data:null,error:null};
+    if (membershipReadError) throw membershipReadError;
+    if (input.membershipId && String(input.membershipId) !== String(existingMembership?.id || '')) return fail(req,409,'conflict','선택한 프로젝트와 권한 행이 일치하지 않습니다. 화면을 다시 열어 주세요.');
+    if (input.expectedRowVersion !== undefined && Number(input.expectedRowVersion) !== Number(existingMembership?.row_version)) return fail(req,409,'conflict','다른 운영자가 권한을 변경했습니다. 화면을 다시 열어 확인해 주세요.');
     const enabled = operation !== "DISABLE" && input.enabled !== false;
     if (!displayName || (operation === "UPSERT" && !pages.length)) return fail(req, 400, "invalid_input", "표시 이름과 허용 페이지가 필요합니다.");
     if (!authUser && password.length < 8) return fail(req, 400, "invalid_input", "신규 계정 비밀번호는 8자 이상이어야 합니다.");
+    if (password && password.length < 8) return fail(req,400,'invalid_input','새 비밀번호는 8자 이상이어야 합니다.');
     if (!authUser) {
       const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { display_name: displayName } });
       if (error) throw error;
@@ -219,20 +240,19 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const { data: existingMembership, error: membershipReadError } = await admin.from("project_memberships").select("id").eq("project_id", project.id).eq("user_id", authUser.id).maybeSingle();
-    if (membershipReadError) throw membershipReadError;
     const membershipValues = { permission_code: "READ_ONLY", allowed_pages: pages, status_code: enabled ? "ACTIVE" : "DISABLED", archived_at: enabled ? null : new Date().toISOString() };
     const membershipResult = existingMembership
-      ? await admin.from("project_memberships").update(membershipValues).eq("id", existingMembership.id)
-      : await admin.from("project_memberships").insert({ ...membershipValues, legacy_id: `SB-MEM-${account.toUpperCase()}-${projectLegacyId}`, project_id: project.id, user_id: authUser.id });
+      ? await admin.from("project_memberships").update(membershipValues).eq("id", existingMembership.id).eq('row_version',existingMembership.row_version).select('id').maybeSingle()
+      : await admin.from("project_memberships").insert({ ...membershipValues, legacy_id: `SB-MEM-${account.toUpperCase()}-${projectLegacyId}`, project_id: project.id, user_id: authUser.id }).select('id').maybeSingle();
     if (membershipResult.error) throw membershipResult.error;
+    if (!membershipResult.data) return fail(req,409,'conflict','다른 운영자가 권한을 변경했습니다. 화면을 다시 열어 주세요.');
     if (enabled) {
       const { error } = await admin.from("projects").update({ client_view_enabled: true }).eq("id", project.id);
       if (error) throw error;
     }
     return response(req, 200, { ok: true, generatedAt: new Date().toISOString(), data: { saved: true, enabled, account, projectId: projectLegacyId } });
   } catch (error) {
-    console.error("[access-admin]", error);
+    console.error('[access-admin]', {code: typeof error === 'object' && error && 'code' in error ? String(error.code).slice(0,40) : 'request_failed'});
     return fail(req, 500, "save_failed", "권한 관리 요청을 처리하지 못했습니다.");
   }
 });

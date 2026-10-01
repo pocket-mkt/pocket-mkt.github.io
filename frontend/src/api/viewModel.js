@@ -218,14 +218,17 @@ function projectShell(row, clientsById = {}, generatedAt = null) {
 
 export function accessAdminViewModel(envelope) {
   const data = envelope?.data || {};
+  const clients = (data.clients || []).map(row => ({ id: String(row.client_id), name: row.display_name || String(row.client_id) }));
+  const clientById = Object.fromEntries(clients.map(client => [client.id, client]));
   const projects = (data.projects || []).map((row) => ({
-    id: row.project_id,
-    clientId: row.client_id,
+    id: String(row.project_id),
+    clientId: String(row.client_id),
+    clientName: row.client_name || clientById[String(row.client_id)]?.name || '',
     name: row.project_name || row.project_id,
   }));
   const projectById = Object.fromEntries(projects.map((project) => [project.id, project]));
   return {
-    clients: (data.clients || []).map((row) => ({ id: row.client_id, name: row.display_name || row.client_id })),
+    clients,
     projects,
     accounts: (data.accounts || []).map((row) => ({
       id: row.user_id,
@@ -236,7 +239,8 @@ export function accessAdminViewModel(envelope) {
       accesses: (row.accesses || []).map((access) => ({
         id: access.membership_id,
         clientId: access.client_id,
-        projectId: access.project_id,
+        projectId: String(access.project_id),
+        clientName: access.client_name || projectById[String(access.project_id)]?.clientName || clientById[String(access.client_id)]?.name || '',
         projectName: access.project_name || projectById[access.project_id]?.name || access.project_id,
         allowedPages: Array.isArray(access.allowed_pages) ? access.allowed_pages : [],
         rowVersion: Number(access.row_version || 0),

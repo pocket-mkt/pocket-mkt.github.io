@@ -572,6 +572,16 @@ console.log(JSON.stringify({clientProgressRoleProjection:'pass',clientProgressOn
 await verifyMeetingSearchSecurity(db, userIds, assert);
 await verifyKpiFunnelSecurity(db, userIds, assert);
 await verifyTaskGroupsUndo(db, userIds, assert);
+// Existing effective report access survives migration, without changing any
+// other grant. Reapplying the migration must not append duplicate page codes.
+await db.exec(`reset role; begin; update public.project_memberships set allowed_pages=array['progress'] where user_id='${userIds.client}' and project_id=1;`);
+try {
+  const reportMigration = readdirSync(migrationsDir).find(name=>name.endsWith('_independent_monthly_report_permission.sql'));
+  const sql=readFileSync(`${migrationsDir}/${reportMigration}`,'utf8');
+  await db.exec(sql);await db.exec(sql);
+  const pages=(await db.query(`select allowed_pages from public.project_memberships where user_id='${userIds.client}' and project_id=1`)).rows[0].allowed_pages;
+  assert(JSON.stringify(pages)===JSON.stringify(['progress','reports']),'report permission migration changed unrelated grants or duplicated reports');
+} finally {await db.exec('rollback');}
 await verifyMonthlyReportsSecurity(db, userIds, assert);
 await verifyScheduleImport(db, userIds, assert);
 await db.close();

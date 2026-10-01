@@ -19,7 +19,7 @@ export async function runMonthlyReportsQa(render, tick, check) {
       return {data:{saved:true}};
     },
   };
-  const project = {id:'reports-qa',clientName:'QA 프로젝트',name:'QA 운영',permissionCode:'EDIT',allowedPages:['plan','progress','performance']};
+  const project = {id:'reports-qa',clientName:'QA 프로젝트',name:'QA 운영',permissionCode:'EDIT',allowedPages:['plan','progress','reports']};
   const settle = async () => {for(let i=0;i<5;i++)await tick()};
   let isolation; const listener = e => {if(e.data?.type==='report-isolation-qa'&&e.source===document.querySelector('.monthly-report-viewer iframe')?.contentWindow)isolation=e.data;};
   window.addEventListener('message',listener);
@@ -69,7 +69,10 @@ export async function runMonthlyReportsQa(render, tick, check) {
     project.allowedPages=['progress'];
     await render(sidebar('client'));await tick();
     check(!document.body.textContent.includes('아이디 관리대장')&&!document.body.textContent.includes('실행계획 · 내부')&&!document.body.textContent.includes('통합 관리'),'customer internal navigation leaked');
-    check(document.querySelector('#client-sharing-links').textContent.includes('월별 마케팅 성과'),'authorized customer reports missing');
+    check(!document.querySelector('#client-sharing-links').textContent.includes('월별 마케팅 성과'),'progress grant incorrectly grants reports');
+    project.allowedPages=['reports'];await render(sidebar('client'));await tick();
+    check(document.querySelector('#client-sharing-links').textContent.includes('월별 마케팅 성과'),'report-only customer menu missing');
+    check(!document.querySelector('#client-sharing-links').textContent.includes('진행상황'),'reports grant incorrectly grants progress');
     await render(<MonthlyReportsView project={project} source={source} canWrite={false}/>);await settle();
     check(document.documentElement.scrollWidth<=innerWidth+1,'reports overflow viewport');
     return ['automatic month opening, opaque sandbox, failed-read retry, fullscreen state, HTML upload/replace retry ID, archive, client draft/write boundaries, sharing navigation'];

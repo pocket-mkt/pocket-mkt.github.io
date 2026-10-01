@@ -12,6 +12,7 @@ import {
   isViewAllowed,
   normalizeAllowedPages,
   removeAccessSubmission,
+  accessProjectLabel, projectAccessDraft, DEFAULT_CUSTOMER_PAGES,
 } from "../src/accessPermissions.js";
 
 test("고객 권한은 알려진 페이지 코드만 중복 없이 보존한다", () => {
@@ -22,8 +23,8 @@ test("고객 권한은 알려진 페이지 코드만 중복 없이 보존한다"
 });
 
 test("운영 메뉴와 고객 권한 선택지는 페이지 카탈로그에서 파생한다", () => {
-  assert.deepEqual(ACCESS_PAGE_KEYS, ["overview", "plan", "tasks", "progress", "daily", "performance"]);
-  assert.deepEqual(ACCESS_PAGE_OPTIONS.map((page) => page.label), ["총괄 현황", "실행계획", "업무", "진행상황 - 클라이언트", "데일리 회의록", "KPI 성과"]);
+  assert.deepEqual(ACCESS_PAGE_KEYS, ["overview", "plan", "tasks", "progress", "daily", "performance", "reports"]);
+  assert.deepEqual(ACCESS_PAGE_OPTIONS.map((page) => page.label), ["총괄 현황", "실행계획", "업무", "진행상황 - 클라이언트", "데일리 회의록", "KPI 성과", "월별 마케팅 성과"]);
   assert.equal(isViewAllowed("files", ["files"]), false);
   assert.deepEqual(NAVIGATION_PAGE_OPTIONS.map((page) => page.id), ["overview", "portfolio", "plan", "tasks", "progress", "client-progress", "daily", "blog", "credentials", "performance", "reports", "files"]);
 });
@@ -55,12 +56,24 @@ test("고객에게 허용된 첫 화면과 실행계획 하위 경로를 판정�
   assert.equal(isViewAllowed("permissions", ACCESS_PAGE_KEYS), false);
   assert.equal(isViewAllowed("portfolio", ACCESS_PAGE_KEYS), false);
   assert.equal(isViewAllowed("credentials", ACCESS_PAGE_KEYS), false);
-  assert.equal(isViewAllowed('reports', ['performance']), true);
-  assert.equal(isViewAllowed('reports', ['progress']), true);
-  assert.equal(isViewAllowed('reports', ['tasks']), true);
+  assert.equal(isViewAllowed('reports', ['performance']), false);
+  assert.equal(isViewAllowed('reports', ['progress']), false);
+  assert.equal(isViewAllowed('reports', ['tasks']), false);
+  assert.equal(isViewAllowed('reports', ['reports']), true);
+  assert.equal(firstAllowedView(['reports']), 'reports');
   assert.equal(isViewAllowed('reports', ['daily','overview']), false);
   assert.equal(isViewAllowed(CLIENT_SHARING_NAVIGATION_GROUP.id, ACCESS_PAGE_KEYS), false);
   assert.deepEqual(CLIENT_SHARING_NAVIGATION_GROUP.pageIds, ['plan','client-progress','reports']);
+});
+
+test('고객사와 프로젝트명을 함께 표시하고 프로젝트 전환 시 해당 멤버십만 편집한다',()=>{
+  assert.equal(accessProjectLabel({clientName:'QA 고객사',name:'온라인 캠페인'}),'QA 고객사 · 온라인 캠페인');
+  const account={accesses:[{id:'a',projectId:'A',allowedPages:['progress','reports'],rowVersion:2},{id:'b',projectId:'B',allowedPages:['reports'],rowVersion:7}]};
+  assert.deepEqual(projectAccessDraft(account,'B'),{projectId:'B',membershipId:'b',expectedRowVersion:7,allowedPages:['reports']});
+  assert.equal(projectAccessDraft(account,'C').membershipId,'');
+  assert.deepEqual(projectAccessDraft(account,'C').allowedPages,DEFAULT_CUSTOMER_PAGES);
+  assert.deepEqual(projectAccessDraft({accesses:[{projectId:'B',allowedPages:[]}]},'B').allowedPages,[]);
+  assert.equal(accountSubmission(projectAccessDraft(account,'B')).expectedRowVersion,7);
 });
 
 test("고객 계정 저장 요청은 프로젝트와 페이지 권한을 명시한다", () => {

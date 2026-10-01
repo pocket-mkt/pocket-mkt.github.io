@@ -122,7 +122,7 @@ test("일정표와 간트는 체크 선택, 일괄 상태·담당 변경, 드래
   assert.match(appSource, /className="task-bulk-toolbar"/);
   assert.match(appSource, /selectedTaskIds\.size/);
   assert.match(appSource, /await saveUpdateChunks\(updates\)/);
-  assert.match(appSource, /const fields = \{ sort_order: \(index \+ 1\) \* 10 \}/);
+  assert.match(appSource, /const fields = \{ sort_order: orderSlots\[index\] \}/);
   assert.match(appSource, /className="g-reorder-handle"/);
   assert.match(appSource, /select className=\{`g-task-status/);
   assert.match(appSource, /select className=\{`g-owner-select/);
@@ -221,11 +221,11 @@ test("일정표 URL로 새로고침해도 서버 초기 업무 코드로 정규�
 });
 
 test("고객사 계정 모달은 넓은 단일 폼에서 프로젝트 하위 권한을 따로 고른다", () => {
-  assert.match(permissionsSource, /const pageGroups = \[/);
-  assert.match(permissionsSource, /PROJECT_NAVIGATION_GROUP\.pageIds\.includes\(page\.id\)/);
+  assert.match(permissionsSource, /const groups=\[/);
+  assert.match(permissionsSource, /\['plan','progress','reports'\]/);
   assert.match(permissionsSource, /className="access-page-groups"/);
   assert.match(styleSource, /\.create-modal\.access-account-modal\s*\{\s*width:\s*min\(960px/);
-  assert.match(styleSource, /\.access-account-modal form\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  assert.match(styleSource, /\.create-modal\.access-account-modal > form\s*\{[^}]*flex-direction:\s*column/);
   assert.match(styleSource, /\.access-page-groups\s*\{[^}]*grid-template-columns:/);
 });
 
@@ -303,7 +303,7 @@ test("포켓과 NS 계정은 고객 권한 관리 화면을 함께 사용한다"
   assert.match(appSource, /function canManageClientAccess\(role\)/);
   assert.match(appSource, /role === "pocket" \|\| role === "ns"/);
   assert.match(appSource, /accessManagerOnly:\s*true/);
-  assert.match(permissionsSource, /canDisableAccount=\{role === "pocket"\}/);
+  assert.match(permissionsSource, /canDisableAccount=\{role==='pocket'\}/);
 });
 
 test("견적서를 검토한 뒤 새 프로젝트 또는 현재 프로젝트 업무로 생성한다", () => {
