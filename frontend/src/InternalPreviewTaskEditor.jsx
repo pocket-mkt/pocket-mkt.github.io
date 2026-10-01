@@ -1,3 +1,4 @@
+import { operatorVisibilityOptions } from './operatorCapabilities.js';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { tasksViewModel } from './api/viewModel.js';
 const TaskEditModal=lazy(()=>import('./TaskWorkspace.jsx').then(module=>({default:module.TaskEditModal})));
@@ -32,5 +33,5 @@ export default function InternalPreviewTaskEditor({project,role,canWrite,source,
     }catch{if(!controller.signal.aborted)setError('수정할 업무를 불러오지 못했습니다. 권한·삭제 여부를 확인하고 업무를 다시 눌러 주세요.');}
     finally{if(!controller.signal.aborted)setLoading(false);}
   };
-  return <div onClickCapture={click}>{allowed&&<p className="panel-note">내부 계정 미리보기 · 업무를 클릭하면 수정합니다. 고객에게는 읽기 전용으로 표시됩니다.</p>}{children}{allowed&&loading&&<div className="modal-backdrop" role="status"><div className="screen-recovery">업무 수정 정보를 불러오는 중입니다.<button type="button" onClick={()=>{request.current?.abort();setLoading(false);}}>취소</button></div></div>}{allowed&&error&&<div className="modal-backdrop"><section className="screen-recovery" role="alertdialog" aria-label="업무 조회 실패"><p>{error}</p><button type="button" onClick={()=>setError('')}>닫기</button></section></div>}{allowed&&task&&<Suspense fallback={<p role="status">수정 팝업을 준비하는 중입니다.</p>}><TaskEditModal key={task.id} task={task} tasks={mediaTasks} clientName={project.clientName} onUpdate={onUpdate} onClose={()=>setTask(null)}/></Suspense>}</div>;
+  return <div onClickCapture={click}>{allowed&&<p className="panel-note">내부 계정 미리보기 · 업무를 클릭하면 수정합니다. 고객에게는 읽기 전용으로 표시됩니다.</p>}{children}{allowed&&loading&&<div className="modal-backdrop" role="status"><div className="screen-recovery">업무 수정 정보를 불러오는 중입니다.<button type="button" onClick={()=>{request.current?.abort();setLoading(false);}}>취소</button></div></div>}{allowed&&error&&<div className="modal-backdrop"><section className="screen-recovery" role="alertdialog" aria-label="업무 조회 실패"><p>{error}</p><button type="button" onClick={()=>setError('')}>닫기</button></section></div>}{allowed&&task&&<Suspense fallback={<p role="status">수정 팝업을 준비하는 중입니다.</p>}><TaskEditModal key={task.id} task={task} tasks={mediaTasks} clientName={project.clientName} visibilityOptions={operatorVisibilityOptions(role)} onUpdate={onUpdate} onClose={()=>setTask(null)}/></Suspense>}</div>;
 }

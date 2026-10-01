@@ -58,8 +58,8 @@ function editableTaskStatusCode(value) {
 }
 
 
-function TaskEditModal({ task, tasks = [], clientName, onClose, onUpdate }) {
-  const [fields, setFields] = useState(() => taskUpdateInitialFields(task));
+function TaskEditModal({ task, tasks = [], clientName, onClose, onUpdate, visibilityOptions = [] }) {
+  const [fields, setFields] = useState(() => ({...taskUpdateInitialFields(task), ...(visibilityOptions.length ? {visibility_code:task.visibilityCode || task.visibility_code || "PROJECT_TEAM"} : {})}));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const setField = (name, value) => setFields((current) => ({ ...current, [name]: value }));
@@ -93,6 +93,7 @@ function TaskEditModal({ task, tasks = [], clientName, onClose, onUpdate }) {
         <label className="create-field is-wide"><span>업무명</span><input autoFocus required maxLength={200} value={fields.title} disabled={saving} onChange={(event) => setField("title", event.target.value)} /></label>
         <label className="create-field is-wide"><span>매체</span><select name="category_code" value={fields.category_code} disabled={saving} onChange={event => setField("category_code", event.target.value)}>{taskChannelOptions([...tasks, task]).map(([code,label]) => <option key={code} value={code}>{label}</option>)}</select></label>
         <label className="create-field"><span>진행 월</span><input type="month" required value={fields.execution_month} disabled={saving} onChange={(event) => setField("execution_month", event.target.value)} /></label>
+        {visibilityOptions.length>0 && <label className="create-field"><span>고객 공개</span><select name="visibility_code" aria-label="고객 공개" value={fields.visibility_code} disabled={saving} onChange={event=>setField("visibility_code",event.target.value)}>{visibilityOptions.map(([code,label])=><option key={code} value={code}>{label}</option>)}</select></label>}
         <div className="create-field is-wide task-edit-status"><span>상태</span><div className="tracker-status-actions">{trackerStatusOptions.map(([code, label]) => <button key={code} type="button" disabled={saving} className={fields.status_code === code ? "is-active" : ""} onClick={() => setField("status_code", code)}>{label}</button>)}</div></div>
         <label className="create-field"><span>시작일</span><input type="date" value={fields.planned_start_date} max={fields.due_date || undefined} disabled={saving} onChange={(event) => setField("planned_start_date", event.target.value)} /></label>
         <label className="create-field"><span>종료일</span><input type="date" value={fields.due_date} min={fields.planned_start_date || undefined} disabled={saving} onChange={(event) => setField("due_date", event.target.value)} /></label>
@@ -549,7 +550,7 @@ function ProjectIssuePanel({ issues, project, canWrite, actorName, onCreate, onU
   </section>;
 }
 
-function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite, canWriteIssues, actorName, canEditProject, canManageVisibility = false, onUpdate, onArchive, onBatchUpdate, onProjectUpdate, onCreate, onIssueCreate, onIssueUpdate, onIssueArchive, displayMode, onViewChange, canViewActivity, activityState, onLoadActivity, summaryOnly = false, showOwners = true }) {
+function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite, canWriteIssues, actorName, canEditProject, canManageVisibility = false, visibilityOptions = [], onUpdate, onArchive, onBatchUpdate, onProjectUpdate, onCreate, onIssueCreate, onIssueUpdate, onIssueArchive, displayMode, onViewChange, canViewActivity, activityState, onLoadActivity, summaryOnly = false, showOwners = true }) {
   const currentMonth = taskMonthKey(localDateValue());
   const [selectedMonths, setSelectedMonths] = useState(() => new Set([currentMonth]));
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -1305,7 +1306,7 @@ function TaskScheduleTimeline({ onCopy, tasks, issues, project, query, canWrite,
           {bulkSave.error && <p role="alert">{bulkSave.error}</p>}
           <footer><button type="button" className="btn" disabled={bulkSave.status === "saving"} onClick={() => setGroupDialog(false)}>취소</button><button type="submit" className="btn primary" disabled={!groupName.trim() || bulkSave.status === "saving"}>{bulkSave.status === "saving" ? "저장 중…" : "그룹 만들기"}</button></footer>
         </form></div>}
-      {editingTaskId && canWrite && <TaskEditModal key={editingTaskId} task={tasks.find((task) => task.id === editingTaskId)} tasks={tasks} clientName={project.clientName} onUpdate={onUpdate} onClose={() => setEditingTaskId(null)} />}
+      {editingTaskId && canWrite && <TaskEditModal key={editingTaskId} task={tasks.find((task) => task.id === editingTaskId)} tasks={tasks} clientName={project.clientName} visibilityOptions={canManageVisibility ? visibilityOptions : []} onUpdate={onUpdate} onClose={() => setEditingTaskId(null)} />}
     </section>
     {!summaryOnly && !activityMode && !fullscreen && <ProjectIssuePanel issues={issues} project={project} canWrite={canWriteIssues} actorName={actorName} onCreate={onIssueCreate} onUpdate={onIssueUpdate} onArchive={onIssueArchive} />}
   </div></>;

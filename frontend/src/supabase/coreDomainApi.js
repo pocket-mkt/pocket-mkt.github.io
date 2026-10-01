@@ -135,6 +135,16 @@ export function createSupabaseCoreDomainApi(client) {
       p_quote_data: input.quote && typeof input.quote === "object" ? input.quote : {},
       p_tasks: Array.isArray(input.tasks) ? input.tasks : [],
     }, "견적 업무를 저장하지 못했습니다."),
+    mutateProjectStart: (input) => {
+      const mutation=input.mutation || {}, fields=mutation.fields || {};
+      if (mutation.operation !== 'UPDATE' || Object.keys(fields).length!==1 || !fields.start_date) throw new HubApiError('프로젝트 착수일만 변경할 수 있습니다.',{code:'invalid_input',retriable:false});
+      return mutate(client,'update_project_start_date',{
+        p_mutation_id:String(input.mutationId || mutation.mutationId || createMutationId()),
+        p_project_id:positiveId(input.projectId,'프로젝트'),
+        p_expected_row_version:positiveId(input.expectedRowVersion ?? mutation.expectedRowVersion,'행 버전'),
+        p_start_date:fields.start_date,
+      },'프로젝트 착수일을 저장하지 못했습니다.');
+    },
     mutateMeeting: (input) => mutate(client, "mutate_daily_meeting", mutationArgs(input, "p_meeting_id"), "회의록을 저장하지 못했습니다."),
     mutateKpi: (input) => mutate(client, "mutate_kpi_definition", mutationArgs(input, "p_kpi_id"), "KPI를 저장하지 못했습니다."),
     mutateIssue: (input) => mutate(client, "mutate_project_issue", mutationArgs(input, "p_issue_id"), "이슈사항을 저장하지 못했습니다."),

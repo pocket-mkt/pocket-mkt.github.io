@@ -1,3 +1,4 @@
+import { operatorVisibilityOptions } from './operatorCapabilities.js';
 import { useEffect, useRef, useState } from "react";
 import { AlertCircle, CalendarDays, Check, ChevronDown, ClipboardCheck, LoaderCircle, Plus, X } from "lucide-react";
 import { taskCreateInitialFields, taskCreateSubmissionFields, taskCreateValidationError, taskDateRangeDuration, taskDateRangePreset, taskResponsibleOrgOptions } from "./taskForm.js";
@@ -65,6 +66,7 @@ export function TaskCreateModal({ completed = false, role, clientName, tasks = [
           </div>
           <label className="task-create-field"><span>매체 <small>선택</small></span><select name="category_code" value={fields.category_code} onChange={event => setField("category_code", event.target.value)}>{taskChannelOptions(tasks).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
           <label className="task-create-field"><span>진행 월 <small>필수 · 실행계획 기준</small></span><input name="execution_month" type="month" required value={fields.execution_month} onChange={event => setField("execution_month", event.target.value)} /></label>
+          {operatorVisibilityOptions(role).length>0 && <label className="task-create-field"><span>고객 공개</span><select name="visibility_code" aria-label="고객 공개" value={fields.visibility_code} onChange={event=>setField("visibility_code",event.target.value)}>{operatorVisibilityOptions(role).map(([code,label])=><option key={code} value={code}>{label}</option>)}</select></label>}
           <section className="task-create-schedule" aria-label="업무 일정 설정">
             <div className="task-create-section-heading"><strong><CalendarDays size={15}/> 업무 일정</strong><span>{duration ? `총 ${duration}일` : "일정 미정"}</span></div>
             <div className="task-create-date-presets" role="group" aria-label="일정 빠른 선택">{presets.map(([code,label]) => {
@@ -79,7 +81,7 @@ export function TaskCreateModal({ completed = false, role, clientName, tasks = [
             <div className="task-create-two-column"><label className="task-create-field"><span>단계</span><select name="phase_code" value={fields.phase_code} onChange={event => setField("phase_code",event.target.value)}>{[["P0","구축"],["M1","운영 1개월차"],["M2","운영 2개월차"],["M3","운영 3개월차"]].map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="task-create-field"><span>우선순위</span><select name="priority_code" value={fields.priority_code} onChange={event => setField("priority_code",event.target.value)}>{[["NORMAL","보통"],["HIGH","높음"],["CRITICAL","긴급"]].map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label></div>
             <label className="task-create-field"><span>완료링크 <small>선택 · https://</small></span><input name="completion_url" type="url" value={fields.completion_url} onChange={event => setField("completion_url",event.target.value)} placeholder="결과물을 확인할 수 있는 주소"/></label>
             <label className="task-create-field"><span>비고</span><textarea name="remarks" rows={2} maxLength={10000} value={fields.remarks} onChange={event => setField("remarks",event.target.value)} placeholder="참고사항이나 일정 이슈"/></label>
-            {role === "pocket" && <label className="task-create-field"><span>공개 범위</span><select name="visibility_code" value={fields.visibility_code} onChange={event => setField("visibility_code",event.target.value)}><option value="PROJECT_TEAM">프로젝트 팀</option><option value="CLIENT">고객 공개</option><option value="POCKET_ONLY">포켓 전용</option></select></label>}
+
           </div></details>
         </fieldset></div>
         {error && <div className="task-create-message is-error" role="alert"><AlertCircle size={15}/><span>{error}</span></div>}

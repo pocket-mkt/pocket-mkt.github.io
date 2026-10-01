@@ -6,6 +6,7 @@ import { verifyKpiFunnelSecurity } from './kpi-funnel-security-qa.mjs';
 import { verifyTaskGroupsUndo } from './task-groups-undo-security-qa.mjs';
 import { verifyMonthlyReportsSecurity } from './monthly-reports-security-qa.mjs';
 import { verifyScheduleImport } from './schedule-import-security-qa.mjs';
+import { verifyOperatorParity } from './operator-parity-security-qa.mjs';
 
 const migrationsDir = fileURLToPath(new URL("../../supabase/migrations/", import.meta.url)).replace(/\\$/, "");
 const db = new PGlite();
@@ -584,4 +585,5 @@ try {
 } finally {await db.exec('rollback');}
 await verifyMonthlyReportsSecurity(db, userIds, assert);
 await verifyScheduleImport(db, userIds, assert);
+await verifyOperatorParity(db, userIds, assert);
 await db.close();

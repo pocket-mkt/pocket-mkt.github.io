@@ -1,3 +1,4 @@
+import { canOperateProject, operatorVisibilityOptions } from './operatorCapabilities.js';
 import TaskUndoControl from "./TaskUndoControl.jsx";
 import "./taskCustomGroups.css";
 import { createTaskCopyPlan, runTaskCopyPlan } from "./taskCopy.js";
@@ -798,7 +799,7 @@ export function TasksView({ onCopy, role, query, taskPage, activityState, onLoad
   }, [displayMode, activityState?.status, onLoadActivity]);
   const selectTaskView = (nextView) => setDisplayMode(nextView === "gantt" || nextView === "activity" ? nextView : "table");
 
-  return <Suspense fallback={<LoadingState label="업무 화면을 준비하고 있습니다." />}><div className="view-stack campaign-schedule-root"><TaskScheduleTimeline tasks={tasks} issues={taskPage.issues || []} project={taskPage.project || {}} query={query} canWrite={editable} canWriteIssues={Boolean(editable && taskPage.issueCanWrite)} actorName={actorName} canEditProject={Boolean(editable && role === "pocket")} canManageVisibility={Boolean(editable && role === "pocket")} onUpdate={onUpdate} onArchive={onArchive} onBatchUpdate={onBatchUpdate} onCopy={onCopy} onProjectUpdate={onProjectUpdate} onCreate={onCreate} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} displayMode={displayMode} onViewChange={selectTaskView} canViewActivity={role !== "client"} activityState={activityState} onLoadActivity={onLoadActivity} /></div></Suspense>;
+  return <Suspense fallback={<LoadingState label="업무 화면을 준비하고 있습니다." />}><div className="view-stack campaign-schedule-root"><TaskScheduleTimeline tasks={tasks} issues={taskPage.issues || []} project={taskPage.project || {}} query={query} canWrite={editable} canWriteIssues={Boolean(editable && taskPage.issueCanWrite)} actorName={actorName} canEditProject={canOperateProject(role,editable)} canManageVisibility={canOperateProject(role,editable)} visibilityOptions={operatorVisibilityOptions(role)} onUpdate={onUpdate} onArchive={onArchive} onBatchUpdate={onBatchUpdate} onCopy={onCopy} onProjectUpdate={onProjectUpdate} onCreate={onCreate} onIssueCreate={onIssueCreate} onIssueUpdate={onIssueUpdate} onIssueArchive={onIssueArchive} displayMode={displayMode} onViewChange={selectTaskView} canViewActivity={role !== "client"} activityState={activityState} onLoadActivity={onLoadActivity} /></div></Suspense>;
 }
 
 
@@ -811,7 +812,7 @@ function operationsDashboardRange() {
   return { startDate: value(previousMonday), endDate: value(currentSunday) };
 }
 
-function DailyMeetingModal({ meeting, role, onClose, onSave }) {
+export function DailyMeetingModal({ meeting, role, onClose, onSave }) {
   const [fields, setFields] = useState(() => ({
     meeting_date: meeting?.date || localDateValue(),
     title: meeting?.title || "데일리 미팅",
@@ -844,7 +845,7 @@ function DailyMeetingModal({ meeting, role, onClose, onSave }) {
     <label className="create-field is-wide"><span>회의 내용</span><textarea required rows="6" maxLength={10000} value={fields.discussion_text} onChange={(event) => setField("discussion_text", event.target.value)} placeholder="논의한 내용을 항목별로 정리하세요" /></label>
     <label className="create-field is-wide"><span>결정사항</span><textarea rows="4" maxLength={10000} value={fields.decisions_text} onChange={(event) => setField("decisions_text", event.target.value)} placeholder="확정된 내용과 기준을 적어 주세요" /></label>
     <label className="create-field is-wide"><span>후속 업무</span><textarea rows="4" maxLength={10000} value={fields.action_items_text} onChange={(event) => setField("action_items_text", event.target.value)} placeholder="담당자와 기한을 함께 적어 주세요" /></label>
-    {role === "pocket" && <FormSelect label="공개 범위" value={fields.visibility_code} onChange={(value) => setField("visibility_code", value)} options={[["PROJECT_TEAM", "프로젝트 팀"], ["CLIENT", "고객 공개"], ["POCKET_ONLY", "포켓 전용"]]} />}
+    {canOperateProject(role) && <FormSelect label="고객 공개" value={fields.visibility_code} onChange={(value) => setField("visibility_code", value)} options={operatorVisibilityOptions(role)} />}
     {error && <div className="form-error"><AlertCircle size={15} /><span>{error.message || "저장하지 못했습니다."}</span></div>}
     <footer><p>저장·수정 내역은 활동로그에도 기록됩니다.</p><div><button className="secondary-button" type="button" onClick={onClose} disabled={saving}>취소</button><button className="primary-button" type="submit" disabled={saving || !fields.meeting_date || !fields.title.trim() || !fields.discussion_text.trim()}>{saving ? <><LoaderCircle size={15} className="spin" /> 저장 중</> : "회의록 저장"}</button></div></footer>
   </form></section></div>;
@@ -2100,7 +2101,7 @@ export function App() {
   };
 
   const updateProjectStartDate = async (projectRow, startDate) => {
-    if (!canWrite || role !== "pocket") {
+    if (!canOperateProject(role,canWrite)) {
       const readOnlyError = new Error("이 계정은 프로젝트 착수일을 수정할 권한이 없습니다.");
       readOnlyError.code = "forbidden";
       throw readOnlyError;
@@ -2126,7 +2127,7 @@ export function App() {
       if (error.code === "conflict") invalidateResource(activeProjectId, "tasks");
       throw error;
     }
-    setSaveNotice("프로젝트 착수일을 Google Sheets 원장에 저장했습니다.");
+    setSaveNotice("프로젝트 착수일을 저장했습니다.");
     invalidateResource(activeProjectId, "tasks");
   };
 

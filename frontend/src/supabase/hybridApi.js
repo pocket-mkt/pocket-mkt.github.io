@@ -350,6 +350,7 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
   async function mutate(input = {}) {
     const projectId = await resolveProjectId(input.projectId ?? input.mutation?.projectId);
     const type = entityType(input);
+    if (type === "PROJECT") return core.mutateProjectStart({...input,projectId});
     if (type === "TASK") return mutateTask({ ...input, projectId, mutation: { ...input.mutation, projectId } });
     if (type === "PROJECT_ISSUE") return core.mutateIssue({ ...input, projectId, mutation: { ...input.mutation, projectId } });
     if (type === "DAILY_MEETING") return core.mutateMeeting({ ...input, projectId, mutation: { ...input.mutation, projectId } });

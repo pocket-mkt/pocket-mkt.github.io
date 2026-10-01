@@ -129,8 +129,8 @@ test("일정표와 간트는 체크 선택, 일괄 상태·담당 변경, 드래
   assert.match(styleSource, /\.task-bulk-toolbar/);
 });
 
-test("포켓은 선택한 업무를 고객사에서 일괄 숨기거나 다시 공개할 수 있다", () => {
-  assert.match(appSource, /canManageVisibility=\{Boolean\(editable && role === "pocket"\)\}/);
+test("포켓과 NS 내부 운영자는 선택 업무를 고객사에서 일괄 숨기거나 다시 공개할 수 있다", () => {
+  assert.match(appSource, /canManageVisibility=\{canOperateProject\(role,editable\)\}/);
   assert.match(appSource, /className="task-bulk-visibility"/);
   assert.match(appSource, /<option value="PROJECT_TEAM">숨김 · 내부만<\/option><option value="CLIENT">공개<\/option>/);
   assert.match(appSource, /bulkVisibility \? \{ visibility_code: bulkVisibility \} : \{\}/);

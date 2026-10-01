@@ -60,7 +60,8 @@ export async function verifyScheduleImport(db, users, assert) {
     for(const visibility of ['POCKET_ONLY','INVALID']) {
       await expectForbidden([{mutationId:'ns-import-denied-'+visibility,operation:'CREATE',fields:{title:'NS denied import',visibility_code:visibility}}],`NS can create ${visibility}`);
     }
-    await expectForbidden([{mutationId:'ns-import-existing-visibility',operation:'UPDATE',id:publicRecords[0].task_id,expectedRowVersion:publicRecords[0].row_version,fields:{visibility_code:'PROJECT_TEAM'}}],'unrequested existing-task visibility permission changed');
+    const hidden=await mutate({projectId:1,mutations:[{entityType:'task',mutationId:'ns-import-existing-visibility',operation:'UPDATE',id:publicRecords[0].task_id,expectedRowVersion:publicRecords[0].row_version,fields:{visibility_code:'PROJECT_TEAM'}}]});
+    assert(hidden.data.results[0].record.visibility_code==='PROJECT_TEAM','NS cannot hide an existing imported task');
     assert(!(await db.query('select private.is_pocket_manager() v')).rows[0].v,'NS promoted to manager');
     await db.exec('reset role');
     await db.exec(`update public.project_memberships set permission_code='READ_ONLY' where project_id=1 and user_id='${users.ns}'`);
@@ -72,6 +73,6 @@ export async function verifyScheduleImport(db, users, assert) {
     try {await mutate({projectId:1,mutations:blocked.mutations.slice(0,1)});}catch{denied=true;}
     await db.exec('rollback to forbidden_import; release forbidden_import');
     assert(denied,'customer can import schedules');
-    console.log(JSON.stringify({scheduleImport:'NS 43 team + 43 customer-public creates, sparse/empty dates, month, retry/dedup, audit; Pocket-only, existing visibility changes, read-only and customer writes denied'}));
+    console.log(JSON.stringify({scheduleImport:'NS 43 team + 43 customer-public creates and existing-task hiding, sparse/empty dates, month, retry/dedup, audit; Pocket-only, read-only and customer writes denied'}));
   } finally {await db.exec('rollback');await db.exec('reset role');}
 }

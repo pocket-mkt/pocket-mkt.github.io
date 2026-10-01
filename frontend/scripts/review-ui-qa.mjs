@@ -15,6 +15,7 @@ import { runTaskMonthQa } from './scripts/task-month-browser-fixture.jsx';
 import { runMonthlyReportsQa } from './scripts/monthly-reports-browser-fixture.jsx';
 import { runScheduleImportQa } from './scripts/schedule-import-browser-fixture.jsx';
 import { runAccessManagementQa,runMonthReorderQa } from './scripts/access-management-browser-fixture.jsx';
+import { runOperatorParityQa } from './scripts/operator-parity-browser-fixture.jsx';
 import { taskMonthKey } from './src/taskMonth.js';
 import { runMeetingSearchQa } from './scripts/meeting-search-browser-fixture.jsx';
 import { runKpiFunnelQa } from './scripts/kpi-funnel-browser-fixture.jsx';
@@ -53,6 +54,7 @@ window.runTaskMonthQa = () => runTaskMonthQa(render, tick, check);
 window.runMonthlyReportsQa = () => runMonthlyReportsQa(render, tick, check);
 window.runScheduleImportQa = () => runScheduleImportQa(render, tick, check);
 window.runAccessManagementQa = () => runAccessManagementQa(render,tick,check);
+window.runOperatorParityQa = () => runOperatorParityQa(render,tick,check);
 window.runMonthReorderQa = () => runMonthReorderQa(render,tick,check);
 window.runMeetingSearchQa = () => runMeetingSearchQa(render, tick, check);
 window.runKpiFunnelQa = () => runKpiFunnelQa(render, tick, check);
@@ -637,6 +639,7 @@ try {
       await writeFile(`../artifacts/client-progress/kpi-${width}.png`,Buffer.from(shot.data,'base64'));
       continue;
     }
+    console.log(JSON.stringify({viewport:width,operatorParity:await evaluate('window.runOperatorParityQa()')}));
     console.log(JSON.stringify({viewport:width,monthReorder:await evaluate('window.runMonthReorderQa()')}));
     console.log(JSON.stringify({viewport:width,accessManagement:await evaluate('window.runAccessManagementQa()')}));
     const accessShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});

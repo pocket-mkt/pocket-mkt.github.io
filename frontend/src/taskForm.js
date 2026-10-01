@@ -157,6 +157,7 @@ export function taskUpdateSubmissionFields(fields = {}) {
   const plannedStartDate = fields.planned_start_date || "";
   const dueDate = fields.due_date || "";
   return {
+    ...(Object.prototype.hasOwnProperty.call(fields, "visibility_code") ? {visibility_code: fields.visibility_code} : {}),
     ...(Object.prototype.hasOwnProperty.call(fields, "category_code") ? { category_code: String(fields.category_code || "").trim().toUpperCase() } : {}),
     title: String(fields.title || "").trim(),
     status_code: String(fields.status_code || "NOT_STARTED").toUpperCase(),
