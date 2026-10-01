@@ -1,7 +1,6 @@
 import React from 'react';
 import ScheduleImportModal from '../src/ScheduleImportModal.jsx';
-import { ProjectSidebar } from '../src/App.jsx';
-import { TaskScheduleTimeline } from '../src/TaskWorkspace.jsx';
+import { ProjectSidebar, TasksView } from '../src/App.jsx';
 import { tasksViewModel } from '../src/api/viewModel.js';
 import { runScheduleImportPlan } from '../src/scheduleImport.js';
 import { taskMonthKey, shiftTaskMonth } from '../src/taskMonth.js';
@@ -55,9 +54,15 @@ export async function runScheduleImportQa(render,tick,check) {
     check(document.body.textContent.includes('중복 43건 제외')&&document.querySelector('button[type=submit]').disabled,'reopening permits duplicate import');
     // A future import must be visible immediately, without persisting another user's filters.
     const next=shiftTaskMonth(taskMonthKey(new Date()),1),tasks=tasksViewModel({data:{items:[...ledger.values()].map(row=>({...row,execution_month:next+'-01'}))}}).items;
-    await render(<div/>);await render(<TaskScheduleTimeline tasks={tasks} issues={[]} project={{...projects[1],scheduleFocus:{month:next,id:'import-complete'}}} query="" canWrite displayMode="gantt"/>);await settle();
-    check(document.querySelector(`[data-execution-month="${next}"]`)?.getAttribute('aria-pressed')==='true','imported month not focused');
+    await render(<div/>);await render(<TasksView role="pocket" taskPage={{items:tasks,project:{...projects[1],scheduleFocus:{month:next,id:'import-complete'}}}} query="" canWrite/>);await settle();
+    for(let attempt=0;attempt<50&&!document.querySelector(`[data-execution-month="${next}"]`);attempt++)await tick();
+    check(document.querySelector(`[data-execution-month="${next}"]`)?.getAttribute('aria-pressed')==='true','imported month not focused: '+document.body.textContent.slice(0,400));
     check(document.querySelectorAll('.g-row[data-window-id]').length>0,'imported Gantt rows not rendered');
+    const tableButton=[...document.querySelectorAll('.task-workspace-tabs button')].find(button=>button.textContent==='일정표');
+    check(tableButton,'schedule table switch missing');tableButton.click();await settle();
+    check(document.querySelector('.reference-task-table'),'imported tasks cannot switch back to table');
+    await render(<div/>);await render(<TasksView role="pocket" taskPage={{items:tasks,project:projects[1]}} query="" canWrite/>);await settle();
+    check([...document.querySelectorAll('.task-workspace-tabs button')].find(button=>button.textContent==='일정표')?.getAttribute('aria-selected')==='true','ordinary entry must stay on the schedule table');
     // End on a compact preview for viewport screenshots. Fresh synthetic campaign, no writes.
     await render(<div/>);await render(modal());await settle();const preview=scheduleFixture(8);preview.campaigns[0].name='미리보기 QA';await upload(scheduleHtml(preview));
     const box=document.querySelector('.schedule-import-modal').getBoundingClientRect();

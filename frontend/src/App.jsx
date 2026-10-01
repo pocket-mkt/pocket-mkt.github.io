@@ -781,7 +781,7 @@ function TrackerTaskRow({ task, role, clientName, canWrite, onUpdate, isDone }) 
 
 
 
-function TasksView({ onCopy, role, query, taskPage, activityState, onLoadActivity, onCreate, canWrite, actorName, onUpdate, onArchive, onBatchUpdate, onProjectUpdate, onIssueCreate, onIssueUpdate, onIssueArchive, initialSection = "schedule" }) {
+export function TasksView({ onCopy, role, query, taskPage, activityState, onLoadActivity, onCreate, canWrite, actorName, onUpdate, onArchive, onBatchUpdate, onProjectUpdate, onIssueCreate, onIssueUpdate, onIssueArchive, initialSection = "schedule" }) {
   const editable = Boolean(canWrite);
   const schedule = useMemo(() => trackerSchedule(taskPage.project?.startDate), [taskPage.project?.startDate]);
   const tasks = useMemo(() => (taskPage.items || []).map((task) => {
