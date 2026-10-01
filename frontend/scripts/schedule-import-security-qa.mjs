@@ -36,11 +36,42 @@ export async function verifyScheduleImport(db, users, assert) {
     await as('client');
     const client=(await db.query('select public.read_client_progress(1) v')).rows[0].v;
     assert(!client.items.some(row=>row.title?.startsWith('QA 업무')),'default-hidden imports leaked to customer');
+    // Both visibility choices in the import dialog must work for NS editors.
+    await as('ns');
+    const publicPlan=createScheduleImportPlan({projectId:1,month:'2026-11',rows:await prepareScheduleRows(campaign,'2026-11'),visibility:'CLIENT'});
+    const publicRecords=[];
+    await runScheduleImportPlan(publicPlan,async mutations=>{const result=await mutate({projectId:1,mutations});publicRecords.push(...result.data.results.map(item=>item.record));});
+    assert(publicRecords.length===43&&publicRecords.every(row=>row.visibility_code==='CLIENT'),'NS customer-public import failed');
+    await mutate({projectId:1,mutations:publicPlan.mutations.slice(0,40)});
+    await db.exec('reset role');
+    assert((await db.query("select count(*)::int n from public.tasks where project_id=1 and source_task_id like 'schedule-html:%'")).rows[0].n===86,'public retry duplicated records');
+    assert((await db.query("select count(*)::int n from public.activity_events where entity_type='TASK' and action_code='CREATED' and entity_id=any($1::bigint[])",[publicRecords.map(row=>String(row.task_id))])).rows[0].n>=43,'public imports lack creation audit');
+    await as('client');
+    const publicClient=(await db.query('select public.read_client_progress(1) v')).rows[0].v;
+    assert(publicClient.items.filter(row=>row.title?.startsWith('QA 업무')).length===43,'customer projection omitted public imports or exposed hidden imports');
+
+    const expectForbidden=async(mutations,label)=>{
+      await db.exec('savepoint import_boundary');let error;
+      try {await mutate({projectId:1,mutations:mutations.map(item=>({entityType:'task',...item}))});}catch(caught){error=caught;}
+      await db.exec('rollback to import_boundary; release import_boundary');
+      assert(error&&/forbidden|권한/.test(String(error.code)+' '+error.message),`${label}: ${error?.code||'unexpected success'}`);
+    };
+    await as('ns');
+    for(const visibility of ['POCKET_ONLY','INVALID']) {
+      await expectForbidden([{mutationId:'ns-import-denied-'+visibility,operation:'CREATE',fields:{title:'NS denied import',visibility_code:visibility}}],`NS can create ${visibility}`);
+    }
+    await expectForbidden([{mutationId:'ns-import-existing-visibility',operation:'UPDATE',id:publicRecords[0].task_id,expectedRowVersion:publicRecords[0].row_version,fields:{visibility_code:'PROJECT_TEAM'}}],'unrequested existing-task visibility permission changed');
+    assert(!(await db.query('select private.is_pocket_manager() v')).rows[0].v,'NS promoted to manager');
+    await db.exec('reset role');
+    await db.exec(`update public.project_memberships set permission_code='READ_ONLY' where project_id=1 and user_id='${users.ns}'`);
+    await as('ns');
+    await expectForbidden([{mutationId:'ns-import-readonly-denied',operation:'CREATE',fields:{title:'NS read-only denied',visibility_code:'CLIENT'}}],'read-only NS can import');
+    await as('client');
     const blocked=createScheduleImportPlan({projectId:1,month:'2026-11',rows:await prepareScheduleRows(campaign,'2026-11')});
     await db.exec('savepoint forbidden_import');let denied=false;
     try {await mutate({projectId:1,mutations:blocked.mutations.slice(0,1)});}catch{denied=true;}
     await db.exec('rollback to forbidden_import; release forbidden_import');
     assert(denied,'customer can import schedules');
-    console.log(JSON.stringify({scheduleImport:'43 canonical creates, sparse/empty dates, execution month, retry/dedup, audit and customer isolation pass'}));
+    console.log(JSON.stringify({scheduleImport:'NS 43 team + 43 customer-public creates, sparse/empty dates, month, retry/dedup, audit; Pocket-only, existing visibility changes, read-only and customer writes denied'}));
   } finally {await db.exec('rollback');await db.exec('reset role');}
 }

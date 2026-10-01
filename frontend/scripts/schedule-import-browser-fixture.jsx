@@ -29,6 +29,9 @@ export async function runScheduleImportQa(render,tick,check) {
     const buttons=[...document.querySelectorAll('.sidebar-project-tools button')];
     check(buttons.map(button=>button.textContent).join('|')==='프로젝트 생성|견적서 불러오기|일정 불러오기','schedule import not directly below quote import');
     buttons[2].click();check(opens===1,'schedule import button inactive');
+    await render(<ProjectSidebar project={projects[0]} role="ns" activeView="tasks" open visible canCreateProject clients={[]} navigation={{actionLabel:'접기'}} onClose={()=>{}} onToggleNavigation={()=>{}} onImportSchedule={()=>{opens++;}}/>);
+    const nsImport=[...document.querySelectorAll('button')].find(button=>button.textContent==='일정 불러오기');
+    check(nsImport,'NS import control missing');nsImport.click();check(opens===2,'NS import control inactive');
     await render(<ProjectSidebar project={projects[0]} role="client" activeView="tasks" open visible canCreateProject={false} clients={[]} navigation={{actionLabel:'접기'}} onClose={()=>{}} onToggleNavigation={()=>{}}/>);
     check(!document.body.textContent.includes('일정 불러오기'),'customer import control exposed');
     failRead=true;await render(modal());await settle();
@@ -40,6 +43,7 @@ export async function runScheduleImportQa(render,tick,check) {
     check(document.querySelector('[aria-label="등록할 프로젝트"]').value==='schedule-qa','campaign did not match project');
     check(document.querySelector('input[type=month]').value==='2026-10','campaign month incorrect');
     check(document.querySelector('[aria-label="가져올 업무 공개 범위"]').value==='PROJECT_TEAM','internal work exposed by default');
+    const visibility=document.querySelector('[aria-label="가져올 업무 공개 범위"]');visibility.value='CLIENT';visibility.dispatchEvent(new Event('change',{bubbles:true}));await tick();
     check(document.querySelectorAll('.schedule-import-table-wrap tbody tr').length===43,'preview count wrong');
     check(document.body.textContent.includes('일정 미정')&&document.body.textContent.includes('2026-09-30'),'undated/prior-month schedule lost');
     const owner=document.querySelector('[aria-label="QA 업무 1 담당"]');owner.value='POCKET';owner.dispatchEvent(new Event('change',{bubbles:true}));await tick();
@@ -50,6 +54,7 @@ export async function runScheduleImportQa(render,tick,check) {
     window.confirm=()=>false;document.querySelector('[aria-label="일정 불러오기 닫기"]').click();await tick();check(closes===0,'pending import discarded without confirmation');
     submit();await settle();check(closes===1&&ledger.size===43&&JSON.stringify(requests[1])===JSON.stringify(requests[2]),'retry duplicated or did not close');
     check([...ledger.values()][0].responsible_org_code==='POCKET','preview owner edit lost');
+    check([...ledger.values()].every(row=>row.visibility_code==='CLIENT'),'customer-public choice lost during import/retry');
     await render(<div/>);await render(modal());await settle();await upload(scheduleHtml(data));
     check(document.body.textContent.includes('중복 43건 제외')&&document.querySelector('button[type=submit]').disabled,'reopening permits duplicate import');
     // A future import must be visible immediately, without persisting another user's filters.
