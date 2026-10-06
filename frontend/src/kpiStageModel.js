@@ -147,6 +147,26 @@ const sum = (values) =>
   values.some((v) => v != null)
     ? values.reduce((n, v) => n + (v ?? 0), 0)
     : null;
+// Pair within the exact channel/date record. Never divide clicks from one
+// source/period by another source's impressions, or average individual rates.
+export function marketingClickRate(rows) {
+  const measured = rows.filter(
+    (r) => r.impressions != null || r.clicks != null,
+  );
+  const paired = measured.filter(
+    (r) => r.impressions != null && r.clicks != null,
+  );
+  const impressions = sum(paired.map((r) => r.impressions));
+  const clicks = sum(paired.map((r) => r.clicks));
+  const invalid = paired.some((r) => r.impressions === 0 && r.clicks > 0);
+  return {
+    ctr: !invalid && impressions > 0 ? (clicks / impressions) * 100 : null,
+    ctrImpressions: impressions,
+    ctrClicks: clicks,
+    ctrExcluded: measured.length - paired.length,
+    ctrInvalid: invalid,
+  };
+}
 export function sheetStats(data, month, today = todayKst()) {
   const days = (data?.days || []).filter(
     (r) => r.date.startsWith(month) && r.date <= today,
@@ -200,6 +220,10 @@ export function sheetStats(data, month, today = todayKst()) {
     );
   return {
     ...values,
+    ...marketingClickRate([
+      ...days.flatMap((r) => r.body.channels),
+      ...stageEntries(data, 1),
+    ]),
     recorded,
     complete,
     missing: dates.filter(

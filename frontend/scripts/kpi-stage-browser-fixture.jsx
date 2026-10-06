@@ -191,11 +191,30 @@ export async function runKpiStageQa(render, tick, check) {
     await fill("실적 시작일", date);
     await fill("실적 종료일", end);
     await fill("실적 채널", "네이버 검색광고");
-    await fill("실적 집행비", "30000");
     await fill("실적 노출·조회", "10000");
     await fill("실적 클릭", "350");
     await click(btn("기록 추가"));
     await close();
+    const metricValue = (key) =>
+      document.querySelector(`.kd-marketing-metrics [data-metric="${key}"] dd`)
+        ?.textContent;
+    check(
+      metricValue("impressions").includes("10,000") &&
+        metricValue("clicks").includes("350") &&
+        metricValue("ctr").includes("3.5") &&
+        metricValue("cost").includes("—"),
+      "non-cost marketing results hidden",
+    );
+    await open(1);
+    await click(document.querySelector(".ks-row-actions button"));
+    await fill("실적 집행비", "30000");
+    await click(btn("수정 저장"));
+    await close();
+    check(
+      metricValue("cost").includes("30,000") &&
+        metricValue("ctr").includes("3.5"),
+      "cost hides marketing results",
+    );
     await open(3);
     await click(btn("기간 지정"));
     await fill("실적 시작일", date);
@@ -308,8 +327,25 @@ export async function runKpiStageQa(render, tick, check) {
         ),
       );
     };
+    window.stageQaShowDashboard = async () => {
+      await close();
+      window.scrollTo(0, 0);
+      const metrics = [
+        ...document.querySelectorAll(".kd-marketing-metrics dd"),
+      ];
+      check(
+        metrics.length === 4 &&
+          metrics.every((el) => el.scrollWidth <= el.clientWidth + 1),
+        "marketing metric value clipped",
+      );
+      check(
+        document.documentElement.scrollWidth <= innerWidth + 2,
+        "marketing summary overflow",
+      );
+    };
     return {
       clickableStages: true,
+      marketingMetricsWithoutSpend: true,
       dateRange: true,
       appendEdit: true,
       overlapBlocked: true,

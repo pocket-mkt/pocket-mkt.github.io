@@ -643,6 +643,9 @@ try {
     await evaluate('window.stageQaOpenGoals()');
     const goalsShot=await send('Page.captureScreenshot',{format:'png'});
     await writeFile(`../artifacts/client-progress/kpi-goals-${width}.png`,Buffer.from(goalsShot.data,'base64'));
+    await evaluate('window.stageQaShowDashboard()');
+    const metricsShot=await send('Page.captureScreenshot',{format:'png'});
+    await writeFile(`../artifacts/client-progress/kpi-marketing-${width}.png`,Buffer.from(metricsShot.data,'base64'));
     if(process.env.KPI_ONLY==='1') {
       console.log(JSON.stringify({viewport:width,kpi:await evaluate('window.runKpiFunnelQa()')}));
       await mkdir('../artifacts/client-progress',{recursive:true});

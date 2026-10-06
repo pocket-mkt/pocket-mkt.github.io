@@ -51,6 +51,12 @@ const fmt = (v) =>
   v == null
     ? "—"
     : Number(v).toLocaleString("ko-KR", { maximumFractionDigits: 1 });
+const fmtCtr = (v) =>
+  v == null
+    ? "—"
+    : v > 0 && v < 0.01
+      ? "<0.01"
+      : v.toLocaleString("ko-KR", { maximumFractionDigits: 2 });
 const stamp = (v) =>
   v
     ? new Date(v).toLocaleString("ko-KR", {
@@ -1104,18 +1110,55 @@ export default function KpiDailyView({
                 <h3>광고·콘텐츠</h3>
                 <small className="ks-open-hint">시트 열기 ↗</small>
               </header>
-              <p className="kd-metric-caption">누적 집행비</p>
-              <strong>
-                {fmt(totals.cost)}
-                <small>원</small>
-              </strong>
+              <dl
+                className="kd-marketing-metrics"
+                aria-label="광고·콘텐츠 누적 성과"
+              >
+                <div data-metric="impressions">
+                  <dt>누적 노출·조회</dt>
+                  <dd>
+                    {fmt(totals.impressions)}
+                    <small>회</small>
+                  </dd>
+                </div>
+                <div data-metric="clicks">
+                  <dt>누적 클릭수</dt>
+                  <dd>
+                    {fmt(totals.clicks)}
+                    <small>건</small>
+                  </dd>
+                </div>
+                <div data-metric="ctr">
+                  <dt>
+                    클릭률 (CTR)
+                    {totals.ctrExcluded > 0 && <span>일부 기록</span>}
+                  </dt>
+                  <dd>
+                    {fmtCtr(totals.ctr)}
+                    <small>%</small>
+                  </dd>
+                </div>
+                <div data-metric="cost">
+                  <dt>누적 집행비</dt>
+                  <dd>
+                    {fmt(totals.cost)}
+                    <small>원</small>
+                  </dd>
+                </div>
+              </dl>
               <StageGoals goals={goals} totals={totals} stage={1} />
               <footer>
                 <span>
                   발행 <b>{fmt(totals.posts)}건</b>
                 </span>
-                <span>
-                  노출·조회 <b>{fmt(totals.impressions)}</b>
+                <span className="kd-ctr-basis">
+                  {totals.ctrInvalid
+                    ? "클릭률 확인 필요: 노출·조회 0인 기록에 클릭수가 있습니다."
+                    : totals.ctr != null
+                      ? `CTR: 클릭 ${fmt(totals.ctrClicks)} ÷ 노출·조회 ${fmt(totals.ctrImpressions)}${totals.ctrExcluded ? ` · 미입력 ${totals.ctrExcluded}개 기록 제외` : ""}`
+                      : totals.ctrImpressions === 0
+                        ? "노출·조회가 0이면 클릭률을 계산하지 않습니다."
+                        : "클릭률은 같은 기록에 노출·조회와 클릭수를 입력하면 계산됩니다."}
                 </span>
               </footer>
             </article>
