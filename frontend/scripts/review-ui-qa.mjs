@@ -20,6 +20,7 @@ import { taskMonthKey } from './src/taskMonth.js';
 import { runMeetingSearchQa } from './scripts/meeting-search-browser-fixture.jsx';
 import { runKpiFunnelQa } from './scripts/kpi-funnel-browser-fixture.jsx';
 import { runKpiDailyQa } from './scripts/kpi-daily-browser-fixture.jsx';
+import { runKpiStageQa } from './scripts/kpi-stage-browser-fixture.jsx';
 import BlogStatusView from './src/BlogStatusView.jsx';
 import MeetingText from './src/MeetingText.jsx';
 import { createRoot } from 'react-dom/client';
@@ -60,6 +61,7 @@ window.runMonthReorderQa = () => runMonthReorderQa(render,tick,check);
 window.runMeetingSearchQa = () => runMeetingSearchQa(render, tick, check);
 window.runKpiFunnelQa = () => runKpiFunnelQa(render, tick, check);
 window.runKpiDailyQa = () => runKpiDailyQa(render,tick,check);
+window.runKpiStageQa = () => runKpiStageQa(render,tick,check);
 const bootstrapState = {status:'ready',data:{projects:{A:{id:'A',allowedPages:['overview']}, B:{id:'B',allowedPages:['overview']}}}};
 let overviewState;
 const overviewCalls = [];
@@ -634,6 +636,13 @@ try {
     await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<500});
     await send('Page.navigate',{url});
     for(let i=0;i<100;i++){if(await evaluate('typeof window.runQa === "function"'))break;await delay(100);}
+    console.log(JSON.stringify({viewport:width,stageKpi:await evaluate('window.runKpiStageQa()')}));
+    await mkdir('../artifacts/client-progress',{recursive:true});
+    const stageShot=await send('Page.captureScreenshot',{format:'png'});
+    await writeFile(`../artifacts/client-progress/kpi-stage-${width}.png`,Buffer.from(stageShot.data,'base64'));
+    await evaluate('window.stageQaOpenGoals()');
+    const goalsShot=await send('Page.captureScreenshot',{format:'png'});
+    await writeFile(`../artifacts/client-progress/kpi-goals-${width}.png`,Buffer.from(goalsShot.data,'base64'));
     if(process.env.KPI_ONLY==='1') {
       console.log(JSON.stringify({viewport:width,kpi:await evaluate('window.runKpiFunnelQa()')}));
       await mkdir('../artifacts/client-progress',{recursive:true});

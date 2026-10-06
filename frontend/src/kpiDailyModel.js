@@ -225,7 +225,38 @@ export function monthlyStats(days, month, today = todayKst()) {
 export function recordDiff(before, after) {
   const changes = [];
   for (const key of Object.keys(after)) {
-    if (key === "channels") {
+    if (key === "entries" || key === "goals") {
+      const previous = new Map((before?.[key] || []).map((e) => [e.id, e]));
+      const describe = (e) =>
+        key === "goals"
+          ? `${e.title} · ${METRIC_LABELS[e.metric]} ${e.target} ${e.direction === "AT_MOST" ? "이하" : "이상"}`
+          : `${e.start}~${e.end} · ${e.source} · ${[
+              "value",
+              "cost",
+              "impressions",
+              "clicks",
+              "posts",
+            ]
+              .filter((k) => e[k] != null)
+              .map((k) => `${METRIC_LABELS[k] || "실적"} ${e[k]}`)
+              .join(" / ")}${e.note ? " · " + e.note : ""}`;
+      for (const entry of after[key]) {
+        const old = previous.get(entry.id);
+        previous.delete(entry.id);
+        if (!sameDaily(old, entry))
+          changes.push({
+            label: `${key === "goals" ? "목표" : "실적 기록"} ${old ? "수정" : "추가"}`,
+            before: old ? describe(old) : null,
+            after: describe(entry),
+          });
+      }
+      for (const entry of previous.values())
+        changes.push({
+          label: `${key === "goals" ? "목표" : "실적 기록"} 삭제`,
+          before: describe(entry),
+          after: null,
+        });
+    } else if (key === "channels") {
       const previous = new Map((before?.channels || []).map((c) => [c.id, c]));
       for (const c of after.channels) {
         const old = previous.get(c.id);

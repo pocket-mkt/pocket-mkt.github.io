@@ -67,3 +67,13 @@ Browser drafts are memory-only. Failed requests retain immutable retry envelopes
 - `tests/kpi-daily.test.mjs`: dates, unknown/zero, partial aggregation, no double-counting, CSV roundtrip/validation, formula-safe export and rectangular paste.
 - `scripts/kpi-daily-security-qa.mjs`: NS/Pocket writes, client/anonymous/direct-table denial, page and tenant boundaries, versions, retry identity, full audit, history pagination and legacy preservation in PGlite.
 - `scripts/kpi-daily-browser-fixture.jsx`: real headless browser editing, queued autosave, retry, conflict recovery, CSV preview, narrative escaping, project isolation, read-only and layout at 1440/1024/390 pixels.
+# 2026-10-06 데일리 KPI와 단계별 시트
+
+내부 KPI 첫 화면은 `KpiDailyView`이다. 아래 문서의 기존 월별 퍼널은 ‘기존 월별 자료’로 보존되며 새 일별·기간별 실적에 합산되지 않는다. 고객의 기존 공개 월별 조회는 변경하지 않는다.
+
+- 1 광고·콘텐츠 / 2 유입 / 3 전환 카드를 누르면 각각의 시트가 열린다. 날짜 또는 같은 월 안의 기간을 정하고 `기록 추가`로 저장한다. 미래 실적은 입력하지 않는다. 기간 데이터는 해당 기간의 합계이며 일별 그래프에 임의 분배하지 않는다.
+- 시트 안에서 날짜순 기록, 수정·삭제 및 작성자/변경 이력을 확인한다. 기존 DAY 실적은 아래 일별 표에서 관리한다. 브리핑만 입력한 날짜와 실적 날짜는 서로 구분한다.
+- 목표는 프로젝트·월별 최대 5개: 이름, 연결 지표(집행비/노출·조회/클릭/발행/유입/전환), 목표값, 이상/이하 조건. 실적 저장 후 누적·달성률이 계산된다. 미입력은 미입력으로 유지하며 자동 0 처리를 하지 않는다.
+- `kpi_daily_records`의 SETTINGS/DAY에 STAGE_1/2/3, GOALS 문서를 추가한다. 동일 `read_kpi_daily`/`save_kpi_daily`/history RPC, optimistic row version, mutation retry ID, private before/after audit를 사용한다. 단계별 최대 250개, 문서 120KB 제한. 직접 테이블 및 고객/익명 접근은 거부한다.
+- 프로젝트/월 잠금 안에서 기존 일별 입력과 단계 시트의 기간 중복을 양방향 검사한다. 유입/전환은 전체 수치이므로 출처가 달라도 중복 기간은 거부한다. 광고·콘텐츠는 채널 이름을 공백 제거·소문자 비교하며 다른 채널은 같은 기간에 입력할 수 있다.
+- 전체 전환율은 유입·전환의 기록된 날짜 집합이 일치하고 출처/집계 기준을 확인한 경우에만 표시한다. 채널 귀속 수치를 전체 실적에 재합산하지 않는다. 이는 수동 보고이며 자동 광고 수집이나 개인별 전환 추적이 아니다.

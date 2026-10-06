@@ -166,12 +166,214 @@ export async function verifyKpiDailySecurity(db, users, assert) {
         h.items[0].after_body.conversions === 13,
       "audit values absent",
     );
+    // Stage sheets share the audited ledger and serialize against legacy daily edits.
+    await as("ns");
+    const period = {
+      id: "period",
+      start: "2026-09-10",
+      end: "2026-09-12",
+      source: "GA4",
+      note: "테스트",
+      value: 300,
+    };
+    const stageBody = { entries: [period] },
+      stageMutation = crypto.randomUUID();
+    const saveStage = (
+      body,
+      version = null,
+      mutation = crypto.randomUUID(),
+      kind = "STAGE_2",
+    ) => save(body, version, mutation, kind, "2026-09-01");
+    const stageSaved = await saveStage(stageBody, null, stageMutation);
+    assert(stageSaved.item.row_version === 1, "NS stage create denied");
+    assert(
+      (await saveStage(stageBody, null, stageMutation)).replayed,
+      "stage retry duplicated",
+    );
+    assert(
+      (await read()).stage_sheets.STAGE_2.body.entries[0].value === 300,
+      "stage read missing",
+    );
+    await rejects(
+      () =>
+        saveStage(
+          {
+            entries: [
+              period,
+              {
+                ...period,
+                id: "overlap",
+                start: "2026-09-12",
+                end: "2026-09-13",
+              },
+            ],
+          },
+          1,
+        ),
+      "23P01",
+    );
+    await rejects(
+      () =>
+        saveStage(
+          { entries: [{ ...period, start: "2026-09-02", end: "2026-09-02" }] },
+          1,
+        ),
+      "23P01",
+    );
+    await rejects(
+      () =>
+        save(
+          { ...emptyDay(), visits: 0 },
+          null,
+          crypto.randomUUID(),
+          "DAY",
+          "2026-09-11",
+        ),
+      "23P01",
+    );
+    await save(
+      { ...emptyDay(), execution: "브리핑만 기록 가능" },
+      null,
+      crypto.randomUUID(),
+      "DAY",
+      "2026-09-11",
+    );
+    await rejects(
+      () => saveStage({ entries: [{ ...period, end: "2026-10-01" }] }, 1),
+      "22023",
+    );
+    await rejects(
+      () =>
+        saveStage(
+          { entries: [{ ...period, start: "2026-09-31", end: "2026-09-31" }] },
+          1,
+        ),
+      "22023",
+    );
+    await rejects(
+      () => saveStage({ entries: [{ ...period, value: null }] }, 1),
+      "22023",
+    );
+    await rejects(
+      () => saveStage({ entries: [{ ...period, value: -1 }] }, 1),
+      "22023",
+    );
+    await rejects(
+      () => saveStage({ entries: [{ ...period, value: 100, extra: 1 }] }, 1),
+      "22023",
+    );
+    await rejects(() => saveStage(stageBody, 0), "40001");
+    const marketing = {
+      id: "ad",
+      start: "2026-09-10",
+      end: "2026-09-12",
+      source: "네이버",
+      note: "",
+      cost: 30000,
+      impressions: 10000,
+      clicks: null,
+      posts: null,
+    };
+    await saveStage(
+      { entries: [marketing, { ...marketing, id: "meta", source: "메타" }] },
+      null,
+      crypto.randomUUID(),
+      "STAGE_1",
+    );
+    await rejects(
+      () =>
+        save(
+          {
+            ...emptyDay(),
+            channels: [
+              { ...channelDay(newChannel("네이버", "AD", "naver")), posts: 1 },
+            ],
+          },
+          null,
+          crypto.randomUUID(),
+          "DAY",
+          "2026-09-10",
+        ),
+      "23P01",
+    );
+    await rejects(
+      () =>
+        saveStage(
+          {
+            entries: [
+              marketing,
+              { ...marketing, id: "same", source: " 네이버 " },
+            ],
+          },
+          1,
+          crypto.randomUUID(),
+          "STAGE_1",
+        ),
+      "23P01",
+    );
+    const goal = {
+      id: "g",
+      title: "예약 목표",
+      metric: "conversions",
+      target: 30,
+      direction: "AT_LEAST",
+    };
+    await saveStage(
+      {
+        goals: Array.from({ length: 5 }, (_, i) => ({ ...goal, id: "g" + i })),
+      },
+      null,
+      crypto.randomUUID(),
+      "GOALS",
+    );
+    await rejects(
+      () =>
+        saveStage(
+          {
+            goals: Array.from({ length: 6 }, (_, i) => ({
+              ...goal,
+              id: "g" + i,
+            })),
+          },
+          1,
+          crypto.randomUUID(),
+          "GOALS",
+        ),
+      "22023",
+    );
+    await rejects(
+      () =>
+        saveStage(
+          { goals: [{ ...goal, target: 0 }] },
+          1,
+          crypto.randomUUID(),
+          "GOALS",
+        ),
+      "22023",
+    );
+    await saveStage({ entries: [] }, 1);
+    const stageHistory = (
+      await db.query(
+        "select public.read_kpi_daily_history(1,'STAGE_2','2026-09-01',null) v",
+      )
+    ).rows[0].v;
+    assert(
+      stageHistory.items.length === 2 &&
+        stageHistory.items[0].before_body.entries.length === 1 &&
+        stageHistory.items[0].after_body.entries.length === 0,
+      "stage removal/retry audit incorrect",
+    );
+    await rejects(
+      () => db.query("select private.read_kpi_daily_base(1,'2026-09-01')"),
+      "42501",
+    );
     await db.exec(
       `reset role;update public.project_memberships set permission_code='READ_ONLY' where project_id=1 and user_id='${users.ns}';`,
     );
     await as("ns");
     assert(!(await read()).canWrite, "reader writable");
     await rejects(() => save(body, 13), "42501");
+    await rejects(() => saveStage(stageBody, 2), "42501");
     await db.exec(
       `reset role;update public.project_memberships set allowed_pages=array['tasks'] where project_id=1 and user_id='${users.ns}';`,
     );
@@ -179,6 +381,7 @@ export async function verifyKpiDailySecurity(db, users, assert) {
     await rejects(() => read(), "42501");
     await rejects(() => history(), "42501");
     await as("client");
+    await rejects(() => saveStage(stageBody, 2), "42501");
     await rejects(() => read(), "42501");
     await rejects(() => save(body, 13), "42501");
     await rejects(() => history(), "42501");

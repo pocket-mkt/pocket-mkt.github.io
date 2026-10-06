@@ -31,7 +31,6 @@ import {
   emptyDay,
   importDailyCsv,
   monthDays,
-  monthlyStats,
   newChannel,
   pasteMetrics,
   recordDiff,
@@ -39,6 +38,13 @@ import {
 } from "./kpiDailyModel.js";
 import { moveMonth } from "./kpiFunnelModel.js";
 import { useKpiDailyDraft } from "./useKpiDailyDraft.js";
+import KpiStageSheets, { StageGoals } from "./KpiStageSheets.jsx";
+import {
+  effectiveGoals,
+  sheetStats,
+  sheetTrendDays,
+  stageEntries,
+} from "./kpiStageModel.js";
 import "./kpiDaily.css";
 const Trend = lazy(() => import("./KpiDailyTrend.jsx"));
 const fmt = (v) =>
@@ -241,7 +247,7 @@ function SettingsEditor({ initial, ...props }) {
   return (
     <details className="kd-settings">
       <summary>
-        <Settings2 size={15} /> 이번 달 목표·측정 기준·운영 채널
+        <Settings2 size={15} /> 측정 기준·운영 채널
       </summary>
       <div data-kpi-editor="SETTINGS">
         <p>
@@ -252,8 +258,6 @@ function SettingsEditor({ initial, ...props }) {
           {[
             ["inflow_label", "유입 이름"],
             ["conversion_label", "전환 이름"],
-            ["inflow_goal", "월 유입 목표"],
-            ["conversion_goal", "월 전환 목표"],
             ["inflow_source", "유입 데이터 출처"],
             ["conversion_source", "전환 데이터 출처"],
           ].map(([k, label]) => (
@@ -376,7 +380,14 @@ function SettingsEditor({ initial, ...props }) {
   );
 }
 
-function DayEditor({ initial, settings, onJumpTasks, onCopyRoster, ...props }) {
+function DayEditor({
+  initial,
+  settings,
+  onJumpTasks,
+  onCopyRoster,
+  stageRows = [],
+  ...props
+}) {
   const e = useKpiDailyDraft({ initial, kind: "DAY", ...props }),
     [upload, setUpload] = useState(null),
     [inputError, setInputError] = useState(""),
@@ -526,17 +537,23 @@ function DayEditor({ initial, settings, onJumpTasks, onCopyRoster, ...props }) {
           label={"전체 " + settings.inflow_label}
           numeric
           value={body.visits}
+          placeholder={
+            stageRows.some((e) => e.stage === 2) ? "유입 시트에서 관리" : ""
+          }
           onChange={(v) => change("visits", v)}
           onBlur={save}
-          disabled={disabled}
+          disabled={disabled || stageRows.some((e) => e.stage === 2)}
         />
         <EditField
           label={"전체 " + settings.conversion_label}
           numeric
           value={body.conversions}
+          placeholder={
+            stageRows.some((e) => e.stage === 3) ? "전환 시트에서 관리" : ""
+          }
           onChange={(v) => change("conversions", v)}
           onBlur={save}
-          disabled={disabled}
+          disabled={disabled || stageRows.some((e) => e.stage === 3)}
         />
         <div>
           <b>전체 수치는 한 번만 입력</b>
@@ -621,7 +638,21 @@ function DayEditor({ initial, settings, onJumpTasks, onCopyRoster, ...props }) {
                           inputMode="numeric"
                           value={c[k] ?? ""}
                           placeholder="—"
-                          disabled={disabled}
+                          disabled={
+                            disabled ||
+                            ([
+                              "cost",
+                              "impressions",
+                              "clicks",
+                              "posts",
+                            ].includes(k) &&
+                              stageRows.some(
+                                (e) =>
+                                  e.stage === 1 &&
+                                  e.source.trim().toLocaleLowerCase() ===
+                                    c.name.trim().toLocaleLowerCase(),
+                              ))
+                          }
                           onPaste={(event) => paste(event, i, j)}
                           onChange={(v) =>
                             changeChannel(c.id, k, v.target.value)
@@ -772,10 +803,14 @@ export default function KpiDailyView({
     [revision, setRevision] = useState(0),
     [editorEpoch, setEditorEpoch] = useState(0),
     [metric, setMetric] = useState("visits"),
+    [sheet, setSheet] = useState(null),
     [notice, setNotice] = useState("");
   const guards = useRef(new Map()),
     loadGeneration = useRef(0);
   const latestState = useRef(state);
+  const openSheetRef = useRef(sheet);
+  openSheetRef.current = sheet;
+  const closeSheet = useCallback(() => setSheet(null), []);
   latestState.current = state;
   const register = useCallback((key, guard) => {
     guards.current.set(key, guard);
@@ -839,6 +874,7 @@ export default function KpiDailyView({
       lastAttempt = 0;
     const safe = () =>
       document.visibilityState === "visible" &&
+      !openSheetRef.current &&
       !latestState.current.loading &&
       latestState.current.data &&
       !document.activeElement?.closest("[data-kpi-editor]") &&
@@ -894,7 +930,12 @@ export default function KpiDailyView({
       defaultSettings(),
     writer = canWrite && state.data?.canWrite;
   const dates = useMemo(() => monthDays(month), [month]),
-    totals = monthlyStats(days, month, today),
+    totals = sheetStats(state.data, month, today),
+    goals = effectiveGoals(state.data, settings),
+    trendDays = sheetTrendDays(state.data),
+    stageRows = [1, 2, 3].flatMap((stage) =>
+      stageEntries(state.data, stage).map((e) => ({ ...e, stage })),
+    ),
     selected = days.find((d) => d.date === date),
     dayMap = new Map(days.map((d) => [d.date, d]));
   const selectDate = async (value) => {
@@ -929,6 +970,36 @@ export default function KpiDailyView({
     }));
   const savedSettings = (item) =>
     setState((s) => ({ ...s, data: { ...s.data, settings: item } }));
+  const savedSheet = (kind, item) =>
+    setState((s) => ({
+      ...s,
+      data: {
+        ...s.data,
+        ...(kind === "GOALS"
+          ? { goals: item }
+          : { stage_sheets: { ...s.data.stage_sheets, [kind]: item } }),
+      },
+    }));
+  const openSheet = async (stage) => {
+    for (const g of guards.current.values())
+      if (!(await g.flush())) {
+        setNotice("현재 입력의 저장을 먼저 완료해 주세요.");
+        return;
+      }
+    setSheet(stage);
+  };
+  const stageAction = (stage) => ({
+    role: "button",
+    tabIndex: 0,
+    "aria-label": `${stage}단계 ${["광고·콘텐츠", "유입", "전환"][stage - 1]} 시트 열기`,
+    onClick: () => openSheet(stage),
+    onKeyDown: (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openSheet(stage);
+      }
+    },
+  });
   async function copyRoster(channels) {
     for (const g of guards.current.values()) if (!(await g.flush())) return;
     if (
@@ -1010,12 +1081,15 @@ export default function KpiDailyView({
         <>
           <div className="kd-summary-heading">
             <span>
-              <b>{month.replace("-", "년 ")}월 누적</b> · 저장된 일별 실적 기준
+              <b>{month.replace("-", "년 ")}월 누적</b> · 날짜·기간별 저장 실적
             </span>
             <span className={totals.partial ? "kd-partial" : ""}>
-              입력 {totals.recorded}일 · 완료 {totals.complete}일 · 지난 날짜
-              미입력 {totals.missing}일{totals.partial ? " · 부분 집계" : ""}
+              실적 포함 {totals.recorded}일 · 기간 합계 {totals.periodCount}건 ·
+              지난 날짜 미입력 {totals.missing}일
             </span>
+            <button onClick={() => openSheet("GOALS")}>
+              <Settings2 size={14} /> 목표 설정 {goals.length}/5
+            </button>
           </div>
           {state.data.legacy_exists && (
             <p className="kd-legacy-note">
@@ -1024,16 +1098,18 @@ export default function KpiDailyView({
             </p>
           )}
           <div className="kd-funnel">
-            <article className="kd-stage marketing">
+            <article className="kd-stage marketing" {...stageAction(1)}>
               <header>
                 <span>1</span>
                 <h3>광고·콘텐츠</h3>
+                <small className="ks-open-hint">시트 열기 ↗</small>
               </header>
               <p className="kd-metric-caption">누적 집행비</p>
               <strong>
                 {fmt(totals.cost)}
                 <small>원</small>
               </strong>
+              <StageGoals goals={goals} totals={totals} stage={1} />
               <footer>
                 <span>
                   발행 <b>{fmt(totals.posts)}건</b>
@@ -1044,36 +1120,35 @@ export default function KpiDailyView({
               </footer>
             </article>
             <ArrowRight className="kd-arrow" size={20} />
-            <article className="kd-stage traffic">
+            <article className="kd-stage traffic" {...stageAction(2)}>
               <header>
                 <span>2</span>
                 <h3>유입</h3>
+                <small className="ks-open-hint">시트 열기 ↗</small>
               </header>
               <p className="kd-metric-caption">{settings.inflow_label}</p>
               <strong>
                 {fmt(totals.visits)}
                 <small>건</small>
               </strong>
-              <Goal actual={totals.visits} goal={settings.inflow_goal} />
+              <StageGoals goals={goals} totals={totals} stage={2} />
               <footer>
                 {settings.inflow_source || "측정 출처를 설정해 주세요"}
               </footer>
             </article>
             <ArrowRight className="kd-arrow" size={20} />
-            <article className="kd-stage conversion">
+            <article className="kd-stage conversion" {...stageAction(3)}>
               <header>
                 <span>3</span>
                 <h3>전환</h3>
+                <small className="ks-open-hint">시트 열기 ↗</small>
               </header>
               <p className="kd-metric-caption">{settings.conversion_label}</p>
               <strong>
                 {fmt(totals.conversions)}
                 <small>건</small>
               </strong>
-              <Goal
-                actual={totals.conversions}
-                goal={settings.conversion_goal}
-              />
+              <StageGoals goals={goals} totals={totals} stage={3} />
               <footer>
                 <span>
                   유입 대비{" "}
@@ -1090,8 +1165,9 @@ export default function KpiDailyView({
             </article>
           </div>
           <p className="kd-help">
-            누적은 입력된 날짜만 합산합니다. 채널별 유입·전환은 전체 수치에
-            더하지 않습니다. 미확인 값은 0으로 처리하지 않습니다.
+            카드를 눌러 날짜·기간별 실적을 추가합니다. 기간 합계는 한 번만
+            누적하며, 채널별 유입·전환은 전체 수치에 더하지 않습니다. 미확인
+            값은 0으로 처리하지 않습니다.
           </p>
           <SettingsEditor
             key={"settings:" + month + ":" + revision + ":" + editorEpoch}
@@ -1111,7 +1187,8 @@ export default function KpiDailyView({
                 <h3>일별 성과 추이</h3>
                 <p>
                   막대·날짜를 선택하면 해당일 기록이 열립니다. 빈 날짜는
-                  미입력입니다.
+                  미입력입니다. 기간 합계는 월 누적에만 포함되며 일별로 나누지
+                  않습니다.
                 </p>
               </div>
               <div className="kd-segment">
@@ -1135,7 +1212,7 @@ export default function KpiDailyView({
             >
               <Trend
                 dates={dates}
-                days={days}
+                days={trendDays}
                 metric={metric}
                 selected={date}
                 onSelect={selectDate}
@@ -1145,27 +1222,32 @@ export default function KpiDailyView({
           <section className="kd-dates">
             <div className="kd-section-title">
               <h3>날짜별 입력·브리핑</h3>
-              <span>완료 / 일부 / 미입력 · 주말 포함</span>
+              <span>시트 / 기간 / 일별 기록 · 주말 포함</span>
             </div>
             <div className="kd-date-strip">
               {dates.map((d) => {
                 const record = dayMap.get(d),
                   stats = dayStats(record?.body),
+                  sheets = stageRows.filter((e) => d >= e.start && d <= e.end),
                   label =
                     d > today
                       ? "예정"
-                      : record
-                        ? stats.complete
-                          ? "완료"
-                          : "일부"
-                        : "미입력";
+                      : sheets.length
+                        ? sheets.some((e) => e.start !== e.end)
+                          ? "기간"
+                          : "시트"
+                        : record
+                          ? stats.complete
+                            ? "완료"
+                            : "일부"
+                          : "미입력";
                 return (
                   <button
                     key={d}
                     className={
                       label === "완료"
                         ? "complete"
-                        : label === "일부"
+                        : ["일부", "기간", "시트"].includes(label)
                           ? "partial"
                           : ""
                     }
@@ -1185,27 +1267,43 @@ export default function KpiDailyView({
             </div>
           </section>
           {date <= today ? (
-            <DayEditor
-              key={month + ":" + date + ":" + revision + ":" + editorEpoch}
-              initial={
-                selected || { body: emptyDay(settings), row_version: null }
-              }
-              settings={settings}
-              source={source}
-              projectId={project.id}
-              date={date}
-              canWrite={writer}
-              register={register}
-              onSaved={savedDay}
-              onCopyRoster={copyRoster}
-              onJumpTasks={
-                onJumpTasks
-                  ? async () => {
-                      if (await guard()) onJumpTasks();
-                    }
-                  : null
-              }
-            />
+            <>
+              {[1, 2, 3].some((s) =>
+                stageEntries(state.data, s).some(
+                  (e) => date >= e.start && date <= e.end,
+                ),
+              ) && (
+                <p className="kd-notice">
+                  이 날짜는 단계 시트에 기록된 실적이 있습니다. 위 1·2·3 카드를
+                  눌러 수정하세요. 아래 입력표에 같은 수치를 다시 입력하면 중복
+                  저장이 차단됩니다. 브리핑은 아래에서 작성할 수 있습니다.
+                </p>
+              )}
+              <DayEditor
+                key={month + ":" + date + ":" + revision + ":" + editorEpoch}
+                initial={
+                  selected || { body: emptyDay(settings), row_version: null }
+                }
+                settings={settings}
+                stageRows={stageRows.filter(
+                  (e) => date >= e.start && date <= e.end,
+                )}
+                source={source}
+                projectId={project.id}
+                date={date}
+                canWrite={writer}
+                register={register}
+                onSaved={savedDay}
+                onCopyRoster={copyRoster}
+                onJumpTasks={
+                  onJumpTasks
+                    ? async () => {
+                        if (await guard()) onJumpTasks();
+                      }
+                    : null
+                }
+              />
+            </>
           ) : (
             <div className="kd-empty">
               미래 날짜에는 실적을 입력하지 않습니다. 목표·채널 설정은 준비할 수
@@ -1213,7 +1311,7 @@ export default function KpiDailyView({
             </div>
           )}
           <details className="kd-ledger">
-            <summary>월 전체 일별 기록표</summary>
+            <summary>날짜별 실적·브리핑 기록표</summary>
             <div className="kd-table-scroll">
               <table>
                 <thead>
@@ -1231,7 +1329,18 @@ export default function KpiDailyView({
                     .filter((d) => d <= today)
                     .map((d) => {
                       const row = dayMap.get(d),
-                        s = dayStats(row?.body);
+                        sheets = stageRows.filter(
+                          (e) => d >= e.start && d <= e.end,
+                        ),
+                        s = dayStats(trendDays.find((r) => r.date === d)?.body),
+                        metricText = (key, stage) =>
+                          sheets.some(
+                            (e) => e.stage === stage && e.start !== e.end,
+                          )
+                            ? s[key] == null
+                              ? "기간 합계에 포함"
+                              : fmt(s[key]) + " + 기간 별도"
+                            : fmt(s[key]);
                       return (
                         <tr key={d}>
                           <td>
@@ -1239,15 +1348,17 @@ export default function KpiDailyView({
                               {d.slice(5)}
                             </button>
                           </td>
-                          <td>{fmt(s.visits)}</td>
-                          <td>{fmt(s.conversions)}</td>
-                          <td>{fmt(s.cost)}</td>
+                          <td>{metricText("visits", 2)}</td>
+                          <td>{metricText("conversions", 3)}</td>
+                          <td>{metricText("cost", 1)}</td>
                           <td>
-                            {!row
-                              ? "미입력"
-                              : s.complete
-                                ? "완료"
-                                : "일부 입력"}
+                            {sheets.length
+                              ? "단계 시트 기록"
+                              : !row
+                                ? "미입력"
+                                : s.complete
+                                  ? "완료"
+                                  : "일부 입력"}
                           </td>
                           <td>
                             {row
@@ -1261,39 +1372,30 @@ export default function KpiDailyView({
               </table>
             </div>
           </details>
+          {sheet != null && (
+            <KpiStageSheets
+              key={project.id + ":" + month + ":" + sheet}
+              stage={sheet}
+              month={month}
+              initial={
+                sheet === "GOALS"
+                  ? state.data.goals
+                  : state.data.stage_sheets?.[`STAGE_${sheet}`]
+              }
+              goals={goals}
+              settings={settings}
+              days={days}
+              source={source}
+              projectId={project.id}
+              canWrite={writer}
+              onSaved={savedSheet}
+              onClose={closeSheet}
+              register={register}
+              History={History}
+            />
+          )}
         </>
       )}
-    </div>
-  );
-}
-function Goal({ actual, goal }) {
-  const percent = goal && actual != null ? (actual / goal) * 100 : null;
-  return (
-    <div className="kd-goal">
-      <div>
-        <span>월 목표 {fmt(goal)}</span>
-        <b>
-          {percent == null
-            ? goal
-              ? "실적 미입력"
-              : "목표 미설정"
-            : fmt(percent) + "%"}
-        </b>
-      </div>
-      <div
-        className="kd-progress"
-        role="progressbar"
-        aria-label="월 목표 달성률"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={percent == null ? undefined : Math.min(100, percent)}
-      >
-        <i
-          style={{
-            width: (percent == null ? 0 : Math.min(100, percent)) + "%",
-          }}
-        />
-      </div>
     </div>
   );
 }

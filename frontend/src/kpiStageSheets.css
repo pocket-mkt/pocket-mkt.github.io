@@ -1,0 +1,419 @@
+.kd-stage[role="button"] {
+  cursor: pointer;
+  position: relative;
+  transition:
+    box-shadow 0.15s,
+    border-color 0.15s;
+}
+.kd-stage[role="button"]:hover {
+  box-shadow: 0 4px 16px #1e335116;
+}
+.kd-stage[role="button"]:focus-visible {
+  outline: 3px solid #7f9ef9;
+  outline-offset: 3px;
+}
+.ks-open-hint {
+  margin-left: auto;
+  font-size: 11px;
+  color: #647893;
+  font-weight: 500;
+}
+.ks-card-goals {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+.ks-goal-preview > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+}
+.ks-goal-preview b {
+  font-size: 12px !important;
+}
+.ks-goal-preview small {
+  color: #76869f;
+  font-size: 11px !important;
+}
+.ks-goal-preview .met {
+  color: #078267;
+}
+.ks-goal-preview .unmet {
+  color: #c64551;
+}
+.ks-meter {
+  height: 4px;
+  background: #edf1f6;
+  border-radius: 9px;
+  overflow: hidden;
+  margin: 6px 0;
+}
+.ks-meter i {
+  display: block;
+  height: 100%;
+  background: #708dbf;
+}
+.ks-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1600;
+  background: #15253b70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  backdrop-filter: blur(2px);
+}
+.ks-dialog {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 24px 80px #12244140;
+  width: min(1020px, 100%);
+  max-height: calc(100dvh - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #21334f;
+  font: inherit;
+  min-width: 0;
+}
+.ks-heading {
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e6edf5;
+}
+.ks-heading span {
+  font-size: 12px;
+  color: #73859e;
+}
+.ks-heading h2 {
+  font-size: 20px;
+  margin: 4px 0 0;
+  font-weight: 750;
+}
+.ks-body {
+  overflow: auto;
+  padding: 20px 24px;
+  overscroll-behavior: contain;
+}
+.ks-intro {
+  font-size: 12px;
+  color: #677d99;
+  margin: 0 0 18px;
+  line-height: 1.65;
+}
+.ks-dialog button,
+.ks-dialog input,
+.ks-dialog select,
+.ks-dialog textarea {
+  font: inherit;
+}
+.ks-dialog label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 0;
+}
+.ks-dialog input,
+.ks-dialog select,
+.ks-dialog textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  border: 1px solid #d6e1ef;
+  border-radius: 7px;
+  background: #fff;
+  padding: 9px 10px;
+  color: #21334f;
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.ks-dialog input:focus,
+.ks-dialog select:focus,
+.ks-dialog textarea:focus {
+  outline: 2px solid #668bea44;
+  border-color: #6c8dd3;
+}
+.ks-dialog button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #d6e1ef;
+  border-radius: 7px;
+  background: #fff;
+  padding: 8px 11px;
+  font-size: 12px;
+  color: #324966;
+  cursor: pointer;
+  min-height: 34px;
+}
+.ks-dialog button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ks-dialog .kd-primary {
+  background: #213958;
+  color: white;
+  border-color: #213958;
+}
+.ks-entry-form {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.ks-date-mode {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.ks-date-mode button[aria-pressed="true"] {
+  background: #213958;
+  color: #fff;
+  border-color: #213958;
+}
+.ks-date-mode span {
+  margin-left: auto;
+  color: #7489a6;
+  font-size: 11px;
+}
+.ks-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(130px, 1fr)) minmax(180px, 1.5fr);
+  gap: 12px;
+}
+.ks-source {
+  grid-column: auto / -1;
+}
+.ks-form-grid.day {
+  grid-template-columns: minmax(130px, 1fr) minmax(180px, 2fr);
+}
+.kd-workspace .ks-dialog .ks-metrics input {
+  font-size: 20px;
+  font-weight: 650;
+}
+.ks-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.ks-metrics input {
+  font-size: 21px;
+  font-weight: 700;
+  text-align: right;
+  background: #f7f9fc;
+}
+.ks-metrics small {
+  font-size: 10px;
+  font-weight: 400;
+  color: #7e8fa6;
+}
+.ks-records {
+  margin-top: 24px;
+}
+.ks-records > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.ks-records h3 {
+  font-size: 14px;
+  margin: 0;
+}
+.ks-records h3 b {
+  color: #5274b1;
+  margin-left: 5px;
+}
+.ks-records header > span {
+  font-size: 11px;
+  color: #7b8ca3;
+}
+.ks-table-scroll {
+  overflow: auto;
+  border: 1px solid #e2e9f3;
+  border-radius: 8px;
+}
+.ks-dialog table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.ks-dialog th {
+  background: #f3f6fa;
+  font-weight: 600;
+  color: #657991;
+  text-align: left;
+  white-space: nowrap;
+  padding: 10px;
+}
+.ks-dialog td {
+  padding: 10px;
+  border-top: 1px solid #edf1f6;
+  line-height: 1.5;
+}
+.ks-dialog td:first-child {
+  white-space: nowrap;
+}
+.ks-dialog td small {
+  display: block;
+  color: #8593a6;
+  font-size: 10px;
+}
+.ks-number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+.ks-note {
+  min-width: 100px;
+  max-width: 220px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #70829a;
+}
+.ks-row-actions {
+  display: flex;
+  gap: 3px;
+}
+.ks-row-actions button {
+  padding: 6px;
+  min-width: 30px;
+}
+.ks-empty {
+  padding: 24px 12px;
+  border: 1px dashed #dce5f0;
+  background: #fafbfd;
+  border-radius: 8px;
+  color: #7c8da4;
+  font-size: 12px;
+  text-align: center;
+}
+.ks-legacy-note {
+  font-size: 11px;
+  color: #7789a2;
+  line-height: 1.6;
+}
+.ks-goals-editor {
+  display: grid;
+  gap: 12px;
+}
+.ks-goal-edit {
+  margin: 0;
+  border: 1px solid #dfe7f1;
+  border-radius: 9px;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 0.8fr 0.8fr auto;
+  gap: 10px;
+  align-items: end;
+  min-width: 0;
+}
+.ks-goal-edit legend {
+  font-size: 11px;
+  color: #6680a3;
+  padding: 0 5px;
+}
+.ks-goal-edit button {
+  margin-bottom: 1px;
+}
+.ks-add-goal {
+  width: 100%;
+  border-style: dashed !important;
+}
+.ks-add-goal b {
+  color: #6680a3;
+  font-size: 11px;
+}
+.ks-footer {
+  padding: 14px 24px;
+  border-top: 1px solid #e5ecf5;
+  background: #fafbfd;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+}
+.ks-footer > div:first-child {
+  font-size: 12px;
+  color: #73859e;
+  min-width: 0;
+}
+.ks-footer p {
+  color: #c64451;
+  margin: 0 0 5px;
+  line-height: 1.5;
+}
+.ks-footer small {
+  display: block;
+  margin-top: 5px;
+}
+.ks-footer-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.ks-footer-actions button {
+  min-height: 38px;
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .ks-backdrop {
+    padding: 8px;
+  }
+  .ks-dialog {
+    max-height: calc(100dvh - 16px);
+    border-radius: 12px;
+  }
+  .ks-heading,
+  .ks-body {
+    padding: 16px;
+  }
+  .ks-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ks-source {
+    grid-column: 1/-1;
+  }
+  .ks-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ks-goal-edit {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ks-goal-edit label:first-of-type {
+    grid-column: 1/-1;
+  }
+  .ks-goal-edit button {
+    justify-self: end;
+  }
+  .ks-footer {
+    padding: 12px 16px;
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .ks-footer-actions {
+    justify-content: flex-end;
+  }
+  .ks-records > header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .ks-goal-preview > div:first-child {
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+  .ks-open-hint {
+    font-size: 10px;
+  }
+}
