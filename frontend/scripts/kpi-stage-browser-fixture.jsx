@@ -1,4 +1,5 @@
 import React from "react";
+import * as echarts from "echarts/core";
 import KpiDailyView from "../src/KpiDailyView.jsx";
 import {
   defaultSettings,
@@ -134,13 +135,27 @@ export async function runKpiStageQa(render, tick, check) {
     await tick();
   };
   const open = async (n) =>
-    click(document.querySelectorAll(".kd-stage")[n - 1]);
+    click(document.querySelectorAll(".kd-stage .ks-open-hint")[n - 1]);
+  const openTrend = async (n) => {
+    await click(document.querySelectorAll(".kd-stage")[n - 1]);
+    for (let i = 0; i < 50 && !document.querySelector('.kt-dialog'); i++) await tick();
+  };
+  const closeTrend = async () => click(el("추이 닫기"));
   const close = async () => click(el("시트 닫기"));
   const confirmBefore = window.confirm;
   window.confirm = () => false;
   try {
     await mount();
     check(writes.length === 0, "stage mount saved defaults");
+    await openTrend(2);
+    check(
+      document.querySelector(".kt-dialog") &&
+        !document.querySelector("#ks-form"),
+      "card did not open read-only trend",
+    );
+    check(document.querySelector(".kt-empty"), "empty trend missing");
+    check(writes.length === 0, "opening trend wrote defaults");
+    await closeTrend();
     await open(2);
     check(document.querySelector('[role="dialog"]'), "stage card did not open");
     await click(btn("기간 지정"));
@@ -186,6 +201,18 @@ export async function runKpiStageQa(render, tick, check) {
     await fill("실적 유입", "320");
     await click(btn("수정 저장"));
     check(records.STAGE_2.body.entries[0].value === 320, "entry edit failed");
+    await close();
+    await openTrend(2);
+    if (date !== end) {
+      check(document.querySelector(".kt-periods")?.textContent.includes("320"), "range totals absent from trend");
+      check(document.querySelector(".kt-empty"), "range totals invented daily graph");
+    } else check(document.querySelector('.kt-summary').textContent.includes('320'), 'single-day total absent from trend');
+    await click(document.querySelector(".kt-entry"));
+    check(
+      document.querySelector("#ks-form") &&
+        !document.querySelector(".kt-dialog"),
+      "trend to entry did not replace dialog",
+    );
     await close();
     check(
       document
@@ -359,6 +386,13 @@ export async function runKpiStageQa(render, tick, check) {
     await close();
     await mount({ canWrite: false });
     check(el("2단계 유입 항목 이름").disabled, "readonly can edit label");
+    await openTrend(2);
+    check(!document.querySelector("#ks-form"), "readonly trend exposes editor");
+    check(
+      document.querySelector(".kt-entry").textContent === "기록 보기",
+      "readonly entry label",
+    );
+    await closeTrend();
     await open(2);
     check(
       !btn("기록 추가") && !document.querySelector(".ks-row-actions"),
@@ -443,6 +477,102 @@ export async function runKpiStageQa(render, tick, check) {
       delta("unitCost").textContent.includes("50% 하락"),
       "cost growth incorrect",
     );
+    const writesBeforeTrend = writes.length;
+    await openTrend(1);
+    const chart = () =>
+      echarts.getInstanceByDom(document.querySelector(".kt-dialog .kd-chart"));
+    check(
+      chart()?.getOption().series[0].type === "line",
+      "trend not a line chart",
+    );
+    check(
+      chart().getOption().series[0].connectNulls === false,
+      "missing days bridged by line",
+    );
+    check(
+      chart()
+        .getOption()
+        .series[0].data.some((p) => p.value === 20),
+      "daily actual absent from graph",
+    );
+    await click(
+      [...document.querySelectorAll(".kt-metrics button")].find(
+        (b) => b.textContent === "클릭률 (CTR)",
+      ),
+    );
+    check(
+      chart()
+        .getOption()
+        .series[0].data.some((p) => p.value === 20),
+      "CTR metric switch incorrect",
+    );
+    await click(
+      [...document.querySelectorAll(".kt-window button")].find(
+        (b) => b.textContent === "최근 7일",
+      ),
+    );
+    check(
+      chart().getOption().xAxis[0].data.length <= 7,
+      "recent range not bounded",
+    );
+    await click(document.querySelector(".kt-values summary"));
+    await click(document.querySelector(".kt-values tbody button"));
+    check(
+      !document.querySelector("#ks-form"),
+      "date inspection opened input sheet",
+    );
+    check(writes.length === writesBeforeTrend, "trend interactions wrote data");
+    const dialog = document.querySelector(".kt-dialog"),
+      dialogBox = dialog.getBoundingClientRect();
+    check(
+      dialogBox.left >= 0 &&
+        dialogBox.right <= innerWidth &&
+        dialogBox.bottom <= innerHeight,
+      "trend dialog outside viewport",
+    );
+    check(
+      dialog.scrollWidth <= dialog.clientWidth + 1,
+      "trend horizontal overflow",
+    );
+    const last = [...dialog.querySelectorAll("button")].at(-1);
+    last.focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Tab",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    check(dialog.contains(document.activeElement), "trend focus escaped");
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await tick();
+    check(!document.querySelector(".kt-dialog"), "trend Escape did not close");
+    await click(el("2단계 유입 일별 추이 보기"));
+    check(
+      document.querySelector("#kt-title").textContent.includes("유입"),
+      "keyboard trigger cannot open inflow trend",
+    );
+    check(
+      document
+        .querySelector(".kt-metrics")
+        .textContent.includes("플레이스 방문"),
+      "trend uses stale inflow label",
+    );
+    await closeTrend();
+    await openTrend(3);
+    check(
+      chart()
+        .getOption()
+        .series[0].data.some((p) => p.value === 4),
+      "conversion trend incorrect",
+    );
+    await closeTrend();
     await click(delta("impressions"));
     check(
       !document.querySelector('[role="dialog"]'),
@@ -506,8 +636,15 @@ export async function runKpiStageQa(render, tick, check) {
         "marketing summary overflow",
       );
     };
+    window.stageQaShowTrend = async () => {
+      await openTrend(1);
+    };
     return {
       clickableStages: true,
+      separateEntryAndTrend: true,
+      dailyTrendMetrics: true,
+      trendNoWrites: true,
+      periodTotalsSeparate: true,
       inlineInflowLabelSaved: true,
       sharedSettingsWriter: true,
       labelRetryPreservesDraft: true,

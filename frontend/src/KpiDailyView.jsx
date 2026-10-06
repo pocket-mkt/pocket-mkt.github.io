@@ -49,6 +49,7 @@ import {
 } from "./kpiStageModel.js";
 import "./kpiDaily.css";
 const Trend = lazy(() => import("./KpiDailyTrend.jsx"));
+const StageTrend = lazy(() => import("./KpiStageTrend.jsx"));
 const fmt = (v) =>
   v == null
     ? "—"
@@ -816,13 +817,15 @@ export default function KpiDailyView({
     [editorEpoch, setEditorEpoch] = useState(0),
     [metric, setMetric] = useState("visits"),
     [sheet, setSheet] = useState(null),
+    [trendStage, setTrendStage] = useState(null),
     [notice, setNotice] = useState("");
   const guards = useRef(new Map()),
     loadGeneration = useRef(0);
   const latestState = useRef(state);
   const openSheetRef = useRef(sheet);
-  openSheetRef.current = sheet;
+  openSheetRef.current = sheet != null || trendStage != null;
   const closeSheet = useCallback(() => setSheet(null), []);
+  const closeTrend = useCallback(() => setTrendStage(null), []);
   latestState.current = state;
   const register = useCallback((key, guard) => {
     guards.current.set(key, guard);
@@ -993,18 +996,21 @@ export default function KpiDailyView({
           : { stage_sheets: { ...s.data.stage_sheets, [kind]: item } }),
       },
     }));
-  const openSheet = async (stage) => {
+  const openPanel = async (stage, mode) => {
     for (const g of guards.current.values())
       if (!(await g.flush())) {
         setNotice("현재 입력의 저장을 먼저 완료해 주세요.");
         return;
       }
-    setSheet(stage);
+    setSheet(mode === "sheet" ? stage : null);
+    setTrendStage(mode === "trend" ? stage : null);
   };
+  const openSheet = (stage) => openPanel(stage, "sheet");
+  const openTrend = (stage) => openPanel(stage, "trend");
   const stageAction = (stage) => ({
     onClick: (e) => {
       if (!e.target.closest("button, input, label, details, [data-kpi-editor]"))
-        openSheet(stage);
+        openTrend(stage);
     },
   });
   async function copyRoster(channels) {
@@ -1119,21 +1125,33 @@ export default function KpiDailyView({
             {(settingsEditor, settingsDisabled) => (
               <>
                 <p className="kd-comparison-note">
-                  주요 수치는 월 집계 · 작은 증감률은 선택 월의 최근 기록 ↔ 직전
-                  기록 기준입니다. 증감률을 누르면 비교 날짜와 값을 볼 수
+                  주요 수치는 월 집계 · 작은 증감률은 선택 월의 최근 기록 ↔
+                  직전 기록 기준입니다. 증감률을 누르면 비교 날짜와 값을 볼 수
                   있습니다.
                 </p>
                 <div className="kd-funnel">
                   <article className="kd-stage marketing" {...stageAction(1)}>
                     <header>
                       <span>1</span>
-                      <h3>광고·콘텐츠</h3>
+                      <h3>
+                        <button
+                          className="kd-stage-title"
+                          aria-label="1단계 광고·콘텐츠 일별 추이 보기"
+                          onClick={() => openTrend(1)}
+                        >
+                          광고·콘텐츠
+                        </button>
+                      </h3>
                       <button
                         className="ks-open-hint"
-                        aria-label="1단계 광고·콘텐츠 시트 열기"
+                        aria-label={
+                          writer
+                            ? "1단계 광고·콘텐츠 데이터 입력"
+                            : "1단계 광고·콘텐츠 기록 보기"
+                        }
                         onClick={() => openSheet(1)}
                       >
-                        시트 열기 ↗
+                        {writer ? "+ 데이터 입력" : "기록 보기"}
                       </button>
                     </header>
                     <dl
@@ -1214,13 +1232,25 @@ export default function KpiDailyView({
                   <article className="kd-stage traffic" {...stageAction(2)}>
                     <header>
                       <span>2</span>
-                      <h3>유입</h3>
+                      <h3>
+                        <button
+                          className="kd-stage-title"
+                          aria-label="2단계 유입 일별 추이 보기"
+                          onClick={() => openTrend(2)}
+                        >
+                          유입
+                        </button>
+                      </h3>
                       <button
                         className="ks-open-hint"
-                        aria-label="2단계 유입 시트 열기"
+                        aria-label={
+                          writer
+                            ? "2단계 유입 데이터 입력"
+                            : "2단계 유입 기록 보기"
+                        }
                         onClick={() => openSheet(2)}
                       >
-                        시트 열기 ↗
+                        {writer ? "+ 데이터 입력" : "기록 보기"}
                       </button>
                     </header>
                     <div className="kd-inflow-name" data-kpi-editor="SETTINGS">
@@ -1278,13 +1308,25 @@ export default function KpiDailyView({
                   <article className="kd-stage conversion" {...stageAction(3)}>
                     <header>
                       <span>3</span>
-                      <h3>전환</h3>
+                      <h3>
+                        <button
+                          className="kd-stage-title"
+                          aria-label="3단계 전환 일별 추이 보기"
+                          onClick={() => openTrend(3)}
+                        >
+                          전환
+                        </button>
+                      </h3>
                       <button
                         className="ks-open-hint"
-                        aria-label="3단계 전환 시트 열기"
+                        aria-label={
+                          writer
+                            ? "3단계 전환 데이터 입력"
+                            : "3단계 전환 기록 보기"
+                        }
                         onClick={() => openSheet(3)}
                       >
-                        시트 열기 ↗
+                        {writer ? "+ 데이터 입력" : "기록 보기"}
                       </button>
                     </header>
                     <p className="kd-metric-caption">
@@ -1334,7 +1376,8 @@ export default function KpiDailyView({
                   </article>
                 </div>
                 <p className="kd-help">
-                  카드를 눌러 날짜·기간별 실적을 추가합니다. 기간 합계는 한 번만
+                  카드 본문을 누르면 일별 추이가 열립니다. 실적 추가·수정은 카드
+                  우측 상단의 ‘데이터 입력’에서 합니다. 기간 합계는 한 번만
                   누적하며, 채널별 유입·전환은 전체 수치에 더하지 않습니다.
                   미확인 값은 0으로 처리하지 않습니다.
                 </p>
@@ -1532,6 +1575,22 @@ export default function KpiDailyView({
               </table>
             </div>
           </details>
+          {trendStage != null && (
+            <Suspense
+              fallback={<p role="status">일별 추이 차트를 준비하는 중…</p>}
+            >
+              <StageTrend
+                key={project.id + ":" + month + ":" + trendStage}
+                stage={trendStage}
+                month={month}
+                data={state.data}
+                settings={settings}
+                canWrite={writer}
+                onClose={closeTrend}
+                onEntry={() => openSheet(trendStage)}
+              />
+            </Suspense>
+          )}
           {sheet != null && (
             <KpiStageSheets
               key={project.id + ":" + month + ":" + sheet}

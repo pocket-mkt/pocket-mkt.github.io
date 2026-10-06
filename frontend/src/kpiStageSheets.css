@@ -17,8 +17,34 @@
   font-size: 11px;
   color: #647893;
   font-weight: 500;
+  border: 1px solid #d8e3f4;
+  background: #f5f8fe;
+  color: #325785;
+  padding: 5px 7px;
+}
+.kd-stage header h3 {
+  min-width: 0;
+}
+.kd-stage button.kd-stage-title {
   border: 0;
-  padding: 4px;
+  padding: 3px 0;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: normal;
+  text-align: left;
+}
+.kd-stage header > span {
+  flex-shrink: 0;
+}
+.kd-stage button.ks-open-hint {
+  flex-shrink: 0;
+}
+@media (min-width: 701px) and (max-width: 1100px) {
+  .kd-stage header {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
 }
 .ks-card-goals {
   display: grid;
