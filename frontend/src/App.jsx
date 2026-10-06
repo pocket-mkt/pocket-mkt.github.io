@@ -11,7 +11,7 @@ import ScreenBoundary from "./ScreenBoundary.jsx";
 import { statusClass, formatSyncTime, EmptyState, LoadingState, ErrorState, FormSelect, trackerStatusOptions, trackerStatusLabels, trackerDate, localDateValue } from "./TaskUiPrimitives.jsx";
 const DetailLogView = lazy(() => import("./DetailLogView.jsx"));
 const BlogStatusView = lazy(() => import('./BlogStatusView.jsx'));
-const KpiFunnelView = lazy(() => import('./KpiFunnelView.jsx'));
+const KpiFunnelView = lazy(() => import('./KpiPerformanceView.jsx'));
 const MonthlyReportsView = lazy(() => import('./MonthlyReportsView.jsx'));
 import WorkspaceNotifications from "./WorkspaceNotifications.jsx";
 import NotificationIssueDialog from "./NotificationIssueDialog.jsx";
@@ -1087,7 +1087,7 @@ function AppContent({ taskMonthFocus, onTaskCopy, view, planVariant, project, ro
   }), [source, role, pageState.data]);
   if(view==='blog') return role==='client'?<ErrorState error={new Error('내부 운영 계정만 접근할 수 있습니다.')} />:<Suspense fallback={<LoadingState/>}><BlogStatusView key={project.id} project={project} source={source} canWrite={['ADMIN','EDIT'].includes(project.permissionCode)||role==='pocket'} /></Suspense>;
   if(view==='reports') return <Suspense fallback={<LoadingState/>}><MonthlyReportsView key={project.id} project={project} source={source} canWrite={role!=='client'&&(['ADMIN','EDIT'].includes(project.permissionCode)||role==='pocket')} /></Suspense>;
-  if(view==='performance') return <Suspense fallback={<LoadingState/>}><KpiFunnelView key={project.id} project={project} source={source} canWrite={role!=='client'&&(['ADMIN','EDIT'].includes(project.permissionCode)||role==='pocket')} legacy={role!=='client'&&pageState.data?<PerformanceView performance={pageState.data} canWrite={canWrite} onKpiSave={onKpiSave} onKpiArchive={onKpiArchive}/>:null} legacyError={role!=='client'&&pageState.status==='error'}/></Suspense>;
+  if(view==='performance') return <Suspense fallback={<LoadingState/>}><KpiFunnelView key={project.id} project={project} source={source} internal={role!=='client'} onJumpTasks={()=>setView('tasks')} canWrite={role!=='client'&&(['ADMIN','EDIT'].includes(project.permissionCode)||role==='pocket')} legacy={role!=='client'&&pageState.data?<PerformanceView performance={pageState.data} canWrite={canWrite} onKpiSave={onKpiSave} onKpiArchive={onKpiArchive}/>:null} legacyError={role!=='client'&&pageState.status==='error'}/></Suspense>;
   if (pageState.status === "loading" && !pageState.data) return <LoadingState />;
   if (pageState.status === "error" && !pageState.data) return <ErrorState error={pageState.error} onRetry={onRetry} />;
   const data = pageState.data || {};
@@ -2353,6 +2353,7 @@ export function App() {
   };
 
   const selectClient = (clientId) => {
+    if (!window.dispatchEvent(new window.Event('pocket:before-navigate', {cancelable:true}))) return;
     const client = bootstrapState.data.clients.find((item) => item.id === clientId);
     if (!client) return;
     setActiveClient(clientId);
@@ -2369,6 +2370,7 @@ export function App() {
   };
 
   const openDashboardProject = (projectId, targetView = "schedule") => {
+    if (!window.dispatchEvent(new window.Event('pocket:before-navigate', {cancelable:true}))) return;
     const client = bootstrapState.data.clients.find((item) => String(item.projectId) === String(projectId));
     if (!client) return;
     setActiveClient(client.id);
@@ -2383,6 +2385,7 @@ export function App() {
   };
 
   const navigateToView = (nextView, nextPlanVariant = planVariant) => {
+    if (nextView !== view && !window.dispatchEvent(new window.Event('pocket:before-navigate', {cancelable:true}))) return;
     if (role === "client" && !isViewAllowed(nextView, project.allowedPages)) return;
     if (nextView === "permissions" && !canManageClientAccess(role)) return;
     if (nextView === "plan") setPlanVariant(nextPlanVariant);

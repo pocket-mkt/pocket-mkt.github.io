@@ -21,6 +21,8 @@ export const READ_ACTIONS = Object.freeze({
   credentials: "project_credentials",
   blog: "blog_targets",
   kpiFunnel: "read_kpi_funnel",
+  kpiDaily: "read_kpi_daily",
+  kpiDailyHistory: "read_kpi_daily_history",
   monthlyReports: "list_monthly_reports",
   monthlyReport: "read_monthly_report",
 });

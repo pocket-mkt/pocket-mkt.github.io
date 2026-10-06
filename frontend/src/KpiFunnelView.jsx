@@ -122,8 +122,9 @@ export default function KpiFunnelView({
   legacy,
   legacyError,
   canWrite: allowedWrite,
+  initialMonth,
 }) {
-  const [month, setMonth] = useState(monthNow),
+  const [month, setMonth] = useState(()=>initialMonth || monthNow()),
     [state, setState] = useState({ status: "loading" }),
     [revision, refresh] = useState(0),
     [busy, setBusy] = useState(false),
@@ -181,7 +182,9 @@ export default function KpiFunnelView({
       }
     };
     window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
+    const navigating=(e)=>{if(locked.current||(dirtySet.current.size&&!window.confirm('저장하지 못했거나 수정 중인 입력을 버리고 이동할까요?')))e.preventDefault();};
+    window.addEventListener('pocket:before-navigate',navigating);
+    return () => {window.removeEventListener("beforeunload", handler);window.removeEventListener('pocket:before-navigate',navigating);};
   }, []);
   const body = state.item?.body || emptyFunnel(),
     totals = useMemo(() => funnelTotals(body.channels), [body.channels]);

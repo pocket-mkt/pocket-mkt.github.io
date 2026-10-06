@@ -19,6 +19,7 @@ import { runOperatorParityQa } from './scripts/operator-parity-browser-fixture.j
 import { taskMonthKey } from './src/taskMonth.js';
 import { runMeetingSearchQa } from './scripts/meeting-search-browser-fixture.jsx';
 import { runKpiFunnelQa } from './scripts/kpi-funnel-browser-fixture.jsx';
+import { runKpiDailyQa } from './scripts/kpi-daily-browser-fixture.jsx';
 import BlogStatusView from './src/BlogStatusView.jsx';
 import MeetingText from './src/MeetingText.jsx';
 import { createRoot } from 'react-dom/client';
@@ -58,6 +59,7 @@ window.runOperatorParityQa = () => runOperatorParityQa(render,tick,check);
 window.runMonthReorderQa = () => runMonthReorderQa(render,tick,check);
 window.runMeetingSearchQa = () => runMeetingSearchQa(render, tick, check);
 window.runKpiFunnelQa = () => runKpiFunnelQa(render, tick, check);
+window.runKpiDailyQa = () => runKpiDailyQa(render,tick,check);
 const bootstrapState = {status:'ready',data:{projects:{A:{id:'A',allowedPages:['overview']}, B:{id:'B',allowedPages:['overview']}}}};
 let overviewState;
 const overviewCalls = [];
@@ -637,6 +639,12 @@ try {
       await mkdir('../artifacts/client-progress',{recursive:true});
       const shot=await send('Page.captureScreenshot',{format:'png'});
       await writeFile(`../artifacts/client-progress/kpi-${width}.png`,Buffer.from(shot.data,'base64'));
+      console.log(JSON.stringify({viewport:width,dailyKpi:await evaluate('window.runKpiDailyQa()')}));
+      const dailyShot=await send('Page.captureScreenshot',{format:'png'});
+      await writeFile(`../artifacts/client-progress/kpi-daily-${width}.png`,Buffer.from(dailyShot.data,'base64'));
+      await evaluate('document.querySelector(".kd-entry").scrollIntoView({block:"start"})');
+      const dailyEntryShot=await send('Page.captureScreenshot',{format:'png'});
+      await writeFile(`../artifacts/client-progress/kpi-daily-entry-${width}.png`,Buffer.from(dailyEntryShot.data,'base64'));
       continue;
     }
     console.log(JSON.stringify({viewport:width,operatorParity:await evaluate('window.runOperatorParityQa()')}));
@@ -673,6 +681,9 @@ try {
     console.log(JSON.stringify({viewport:width,kpi:await evaluate('window.runKpiFunnelQa()')}));
     const kpiShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await writeFile(`../artifacts/client-progress/kpi-${width}.png`,Buffer.from(kpiShot.data,'base64'));
+    console.log(JSON.stringify({viewport:width,dailyKpi:await evaluate('window.runKpiDailyQa()')}));
+    const dailyShot=await send('Page.captureScreenshot',{format:'png'});
+    await writeFile(`../artifacts/client-progress/kpi-daily-${width}.png`,Buffer.from(dailyShot.data,'base64'));
     console.log(JSON.stringify({viewport:width,blog:await evaluate('window.runBlogQa()')}));
     const blogShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await mkdir('../artifacts/client-progress',{recursive:true});
