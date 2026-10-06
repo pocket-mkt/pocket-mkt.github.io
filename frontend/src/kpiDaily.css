@@ -164,11 +164,94 @@
   color: var(--kd-muted);
   font-size: 12px;
 }
-.kd-stage > strong {
+.kd-main-value > strong {
   font-size: 30px;
   letter-spacing: -0.8px;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
+}
+.kd-main-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.kd-inflow-name {
+  min-width: 0;
+  grid-column: 1/-1;
+}
+.kd-inflow-name label {
+  display: grid;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--kd-muted);
+}
+.kd-inflow-name input {
+  width: 100%;
+}
+.kd-comparison-note {
+  color: var(--kd-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.kd-delta {
+  display: inline-block;
+  vertical-align: middle;
+  max-width: 100%;
+  min-width: 0;
+  margin-left: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: #52657d;
+  line-height: 1.6;
+}
+.kd-delta summary {
+  list-style: none;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 1px 5px;
+  background: #f2f5f9;
+  white-space: normal;
+  width: fit-content;
+}
+.kd-delta summary::-webkit-details-marker {
+  display: none;
+}
+.kd-delta.up > summary {
+  color: #b53b49;
+  background: #fff0f1;
+}
+.kd-delta.down > summary {
+  color: #3563a3;
+  background: #eef4fe;
+}
+.kd-delta-detail {
+  display: block;
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  margin-top: 6px;
+  padding: 7px;
+  border: 1px solid #dbe4f0;
+  background: #f8fafd;
+  border-radius: 5px;
+  color: #52657d;
+}
+.kd-delta[open] {
+  flex-basis: 100%;
+  width: 100%;
+  margin-left: 0;
+}
+.ks-goal-preview > .kd-delta {
+  display: block;
+  width: fit-content;
+  margin: 4px 0 0 auto;
+}
+.ks-goal-preview > .kd-delta[open] {
+  width: 100%;
 }
 .kd-stage strong small {
   font-size: 12px;
@@ -190,6 +273,13 @@
 }
 .kd-stage footer b {
   color: var(--kd-ink);
+}
+.kd-stage footer > div {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 .kd-marketing-metrics {
   display: grid;
@@ -702,7 +792,7 @@
   .kd-stage {
     padding: 14px;
   }
-  .kd-stage > strong {
+  .kd-main-value > strong {
     font-size: 26px;
   }
 }
@@ -742,7 +832,11 @@
     margin: 0 !important;
     align-self: center;
   }
-  .kd-stage > strong {
+  .kd-main-value {
+    grid-column: 1/-1;
+    justify-content: flex-start;
+  }
+  .kd-main-value > strong {
     text-align: right;
   }
   .kd-goal,

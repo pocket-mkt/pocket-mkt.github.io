@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, X, Pencil, Trash2 } from "lucide-react";
 import { useDialogSurface } from "./useDialogSurface.js";
 import { sameDaily, todayKst, monthDays } from "./kpiDailyModel.js";
+import KpiDelta from "./KpiDelta.jsx";
 import {
   STAGES,
   GOAL_METRICS,
@@ -19,7 +20,7 @@ const fmt = (v) =>
     ? "—"
     : Number(v).toLocaleString("ko-KR", { maximumFractionDigits: 1 });
 
-export function StageGoals({ goals, totals, stage }) {
+export function StageGoals({ goals, totals, stage, comparisons }) {
   return (
     <div className="ks-card-goals">
       {goals
@@ -37,6 +38,12 @@ export function StageGoals({ goals, totals, stage }) {
                   {g.metric === "cost" ? "원" : ""}
                 </b>
               </div>
+              {comparisons && (
+                <KpiDelta
+                  metric={g.metric}
+                  comparison={comparisons[g.metric]}
+                />
+              )}
               <div
                 className="ks-meter"
                 role="progressbar"

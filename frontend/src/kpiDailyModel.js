@@ -63,7 +63,7 @@ export function defaultDay(month, today = todayKst()) {
       : days.at(-1);
 }
 export const defaultSettings = () => ({
-  inflow_label: "홈페이지 유입",
+  inflow_label: "유입",
   conversion_label: "최종 전환",
   inflow_goal: null,
   conversion_goal: null,

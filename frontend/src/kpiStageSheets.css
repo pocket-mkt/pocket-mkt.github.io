@@ -1,22 +1,24 @@
-.kd-stage[role="button"] {
+.kd-stage {
   cursor: pointer;
   position: relative;
   transition:
     box-shadow 0.15s,
     border-color 0.15s;
 }
-.kd-stage[role="button"]:hover {
+.kd-stage:hover {
   box-shadow: 0 4px 16px #1e335116;
 }
 .kd-stage[role="button"]:focus-visible {
   outline: 3px solid #7f9ef9;
   outline-offset: 3px;
 }
-.ks-open-hint {
+.kd-stage button.ks-open-hint {
   margin-left: auto;
   font-size: 11px;
   color: #647893;
   font-weight: 500;
+  border: 0;
+  padding: 4px;
 }
 .ks-card-goals {
   display: grid;

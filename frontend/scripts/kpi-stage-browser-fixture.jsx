@@ -1,12 +1,28 @@
 import React from "react";
 import KpiDailyView from "../src/KpiDailyView.jsx";
-import { defaultSettings, todayKst, defaultDay } from "../src/kpiDailyModel.js";
+import {
+  defaultSettings,
+  todayKst,
+  defaultDay,
+  shiftDay,
+} from "../src/kpiDailyModel.js";
 import { createHubDataSource } from "../src/api/dataSource.js";
 export async function runKpiStageQa(render, tick, check) {
   const month = todayKst().slice(0, 7),
     date = month + "-01",
     end = defaultDay(month),
-    records = {},
+    records = {
+      SETTINGS: {
+        body: {
+          ...defaultSettings(),
+          inflow_source: "GA4",
+          conversion_source: "예약 관리자",
+          rate_enabled: true,
+          definition: "한국시간 전체 기간",
+        },
+        row_version: 1,
+      },
+    },
     writes = [],
     seen = new Set();
   let fail = false,
@@ -25,16 +41,7 @@ export async function runKpiStageQa(render, tick, check) {
             }
           : {
               days: [],
-              settings: {
-                body: {
-                  ...defaultSettings(),
-                  inflow_source: "GA4",
-                  conversion_source: "예약 관리자",
-                  rate_enabled: true,
-                  definition: "한국시간 전체 기간",
-                },
-                row_version: 1,
-              },
+              settings: records.SETTINGS,
               stage_sheets: Object.fromEntries(
                 Object.entries(records).filter(([k]) => k.startsWith("STAGE_")),
               ),
@@ -274,7 +281,65 @@ export async function runKpiStageQa(render, tick, check) {
       document.querySelectorAll(".ks-goal-preview").length === 5,
       "goals not projected onto stages",
     );
+    await click(el("2단계 유입 항목 이름"));
+    check(
+      !document.querySelector('[role="dialog"]'),
+      "label click opened sheet",
+    );
+    await fill("2단계 유입 항목 이름", "플레이스 방문");
+    el("2단계 유입 항목 이름").dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    await tick();
+    await tick();
+    check(
+      !document.querySelector('[role="dialog"]'),
+      "label enter opened sheet",
+    );
+    check(
+      records.SETTINGS.body.inflow_label === "플레이스 방문",
+      "inline label not saved",
+    );
+    check(
+      el("유입 이름").value === "플레이스 방문",
+      "settings editor label desynced",
+    );
+    // The card and expanded settings must use one serialized writer.
+    document.querySelector(".kd-settings").open = true;
+    await fill("유입 이름", "플레이스 방문·전화");
+    el("유입 이름").blur();
+    await tick();
+    await tick();
+    check(
+      el("2단계 유입 항목 이름").value === "플레이스 방문·전화",
+      "shared label writer desynced",
+    );
+    document.querySelector(".kd-settings").open = false;
+    fail = true;
+    await fill("2단계 유입 항목 이름", "플레이스 방문");
+    el("2단계 유입 항목 이름").blur();
+    await tick();
+    await tick();
+    const labelRetry = writes.at(-1).mutationId;
+    check(
+      document.querySelector('.kd-inflow-name [role="alert"]'),
+      "inline save error hidden",
+    );
+    check(
+      el("2단계 유입 항목 이름").value === "플레이스 방문",
+      "inline failed draft lost",
+    );
+    fail = false;
+    await click(document.querySelector(".kd-inflow-name button:last-child"));
+    check(
+      writes.at(-1).mutationId === labelRetry,
+      "label retry changed envelope",
+    );
     await mount();
+    check(
+      el("2단계 유입 항목 이름").value === "플레이스 방문",
+      "reload lost label",
+    );
     check(
       document
         .querySelector(".kd-stage.traffic strong")
@@ -293,6 +358,7 @@ export async function runKpiStageQa(render, tick, check) {
     conflict = false;
     await close();
     await mount({ canWrite: false });
+    check(el("2단계 유입 항목 이름").disabled, "readonly can edit label");
     await open(2);
     check(
       !btn("기록 추가") && !document.querySelector(".ks-row-actions"),
@@ -306,7 +372,96 @@ export async function runKpiStageQa(render, tick, check) {
         .textContent.includes("—"),
       "cross-project stage leak",
     );
+    check(
+      el("2단계 유입 항목 이름").value === "유입",
+      "cross-project label leak",
+    );
+    // Isolated fixture data for actual two-period deltas, never production data.
+    const recent =
+      Number(todayKst().slice(-2)) >= 2 ? todayKst() : shiftDay(todayKst(), -1);
+    const previous = shiftDay(recent, -1),
+      comparisonMonth = recent.slice(0, 7);
+    const period = (d, value, source) => ({
+      id: crypto.randomUUID(),
+      start: d,
+      end: d,
+      source,
+      value,
+      note: "",
+    });
+    records.STAGE_1.body.entries = [
+      {
+        ...period(previous, 0, "네이버 검색광고"),
+        impressions: 10,
+        clicks: 1,
+        cost: 100,
+        posts: 1,
+      },
+      {
+        ...period(recent, 0, "네이버 검색광고"),
+        impressions: 20,
+        clicks: 4,
+        cost: 200,
+        posts: 2,
+      },
+    ];
+    records.STAGE_2.body.entries = [
+      period(previous, 10, "GA4"),
+      period(recent, 20, "GA4"),
+    ];
+    records.STAGE_3.body.entries = [
+      period(previous, 1, "예약 관리자"),
+      period(recent, 4, "예약 관리자"),
+    ];
     await mount();
+    if (comparisonMonth !== month) {
+      await fill("KPI 집계 월", comparisonMonth);
+      await tick();
+      await tick();
+    }
+    const delta = (metric) =>
+      document.querySelector(`.kd-stage [data-delta="${metric}"] summary`);
+    check(
+      delta("impressions").textContent.includes("100% 상승"),
+      "10 to 20 not 100% growth",
+    );
+    check(
+      document
+        .querySelector('.kd-marketing-metrics [data-metric="impressions"] dd')
+        .textContent.includes("30"),
+      "comparison changed monthly sum",
+    );
+    check(
+      delta("ctr").textContent.includes("100% 상승"),
+      "CTR growth incorrect",
+    );
+    check(
+      delta("conversions").textContent.includes("300% 상승"),
+      "conversion growth incorrect",
+    );
+    check(
+      delta("unitCost").textContent.includes("50% 하락"),
+      "cost growth incorrect",
+    );
+    await click(delta("impressions"));
+    check(
+      !document.querySelector('[role="dialog"]'),
+      "delta details opened sheet",
+    );
+    check(
+      document.querySelector(".kd-delta[open]").textContent.includes(previous),
+      "delta provenance missing",
+    );
+    await click(delta("impressions"));
+    await open(2);
+    await click(document.querySelector(".ks-row-actions button"));
+    await fill("실적 유입", "30");
+    await click(btn("수정 저장"));
+    await close();
+    check(
+      delta("visits").textContent.includes("200% 상승"),
+      "edited latest value did not recalculate",
+    );
     await open(1);
     check(
       document.documentElement.scrollWidth <= innerWidth + 2,
@@ -330,7 +485,14 @@ export async function runKpiStageQa(render, tick, check) {
     window.stageQaShowDashboard = async () => {
       await close();
       window.scrollTo(0, 0);
-      check(document.querySelector('.kd-marketing-metrics').getBoundingClientRect().width >= document.querySelector('.kd-stage.marketing').getBoundingClientRect().width - 40, 'marketing metrics squeezed beside goals');
+      check(
+        document.querySelector(".kd-marketing-metrics").getBoundingClientRect()
+          .width >=
+          document.querySelector(".kd-stage.marketing").getBoundingClientRect()
+            .width -
+            40,
+        "marketing metrics squeezed beside goals",
+      );
       const metrics = [
         ...document.querySelectorAll(".kd-marketing-metrics dd"),
       ];
@@ -346,6 +508,10 @@ export async function runKpiStageQa(render, tick, check) {
     };
     return {
       clickableStages: true,
+      inlineInflowLabelSaved: true,
+      sharedSettingsWriter: true,
+      labelRetryPreservesDraft: true,
+      previousRecordDeltas: true,
       marketingMetricsWithoutSpend: true,
       dateRange: true,
       appendEdit: true,

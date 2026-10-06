@@ -184,7 +184,7 @@ export async function runKpiDailyQa(render, tick, check) {
       "yesterday default incorrect",
     );
     check(writes.length === 0, "mount wrote default records");
-    await fill("전체 홈페이지 유입", "150");
+    await fill("전체 유입", "150");
     check(
       writes.at(-1).body.visits === 150 && writes.at(-1).body.conversions === 4,
       "overall write wrong",
@@ -203,7 +203,7 @@ export async function runKpiDailyQa(render, tick, check) {
     // Consecutive edits while a request is in flight retain focus and persist the final draft.
     let release;
     hold = new Promise((r) => (release = r));
-    await fill("전체 홈페이지 유입", "160");
+    await fill("전체 유입", "160");
     const second = await fill("전체 최종 전환", "7", false);
     check(!second.disabled, "save blocked next input");
     second.blur();
@@ -307,10 +307,10 @@ export async function runKpiDailyQa(render, tick, check) {
     window.confirm = () => false;
     // Project remount and read-only boundaries.
     await mount({ project: { id: 2, name: "메디신피아" } });
-    check(input("전체 홈페이지 유입").value === "", "cross-project draft leak");
+    check(input("전체 유입").value === "", "cross-project draft leak");
     await mount({ canWrite: false });
     check(
-      input("전체 홈페이지 유입").disabled &&
+      input("전체 유입").disabled &&
         !button("파일 업로드") &&
         !button("채널 추가"),
       "read-only actions exposed",
@@ -325,7 +325,7 @@ export async function runKpiDailyQa(render, tick, check) {
     button("다시 시도").click();
     await tick();
     await tick();
-    check(input("전체 홈페이지 유입"), "read retry failed");
+    check(input("전체 유입"), "read retry failed");
     await mount();
     check(
       document.documentElement.scrollWidth <= innerWidth + 2,

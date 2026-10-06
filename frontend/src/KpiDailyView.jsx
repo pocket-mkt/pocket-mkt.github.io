@@ -39,6 +39,8 @@ import {
 import { moveMonth } from "./kpiFunnelModel.js";
 import { useKpiDailyDraft } from "./useKpiDailyDraft.js";
 import KpiStageSheets, { StageGoals } from "./KpiStageSheets.jsx";
+import KpiDelta from "./KpiDelta.jsx";
+import { sheetComparisons } from "./kpiComparisons.js";
 import {
   effectiveGoals,
   sheetStats,
@@ -246,143 +248,147 @@ function History({ source, projectId, kind, date, version }) {
   );
 }
 
-function SettingsEditor({ initial, ...props }) {
+function SettingsEditor({ initial, children, ...props }) {
   const e = useKpiDailyDraft({ initial, kind: "SETTINGS", ...props }),
     disabled = !props.canWrite || e.locked;
   const change = (k, v) => e.change((b) => ({ ...b, [k]: v }));
   return (
-    <details className="kd-settings">
-      <summary>
-        <Settings2 size={15} /> 측정 기준·운영 채널
-      </summary>
-      <div data-kpi-editor="SETTINGS">
-        <p>
-          이 설정은 이번 달에만 적용됩니다. 기존 일별 실적의 숫자와 채널 기록은
-          바뀌지 않습니다.
-        </p>
-        <div className="kd-settings-grid">
-          {[
-            ["inflow_label", "유입 이름"],
-            ["conversion_label", "전환 이름"],
-            ["inflow_source", "유입 데이터 출처"],
-            ["conversion_source", "전환 데이터 출처"],
-          ].map(([k, label]) => (
-            <EditField
-              key={k}
-              label={label}
-              numeric={k.endsWith("goal")}
-              value={e.draft[k]}
-              onChange={(v) => change(k, v)}
-              onBlur={e.flush}
-              disabled={disabled}
-            />
-          ))}
-        </div>
-        <EditField
-          label="집계 기준"
-          placeholder="예: GA4 세션과 중복·취소를 제외한 실제 예약 건수, 한국시간 기준"
-          value={e.draft.definition}
-          onChange={(v) => change("definition", v)}
-          onBlur={e.flush}
-          disabled={disabled}
-        />
-        <label className="kd-check">
-          <input
-            type="checkbox"
-            checked={e.draft.rate_enabled}
-            disabled={disabled}
-            onChange={(event) => {
-              change("rate_enabled", event.target.checked);
-              queueMicrotask(e.flush);
-            }}
-          />{" "}
-          동일한 기간·범위의 유입과 전환으로 비율 표시 (사람별 경로 추적은 아님)
-        </label>
-        <div className="kd-roster">
-          {e.draft.channels.map((c, i) => (
-            <div key={c.id}>
-              <input
-                aria-label={`운영 채널 ${i + 1} 이름`}
-                value={c.name}
-                maxLength={80}
-                disabled={disabled}
-                onChange={(v) =>
-                  e.change((b) => ({
-                    ...b,
-                    channels: b.channels.map((x) =>
-                      x.id === c.id ? { ...x, name: v.target.value } : x,
-                    ),
-                  }))
-                }
+    <>
+      {children?.(e, disabled)}
+      <details className="kd-settings">
+        <summary>
+          <Settings2 size={15} /> 측정 기준·운영 채널
+        </summary>
+        <div data-kpi-editor="SETTINGS">
+          <p>
+            이 설정은 이번 달에만 적용됩니다. 기존 일별 실적의 숫자와 채널
+            기록은 바뀌지 않습니다.
+          </p>
+          <div className="kd-settings-grid">
+            {[
+              ["inflow_label", "유입 이름"],
+              ["conversion_label", "전환 이름"],
+              ["inflow_source", "유입 데이터 출처"],
+              ["conversion_source", "전환 데이터 출처"],
+            ].map(([k, label]) => (
+              <EditField
+                key={k}
+                label={label}
+                numeric={k.endsWith("goal")}
+                value={e.draft[k]}
+                onChange={(v) => change(k, v)}
                 onBlur={e.flush}
-              />
-              <select
-                aria-label={`운영 채널 ${i + 1} 유형`}
-                value={c.type}
                 disabled={disabled}
-                onChange={(v) => {
-                  e.change((b) => ({
-                    ...b,
-                    channels: b.channels.map((x) =>
-                      x.id === c.id ? { ...x, type: v.target.value } : x,
-                    ),
-                  }));
-                  queueMicrotask(e.flush);
-                }}
-              >
-                {Object.entries(TYPES).map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-              {props.canWrite && (
-                <button
+              />
+            ))}
+          </div>
+          <EditField
+            label="집계 기준"
+            placeholder="예: GA4 세션과 중복·취소를 제외한 실제 예약 건수, 한국시간 기준"
+            value={e.draft.definition}
+            onChange={(v) => change("definition", v)}
+            onBlur={e.flush}
+            disabled={disabled}
+          />
+          <label className="kd-check">
+            <input
+              type="checkbox"
+              checked={e.draft.rate_enabled}
+              disabled={disabled}
+              onChange={(event) => {
+                change("rate_enabled", event.target.checked);
+                queueMicrotask(e.flush);
+              }}
+            />{" "}
+            동일한 기간·범위의 유입과 전환으로 비율 표시 (사람별 경로 추적은
+            아님)
+          </label>
+          <div className="kd-roster">
+            {e.draft.channels.map((c, i) => (
+              <div key={c.id}>
+                <input
+                  aria-label={`운영 채널 ${i + 1} 이름`}
+                  value={c.name}
+                  maxLength={80}
                   disabled={disabled}
-                  aria-label={`${c.name} 운영 목록에서 제거`}
-                  onClick={() => {
-                    if (
-                      !confirm(
-                        "다음 신규 기록의 기본 채널 목록에서만 제거합니다. 과거 실적은 유지됩니다.",
-                      )
-                    )
-                      return;
+                  onChange={(v) =>
                     e.change((b) => ({
                       ...b,
-                      channels: b.channels.filter((x) => x.id !== c.id),
+                      channels: b.channels.map((x) =>
+                        x.id === c.id ? { ...x, name: v.target.value } : x,
+                      ),
+                    }))
+                  }
+                  onBlur={e.flush}
+                />
+                <select
+                  aria-label={`운영 채널 ${i + 1} 유형`}
+                  value={c.type}
+                  disabled={disabled}
+                  onChange={(v) => {
+                    e.change((b) => ({
+                      ...b,
+                      channels: b.channels.map((x) =>
+                        x.id === c.id ? { ...x, type: v.target.value } : x,
+                      ),
                     }));
                     queueMicrotask(e.flush);
                   }}
                 >
-                  <Trash2 size={14} />
-                </button>
-              )}
-            </div>
-          ))}
+                  {Object.entries(TYPES).map(([v, l]) => (
+                    <option key={v} value={v}>
+                      {l}
+                    </option>
+                  ))}
+                </select>
+                {props.canWrite && (
+                  <button
+                    disabled={disabled}
+                    aria-label={`${c.name} 운영 목록에서 제거`}
+                    onClick={() => {
+                      if (
+                        !confirm(
+                          "다음 신규 기록의 기본 채널 목록에서만 제거합니다. 과거 실적은 유지됩니다.",
+                        )
+                      )
+                        return;
+                      e.change((b) => ({
+                        ...b,
+                        channels: b.channels.filter((x) => x.id !== c.id),
+                      }));
+                      queueMicrotask(e.flush);
+                    }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          {props.canWrite && (
+            <button
+              disabled={disabled || e.draft.channels.length >= 40}
+              onClick={() => {
+                e.change((b) => ({
+                  ...b,
+                  channels: [...b.channels, newChannel()],
+                }));
+              }}
+            >
+              <Plus size={14} /> 운영 채널 추가
+            </button>
+          )}
+          <SaveStatus editor={e} />
         </div>
-        {props.canWrite && (
-          <button
-            disabled={disabled || e.draft.channels.length >= 40}
-            onClick={() => {
-              e.change((b) => ({
-                ...b,
-                channels: [...b.channels, newChannel()],
-              }));
-            }}
-          >
-            <Plus size={14} /> 운영 채널 추가
-          </button>
-        )}
-        <SaveStatus editor={e} />
-      </div>
-      <History
-        source={props.source}
-        projectId={props.projectId}
-        kind="SETTINGS"
-        date={props.date}
-        version={initial.row_version}
-      />
-    </details>
+        <History
+          source={props.source}
+          projectId={props.projectId}
+          kind="SETTINGS"
+          date={props.date}
+          version={initial.row_version}
+        />
+      </details>
+    </>
   );
 }
 
@@ -937,6 +943,7 @@ export default function KpiDailyView({
     writer = canWrite && state.data?.canWrite;
   const dates = useMemo(() => monthDays(month), [month]),
     totals = sheetStats(state.data, month, today),
+    comparisons = sheetComparisons(state.data, month, settings, today),
     goals = effectiveGoals(state.data, settings),
     trendDays = sheetTrendDays(state.data),
     stageRows = [1, 2, 3].flatMap((stage) =>
@@ -995,15 +1002,9 @@ export default function KpiDailyView({
     setSheet(stage);
   };
   const stageAction = (stage) => ({
-    role: "button",
-    tabIndex: 0,
-    "aria-label": `${stage}단계 ${["광고·콘텐츠", "유입", "전환"][stage - 1]} 시트 열기`,
-    onClick: () => openSheet(stage),
-    onKeyDown: (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
+    onClick: (e) => {
+      if (!e.target.closest("button, input, label, details, [data-kpi-editor]"))
         openSheet(stage);
-      }
     },
   });
   async function copyRoster(channels) {
@@ -1103,115 +1104,6 @@ export default function KpiDailyView({
               월별 자료’에서 확인할 수 있습니다.
             </p>
           )}
-          <div className="kd-funnel">
-            <article className="kd-stage marketing" {...stageAction(1)}>
-              <header>
-                <span>1</span>
-                <h3>광고·콘텐츠</h3>
-                <small className="ks-open-hint">시트 열기 ↗</small>
-              </header>
-              <dl
-                className="kd-marketing-metrics"
-                aria-label="광고·콘텐츠 누적 성과"
-              >
-                <div data-metric="impressions">
-                  <dt>누적 노출·조회</dt>
-                  <dd>
-                    {fmt(totals.impressions)}
-                    <small>회</small>
-                  </dd>
-                </div>
-                <div data-metric="clicks">
-                  <dt>누적 클릭수</dt>
-                  <dd>
-                    {fmt(totals.clicks)}
-                    <small>건</small>
-                  </dd>
-                </div>
-                <div data-metric="ctr">
-                  <dt>
-                    클릭률 (CTR)
-                    {totals.ctrExcluded > 0 && <span>일부 기록</span>}
-                  </dt>
-                  <dd>
-                    {fmtCtr(totals.ctr)}
-                    <small>%</small>
-                  </dd>
-                </div>
-                <div data-metric="cost">
-                  <dt>누적 집행비</dt>
-                  <dd>
-                    {fmt(totals.cost)}
-                    <small>원</small>
-                  </dd>
-                </div>
-              </dl>
-              <StageGoals goals={goals} totals={totals} stage={1} />
-              <footer>
-                <span>
-                  발행 <b>{fmt(totals.posts)}건</b>
-                </span>
-                <span className="kd-ctr-basis">
-                  {totals.ctrInvalid
-                    ? "클릭률 확인 필요: 노출·조회 0인 기록에 클릭수가 있습니다."
-                    : totals.ctr != null
-                      ? `CTR: 클릭 ${fmt(totals.ctrClicks)} ÷ 노출·조회 ${fmt(totals.ctrImpressions)}${totals.ctrExcluded ? ` · 미입력 ${totals.ctrExcluded}개 기록 제외` : ""}`
-                      : totals.ctrImpressions === 0
-                        ? "노출·조회가 0이면 클릭률을 계산하지 않습니다."
-                        : "클릭률은 같은 기록에 노출·조회와 클릭수를 입력하면 계산됩니다."}
-                </span>
-              </footer>
-            </article>
-            <ArrowRight className="kd-arrow" size={20} />
-            <article className="kd-stage traffic" {...stageAction(2)}>
-              <header>
-                <span>2</span>
-                <h3>유입</h3>
-                <small className="ks-open-hint">시트 열기 ↗</small>
-              </header>
-              <p className="kd-metric-caption">{settings.inflow_label}</p>
-              <strong>
-                {fmt(totals.visits)}
-                <small>건</small>
-              </strong>
-              <StageGoals goals={goals} totals={totals} stage={2} />
-              <footer>
-                {settings.inflow_source || "측정 출처를 설정해 주세요"}
-              </footer>
-            </article>
-            <ArrowRight className="kd-arrow" size={20} />
-            <article className="kd-stage conversion" {...stageAction(3)}>
-              <header>
-                <span>3</span>
-                <h3>전환</h3>
-                <small className="ks-open-hint">시트 열기 ↗</small>
-              </header>
-              <p className="kd-metric-caption">{settings.conversion_label}</p>
-              <strong>
-                {fmt(totals.conversions)}
-                <small>건</small>
-              </strong>
-              <StageGoals goals={goals} totals={totals} stage={3} />
-              <footer>
-                <span>
-                  유입 대비{" "}
-                  <b>
-                    {settings.rate_enabled && totals.rate != null
-                      ? fmt(totals.rate) + "%"
-                      : "기준 확인 필요"}
-                  </b>
-                </span>
-                <span>
-                  집행비 / 전체 전환 <b>{fmt(totals.unitCost)}원</b>
-                </span>
-              </footer>
-            </article>
-          </div>
-          <p className="kd-help">
-            카드를 눌러 날짜·기간별 실적을 추가합니다. 기간 합계는 한 번만
-            누적하며, 채널별 유입·전환은 전체 수치에 더하지 않습니다. 미확인
-            값은 0으로 처리하지 않습니다.
-          </p>
           <SettingsEditor
             key={"settings:" + month + ":" + revision + ":" + editorEpoch}
             initial={
@@ -1223,7 +1115,232 @@ export default function KpiDailyView({
             canWrite={writer}
             register={register}
             onSaved={savedSettings}
-          />
+          >
+            {(settingsEditor, settingsDisabled) => (
+              <>
+                <p className="kd-comparison-note">
+                  주요 수치는 월 집계 · 작은 증감률은 선택 월의 최근 기록 ↔ 직전
+                  기록 기준입니다. 증감률을 누르면 비교 날짜와 값을 볼 수
+                  있습니다.
+                </p>
+                <div className="kd-funnel">
+                  <article className="kd-stage marketing" {...stageAction(1)}>
+                    <header>
+                      <span>1</span>
+                      <h3>광고·콘텐츠</h3>
+                      <button
+                        className="ks-open-hint"
+                        aria-label="1단계 광고·콘텐츠 시트 열기"
+                        onClick={() => openSheet(1)}
+                      >
+                        시트 열기 ↗
+                      </button>
+                    </header>
+                    <dl
+                      className="kd-marketing-metrics"
+                      aria-label="광고·콘텐츠 누적 성과"
+                    >
+                      <div data-metric="impressions">
+                        <dt>누적 노출·조회</dt>
+                        <dd>
+                          {fmt(totals.impressions)}
+                          <small>회</small>
+                          <KpiDelta
+                            metric="impressions"
+                            comparison={comparisons.impressions}
+                          />
+                        </dd>
+                      </div>
+                      <div data-metric="clicks">
+                        <dt>누적 클릭수</dt>
+                        <dd>
+                          {fmt(totals.clicks)}
+                          <small>건</small>
+                          <KpiDelta
+                            metric="clicks"
+                            comparison={comparisons.clicks}
+                          />
+                        </dd>
+                      </div>
+                      <div data-metric="ctr">
+                        <dt>
+                          클릭률 (CTR)
+                          {totals.ctrExcluded > 0 && <span>일부 기록</span>}
+                        </dt>
+                        <dd>
+                          {fmtCtr(totals.ctr)}
+                          <small>%</small>
+                          <KpiDelta metric="ctr" comparison={comparisons.ctr} />
+                        </dd>
+                      </div>
+                      <div data-metric="cost">
+                        <dt>누적 집행비</dt>
+                        <dd>
+                          {fmt(totals.cost)}
+                          <small>원</small>
+                          <KpiDelta
+                            metric="cost"
+                            comparison={comparisons.cost}
+                          />
+                        </dd>
+                      </div>
+                    </dl>
+                    <StageGoals
+                      goals={goals}
+                      totals={totals}
+                      comparisons={comparisons}
+                      stage={1}
+                    />
+                    <footer>
+                      <div>
+                        발행 <b>{fmt(totals.posts)}건</b>
+                        <KpiDelta
+                          metric="posts"
+                          comparison={comparisons.posts}
+                        />
+                      </div>
+                      <span className="kd-ctr-basis">
+                        {totals.ctrInvalid
+                          ? "클릭률 확인 필요: 노출·조회 0인 기록에 클릭수가 있습니다."
+                          : totals.ctr != null
+                            ? `CTR: 클릭 ${fmt(totals.ctrClicks)} ÷ 노출·조회 ${fmt(totals.ctrImpressions)}${totals.ctrExcluded ? ` · 미입력 ${totals.ctrExcluded}개 기록 제외` : ""}`
+                            : totals.ctrImpressions === 0
+                              ? "노출·조회가 0이면 클릭률을 계산하지 않습니다."
+                              : "클릭률은 같은 기록에 노출·조회와 클릭수를 입력하면 계산됩니다."}
+                      </span>
+                    </footer>
+                  </article>
+                  <ArrowRight className="kd-arrow" size={20} />
+                  <article className="kd-stage traffic" {...stageAction(2)}>
+                    <header>
+                      <span>2</span>
+                      <h3>유입</h3>
+                      <button
+                        className="ks-open-hint"
+                        aria-label="2단계 유입 시트 열기"
+                        onClick={() => openSheet(2)}
+                      >
+                        시트 열기 ↗
+                      </button>
+                    </header>
+                    <div className="kd-inflow-name" data-kpi-editor="SETTINGS">
+                      <label>
+                        <span>유입 항목{writer ? " · 직접 수정" : ""}</span>
+                        <input
+                          aria-label="2단계 유입 항목 이름"
+                          value={settingsEditor.draft.inflow_label}
+                          maxLength={200}
+                          placeholder="예: 플레이스 방문, 전화 문의, 홈페이지 유입"
+                          disabled={settingsDisabled}
+                          onChange={(event) =>
+                            settingsEditor.change((body) => ({
+                              ...body,
+                              inflow_label: event.target.value,
+                            }))
+                          }
+                          onBlur={settingsEditor.flush}
+                          onKeyDown={(event) => {
+                            if (
+                              event.key === "Enter" &&
+                              !event.nativeEvent.isComposing
+                            ) {
+                              event.preventDefault();
+                              event.currentTarget.blur();
+                            }
+                          }}
+                        />
+                      </label>
+                      {writer && settingsEditor.status !== "saved" && (
+                        <SaveStatus editor={settingsEditor} />
+                      )}
+                    </div>
+                    <div className="kd-main-value">
+                      <strong>
+                        {fmt(totals.visits)}
+                        <small>건</small>
+                      </strong>
+                      <KpiDelta
+                        metric="visits"
+                        comparison={comparisons.visits}
+                      />
+                    </div>
+                    <StageGoals
+                      goals={goals}
+                      totals={totals}
+                      comparisons={comparisons}
+                      stage={2}
+                    />
+                    <footer>
+                      {settings.inflow_source || "측정 출처를 설정해 주세요"}
+                    </footer>
+                  </article>
+                  <ArrowRight className="kd-arrow" size={20} />
+                  <article className="kd-stage conversion" {...stageAction(3)}>
+                    <header>
+                      <span>3</span>
+                      <h3>전환</h3>
+                      <button
+                        className="ks-open-hint"
+                        aria-label="3단계 전환 시트 열기"
+                        onClick={() => openSheet(3)}
+                      >
+                        시트 열기 ↗
+                      </button>
+                    </header>
+                    <p className="kd-metric-caption">
+                      {settings.conversion_label}
+                    </p>
+                    <div className="kd-main-value">
+                      <strong>
+                        {fmt(totals.conversions)}
+                        <small>건</small>
+                      </strong>
+                      <KpiDelta
+                        metric="conversions"
+                        comparison={comparisons.conversions}
+                      />
+                    </div>
+                    <StageGoals
+                      goals={goals}
+                      totals={totals}
+                      comparisons={comparisons}
+                      stage={3}
+                    />
+                    <footer>
+                      <div>
+                        유입 대비{" "}
+                        <b>
+                          {settings.rate_enabled && totals.rate != null
+                            ? fmt(totals.rate) + "%"
+                            : "기준 확인 필요"}
+                        </b>
+                        {settings.rate_enabled && totals.rate != null && (
+                          <KpiDelta
+                            metric="rate"
+                            comparison={comparisons.rate}
+                          />
+                        )}
+                      </div>
+                      <div>
+                        집행비 / 전체 전환 <b>{fmt(totals.unitCost)}원</b>
+                        {totals.unitCost != null && (
+                          <KpiDelta
+                            metric="unitCost"
+                            comparison={comparisons.unitCost}
+                          />
+                        )}
+                      </div>
+                    </footer>
+                  </article>
+                </div>
+                <p className="kd-help">
+                  카드를 눌러 날짜·기간별 실적을 추가합니다. 기간 합계는 한 번만
+                  누적하며, 채널별 유입·전환은 전체 수치에 더하지 않습니다.
+                  미확인 값은 0으로 처리하지 않습니다.
+                </p>
+              </>
+            )}
+          </SettingsEditor>
           <section className="kd-trend">
             <div className="kd-section-title">
               <div>
