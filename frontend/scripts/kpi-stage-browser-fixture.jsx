@@ -330,6 +330,7 @@ export async function runKpiStageQa(render, tick, check) {
     window.stageQaShowDashboard = async () => {
       await close();
       window.scrollTo(0, 0);
+      check(document.querySelector('.kd-marketing-metrics').getBoundingClientRect().width >= document.querySelector('.kd-stage.marketing').getBoundingClientRect().width - 40, 'marketing metrics squeezed beside goals');
       const metrics = [
         ...document.querySelectorAll(".kd-marketing-metrics dd"),
       ];

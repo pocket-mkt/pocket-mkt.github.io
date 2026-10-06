@@ -745,7 +745,9 @@
   .kd-stage > strong {
     text-align: right;
   }
-  .kd-goal {
+  .kd-goal,
+  .kd-stage .ks-card-goals,
+  .kd-marketing-metrics {
     grid-column: 1/-1;
   }
   .kd-stage footer {
