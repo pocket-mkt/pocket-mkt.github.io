@@ -25,6 +25,8 @@ export const READ_ACTIONS = Object.freeze({
   kpiDailyHistory: "read_kpi_daily_history",
   monthlyReports: "list_monthly_reports",
   monthlyReport: "read_monthly_report",
+  checklist: "read_workspace_checklist",
+  checklistBoard: "read_checklist_board",
 });
 
 function scopeQuery(params = {}) {

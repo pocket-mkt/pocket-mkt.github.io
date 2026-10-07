@@ -26,7 +26,7 @@ test("운영 메뉴와 고객 권한 선택지는 페이지 카탈로그에서 �
   assert.deepEqual(ACCESS_PAGE_KEYS, ["overview", "plan", "tasks", "progress", "daily", "performance", "reports"]);
   assert.deepEqual(ACCESS_PAGE_OPTIONS.map((page) => page.label), ["총괄 현황", "실행계획", "업무", "진행상황 - 클라이언트", "데일리 회의록", "KPI 성과", "월별 마케팅 성과"]);
   assert.equal(isViewAllowed("files", ["files"]), false);
-  assert.deepEqual(NAVIGATION_PAGE_OPTIONS.map((page) => page.id), ["overview", "portfolio", "plan", "tasks", "progress", "client-progress", "daily", "blog", "credentials", "performance", "reports", "files"]);
+  assert.deepEqual(NAVIGATION_PAGE_OPTIONS.map((page) => page.id), ["checklist", "overview", "portfolio", "plan", "tasks", "progress", "client-progress", "daily", "blog", "credentials", "performance", "reports", "files"]);
 });
 
 test("프로젝트는 업무·진행상황·회의록·내부 계정대장의 탐색 폴더이다", () => {

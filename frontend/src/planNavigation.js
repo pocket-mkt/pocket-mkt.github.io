@@ -17,10 +17,10 @@ export function parseViewLocation(hash = "") {
   if (value === "tasks/schedule") return { view: "schedule", planVariant: DEFAULT_PLAN_VARIANT };
   if (value === "tasks/client-progress" || value === "client-progress") return { view: "client-progress", planVariant: DEFAULT_PLAN_VARIANT };
   if (value === "tasks/progress" || value === "progress") return { view: "progress", planVariant: DEFAULT_PLAN_VARIANT };
-  if (["overview", "portfolio", "tasks", "schedule", "daily", "credentials", "content", "tracking", "performance", "reports", "files", "permissions"].includes(value)) {
+  if (["overview", "checklist", "portfolio", "tasks", "schedule", "daily", "credentials", "content", "tracking", "performance", "reports", "files", "permissions"].includes(value)) {
     return { view: value, planVariant: DEFAULT_PLAN_VARIANT };
   }
-  return { view: "portfolio", planVariant: DEFAULT_PLAN_VARIANT };
+  return { view: "checklist", planVariant: DEFAULT_PLAN_VARIANT };
 }
 
 export function viewLocationHash(view, planVariant = DEFAULT_PLAN_VARIANT) {

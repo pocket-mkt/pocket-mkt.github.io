@@ -5,8 +5,8 @@ import { getNavigationPresentation } from "../src/navigationState.js";
 import { parseViewLocation, viewLocationHash, viewResourceKey } from "../src/planNavigation.js";
 import { firstAllowedView, isViewAllowed } from "../src/accessPermissions.js";
 
-test("bare-site entry opens portfolio while explicit routes and client restrictions remain", () => {
-  for (const hash of ["", "#", "#unknown"]) assert.equal(parseViewLocation(hash).view, "portfolio");
+test("bare-site entry opens checklist while explicit routes and client restrictions remain", () => {
+  for (const hash of ["", "#", "#unknown"]) assert.equal(parseViewLocation(hash).view, "checklist");
   assert.equal(parseViewLocation("#tasks/schedule").view, "schedule");
   assert.equal(parseViewLocation("#daily").view, "daily");
   assert.equal(parseViewLocation("#tasks/client-progress").view, "client-progress");

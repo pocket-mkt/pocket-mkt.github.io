@@ -2,6 +2,7 @@ import { readApiConfig } from "../api/config.js";
 import {createKpiFunnelApi} from './kpiFunnelApi.js';
 import {createKpiDailyApi} from './kpiDailyApi.js';
 import { createMonthlyReportsApi } from './monthlyReportsApi.js';
+import { createChecklistApi } from './checklistApi.js';
 import { HubApiError } from "../api/errors.js";
 import { createHubApi } from "../api/hubApi.js";
 import { createSessionStore } from "../api/session.js";
@@ -447,6 +448,9 @@ export function createSupabaseHybridApi(storageConfig, options = {}) {
     blog: async (params = {}) => createBlogApi(client).read({...params,projectId:await resolveProjectId(params.projectId)}),
     saveBlog: async (params = {}) => createBlogApi(client).save({...params,projectId:await resolveProjectId(params.projectId)}),
     kpiFunnel: async (params = {}) => createKpiFunnelApi(client).read({...params,projectId:await resolveProjectId(params.projectId)}),
+    checklist: (params = {}) => createChecklistApi(client).list(params),
+    checklistBoard: (params) => createChecklistApi(client).board(params),
+    saveChecklist: (params) => createChecklistApi(client).save(params),
     kpiDaily: async (params = {}) => createKpiDailyApi(client).read({...params,projectId:await resolveProjectId(params.projectId)}),
     saveKpiDaily: async (params = {}) => createKpiDailyApi(client).save({...params,projectId:await resolveProjectId(params.projectId)}),
     kpiDailyHistory: async (params = {}) => createKpiDailyApi(client).history({...params,projectId:await resolveProjectId(params.projectId)}),

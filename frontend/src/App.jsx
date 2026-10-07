@@ -13,10 +13,11 @@ const DetailLogView = lazy(() => import("./DetailLogView.jsx"));
 const BlogStatusView = lazy(() => import('./BlogStatusView.jsx'));
 const KpiFunnelView = lazy(() => import('./KpiPerformanceView.jsx'));
 const MonthlyReportsView = lazy(() => import('./MonthlyReportsView.jsx'));
+const ChecklistDashboard = lazy(() => import('./ChecklistDashboard.jsx'));
 import WorkspaceNotifications from "./WorkspaceNotifications.jsx";
 import NotificationIssueDialog from "./NotificationIssueDialog.jsx";
 import InternalPreviewTaskEditor from "./InternalPreviewTaskEditor.jsx";
-const WORKSPACE_VIEWS = new Set(["portfolio", "permissions", "files"]);
+const WORKSPACE_VIEWS = new Set(["checklist", "portfolio", "permissions", "files"]);
 const TaskScheduleTimeline = lazy(() => import("./TaskWorkspace.jsx").then(module => ({ default: module.TaskScheduleTimeline })));
 import { Activity, AlertCircle, ArrowRight, BarChart3, Bell, BookOpenText, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleDot, ClipboardCheck, FolderOpen, FileUp, LayoutDashboard, KeyRound, ListFilter, LoaderCircle, LockKeyhole, LogOut, MoreHorizontal, MousePointerClick, NotebookPen, Pencil, Plus, Search, Settings2, ShieldCheck, TrendingUp, Trash2, Video, WifiOff, X } from "lucide-react";
 import { activityListViewModel, bootstrapViewModel, createHubDataSource, overviewViewModel, operationsDashboardViewModel, projectIssueViewModel, taskResponsibleOrganization, tasksViewModel } from "./api/index.js";
@@ -60,6 +61,7 @@ import { runScheduleImportPlan } from './scheduleImport.js';
 const PermissionsView = lazy(() => import("./PermissionsView.jsx"));
 
 const navIcons = {
+  checklist: ClipboardCheck,
   overview: LayoutDashboard,
   portfolio: FolderOpen,
   plan: BookOpenText,
@@ -176,7 +178,7 @@ export function ProjectSidebar({ project, role, activeView, activePlanVariant, o
     if (item.id === "performance") return false;
     return isViewAllowed(item.id, project.allowedPages);
   });
-  const workspaceNavItems = visibleNavItems.filter((item) => WORKSPACE_VIEWS.has(item.id)).sort((a,b) => ["portfolio","permissions","files"].indexOf(a.id) - ["portfolio","permissions","files"].indexOf(b.id));
+  const workspaceNavItems = visibleNavItems.filter((item) => WORKSPACE_VIEWS.has(item.id)).sort((a,b) => ["checklist","portfolio","permissions","files"].indexOf(a.id) - ["checklist","portfolio","permissions","files"].indexOf(b.id));
   const sharingNavItems = visibleNavItems.filter(item => CLIENT_SHARING_NAVIGATION_GROUP.pageIds.includes(item.id));
   const projectNavItems = visibleNavItems.filter((item) => !WORKSPACE_VIEWS.has(item.id) && !CLIENT_SHARING_NAVIGATION_GROUP.pageIds.includes(item.id));
   const projectNavChildren = projectNavItems.filter(item => PROJECT_NAVIGATION_GROUP.pageIds.includes(item.id));
@@ -320,8 +322,8 @@ function TaskNotificationCenter({ projectId, tasks, loaded, onSelect }) {
 
 export function Topbar({ undoEntry, undoBusy, onUndo, source, project, activeView, actor, onLogout, live, search, setSearch, notificationTasks, notificationsLoaded, onNotificationSelect, notificationIssues }) {
   const workspaceMode = WORKSPACE_VIEWS.has(activeView);
-  const workspaceTitle = {portfolio:"통합 관리",permissions:"권한 관리",files:"세부 로그"}[activeView];
-return <header className="topbar"><div className="topbar-leading"><CompanyBrand /><div className={`topbar-project-context${workspaceMode ? " is-workspace" : ""}`}><small>{workspaceMode ? "전체 프로젝트" : project.clientName}</small><strong title={workspaceMode ? workspaceTitle : project.name}>{workspaceMode ? workspaceTitle : project.name}</strong></div></div><div className="topbar-actions">{!workspaceMode && <><label className="global-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="업무 검색" /></label><TaskNotificationCenter projectId={project.id} tasks={notificationTasks} loaded={notificationsLoaded} onSelect={onNotificationSelect} /></>}{activeView === "portfolio" && source && actor?.role !== "client" && <WorkspaceNotifications issues={notificationIssues} key={actor?.id || actor?.userId} source={source} actorId={actor?.id || actor?.userId || "internal"} onSelect={onNotificationSelect} />}{actor?.role !== "client" && onUndo && <TaskUndoControl entry={undoEntry} busy={undoBusy} onUndo={onUndo} />}<ActorBadge actor={actor} onLogout={onLogout} live={live} /></div></header>;
+  const workspaceTitle = {checklist:"체크리스트",portfolio:"통합 관리",permissions:"권한 관리",files:"세부 로그"}[activeView];
+return <header className="topbar"><div className="topbar-leading"><CompanyBrand /><div className={`topbar-project-context${workspaceMode ? " is-workspace" : ""}`}><small>{workspaceMode ? "전체 프로젝트" : project.clientName}</small><strong title={workspaceMode ? workspaceTitle : project.name}>{workspaceMode ? workspaceTitle : project.name}</strong></div></div><div className="topbar-actions">{!workspaceMode && <><label className="global-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="업무 검색" /></label><TaskNotificationCenter projectId={project.id} tasks={notificationTasks} loaded={notificationsLoaded} onSelect={onNotificationSelect} /></>}{["portfolio", "checklist"].includes(activeView) && source && actor?.role !== "client" && <WorkspaceNotifications issues={notificationIssues} key={actor?.id || actor?.userId} source={source} actorId={actor?.id || actor?.userId || "internal"} onSelect={onNotificationSelect} />}{actor?.role !== "client" && onUndo && <TaskUndoControl entry={undoEntry} busy={undoBusy} onUndo={onUndo} />}<ActorBadge actor={actor} onLogout={onLogout} live={live} /></div></header>;
 }
 
 function ProjectCreateModal({ onClose, onSubmit }) {
@@ -1085,6 +1087,7 @@ function AppContent({ taskMonthFocus, onTaskCopy, view, planVariant, project, ro
     if (role === "client") throw new Error("내부 운영 계정만 접근할 수 있습니다.");
     return tasksViewModel(await source.tasks({projectId})).items.map(({id,completionUrl})=>({id,completionUrl}));
   }), [source, role, pageState.data]);
+  if(view==='checklist') return role==='client'?<ErrorState error={new Error('내부 운영 계정만 접근할 수 있습니다.')} />:<Suspense fallback={<LoadingState/>}><ChecklistDashboard source={source} onOpenProject={onOpenProject}/></Suspense>;
   if(view==='blog') return role==='client'?<ErrorState error={new Error('내부 운영 계정만 접근할 수 있습니다.')} />:<Suspense fallback={<LoadingState/>}><BlogStatusView key={project.id} project={project} source={source} canWrite={['ADMIN','EDIT'].includes(project.permissionCode)||role==='pocket'} /></Suspense>;
   if(view==='reports') return <Suspense fallback={<LoadingState/>}><MonthlyReportsView key={project.id} project={project} source={source} canWrite={role!=='client'&&(['ADMIN','EDIT'].includes(project.permissionCode)||role==='pocket')} /></Suspense>;
   if(view==='performance') return <Suspense fallback={<LoadingState/>}><KpiFunnelView key={project.id} project={project} source={source} internal={role!=='client'} onJumpTasks={()=>setView('tasks')} canWrite={role!=='client'&&(['ADMIN','EDIT'].includes(project.permissionCode)||role==='pocket')} legacy={role!=='client'&&pageState.data?<PerformanceView performance={pageState.data} canWrite={canWrite} onKpiSave={onKpiSave} onKpiArchive={onKpiArchive}/>:null} legacyError={role!=='client'&&pageState.status==='error'}/></Suspense>;
@@ -1267,7 +1270,7 @@ export function App() {
   useEffect(() => {
     if (bootstrapState.status !== "ready" || !activeProjectId || view !== "overview") return;
     const allowedPages = bootstrapState.data?.projects?.[activeProjectId]?.allowedPages || [];
-    if (actorRole !== "client") setView("portfolio");
+    if (actorRole !== "client") setView("checklist");
     else if (isViewAllowed("schedule", allowedPages)) setView("schedule");
   }, [bootstrapState.status, bootstrapState.data, actorRole, activeProjectId, view]);
 

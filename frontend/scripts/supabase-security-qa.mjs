@@ -8,6 +8,7 @@ import { verifyTaskGroupsUndo } from './task-groups-undo-security-qa.mjs';
 import { verifyMonthlyReportsSecurity } from './monthly-reports-security-qa.mjs';
 import { verifyScheduleImport } from './schedule-import-security-qa.mjs';
 import { verifyOperatorParity } from './operator-parity-security-qa.mjs';
+import { verifyChecklistSecurity } from './checklist-security-qa.mjs';
 
 const migrationsDir = fileURLToPath(new URL("../../supabase/migrations/", import.meta.url)).replace(/\\$/, "");
 const db = new PGlite();
@@ -127,8 +128,8 @@ await db.exec(`
     (1, 'P0', 'MARKETING', '팀 전용 업무', null, null, null, 'NS', 'POCKET', 'PROJECT_TEAM', '${userIds.manager}', '${userIds.manager}');
 `);
 
-assert(await scalar("select count(*)::int as count from pg_tables where schemaname = 'public'") === 29, "table count mismatch");
-assert(await scalar("select count(*)::int as count from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relrowsecurity") === 29, "RLS coverage mismatch");
+assert(await scalar("select count(*)::int as count from pg_tables where schemaname = 'public'") === 31, "table count mismatch");
+assert(await scalar("select count(*)::int as count from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relrowsecurity") === 31, "RLS coverage mismatch");
 assert(await scalar("select count(*)::int as count from information_schema.columns where table_schema='public' and table_name='profiles' and column_name='email'") === 0, "public profile still exposes email");
 assert(await scalar("select count(*)::int as count from information_schema.role_table_grants where grantee='anon' and table_schema='public'") === 0, "anon grants found");
 assert(await scalar("select count(*)::int as count from information_schema.routine_privileges where grantee='PUBLIC' and specific_schema in ('public','private')") === 0, "PUBLIC function execute grants found");
@@ -524,8 +525,8 @@ console.log(JSON.stringify({
   nsAllProjectsAndFutureMemberships: "pass",
   operationsDashboardBoundary: "pass",
   migrations: readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).length,
-  tables: 29,
-  rlsTables: 29,
+  tables: 31,
+  rlsTables: 31,
   pageBoundary: "pass",
   visibilityBoundary: "pass",
   tenantWriteBoundary: "pass",
@@ -588,4 +589,5 @@ try {
 await verifyMonthlyReportsSecurity(db, userIds, assert);
 await verifyScheduleImport(db, userIds, assert);
 await verifyOperatorParity(db, userIds, assert);
+await verifyChecklistSecurity(db, userIds, assert);
 await db.close();
