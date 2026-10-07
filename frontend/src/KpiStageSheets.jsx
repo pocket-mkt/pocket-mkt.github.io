@@ -664,8 +664,8 @@ export default function KpiStageSheets({
                   : r.body[stage === 2 ? "visits" : "conversions"] != null,
               ) && (
                 <p className="ks-legacy-note">
-                  기존 일별 입력표의 실적도 누적에 포함됩니다. 해당 기록은 아래
-                  ‘날짜별 입력·브리핑’에서 수정하세요.
+                  기존 일별 실적도 누적과 추이에 포함됩니다. 같은 날짜·채널의
+                  실적을 다시 추가하면 중복 저장이 차단됩니다.
                 </p>
               )}
             </section>

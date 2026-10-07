@@ -206,6 +206,21 @@ export async function runKpiDailyQa(render, tick, check) {
         "removed UI still visible: " + text,
       );
     check(writes.length === 0, "mount wrote default records");
+    input("KPI 데이터 입력").click();
+    await tick();
+    await tick();
+    check(
+      document
+        .querySelector(".ks-legacy-note")
+        ?.textContent.includes("누적과 추이"),
+      "legacy preservation note missing",
+    );
+    check(
+      !document.body.textContent.includes("날짜별 입력·브리핑"),
+      "dialog points to removed UI",
+    );
+    document.querySelector('.ks-dialog button[aria-label="시트 닫기"]').click();
+    await tick();
     check(
       document.querySelectorAll(".kd-stage").length === 3,
       "funnel cards removed",

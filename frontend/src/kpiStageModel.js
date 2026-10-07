@@ -96,7 +96,7 @@ export function checkStageOverlap(stage, entries, days) {
       )
     )
       throw Error(
-        "아래 일별 입력표에 같은 날짜의 실적이 있습니다. 기존 일별 기록을 수정해 주세요.",
+        "같은 날짜의 기존 일별 실적이 누적에 포함되어 있습니다. 중복 추가할 수 없으므로 겹치지 않는 날짜를 선택하세요.",
       );
   }
   if (entries.length > 250)
