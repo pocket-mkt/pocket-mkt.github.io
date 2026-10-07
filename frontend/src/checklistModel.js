@@ -2,6 +2,12 @@ export function checklistToday(now = new Date()) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
 }
 export function checklistProjectRoute(project) { return String(project.navigation_id || project.id); }
+export function checklistDeadline(item, today = checklistToday()) {
+  if (item.completed_at) return null;
+  if (item.task_date < today) return { kind: 'overdue', label: '기한 지남' };
+  if (item.task_date === today) return { kind: 'today', label: '오늘 마감' };
+  return null;
+}
 export function checklistBucket(item, now = Date.now()) {
   return item.completed_at && new Date(item.completed_at).getTime() <= now - 7 * 86400000 ? 'completed' : 'active';
 }

@@ -1,10 +1,10 @@
 import React from 'react';
 import ChecklistDashboard from '../src/ChecklistDashboard.jsx';
-import { checklistBucket } from '../src/checklistModel.js';
+import { checklistBucket, checklistToday } from '../src/checklistModel.js';
 
 export async function runChecklistQa(render, tick, check) {
-  const today = new Date().toISOString().slice(0, 10), old = new Date(Date.now() - 8 * 86400000).toISOString();
-  let rows = Array.from({ length: 12 }, (_, i) => ({ id: `row-${String(i).padStart(2, '0')}`, project_id: i % 2 + 1, task_date: today, title: `회의 후속 요청 ${i + 1}`, completed_at: null, row_version: 1 }));
+  const today = checklistToday(), old = new Date(Date.now() - 8 * 86400000).toISOString();
+  let rows = Array.from({ length: 12 }, (_, i) => ({ id: `row-${String(i).padStart(2, '0')}`, project_id: i % 2 + 1, task_date: i === 0 ? '2000-01-01' : today, title: `회의 후속 요청 ${i + 1}`, completed_at: null, created_by_name: '포켓 담당자', row_version: 1 }));
   rows.push({ id: 'old', project_id: 1, task_date: today, title: '일주일 지난 완료 항목', completed_at: old, row_version: 1 });
   const projects = [{ id: 1, navigation_id: 'PRJ-A', client_name: '테스트 A', name: 'A 운영 프로젝트', canWrite: true }, { id: 2, navigation_id: 'PRJ-B', client_name: '테스트 B', name: 'B 운영 프로젝트', canWrite: true }];
   const boards = { 1: { body: '홈페이지: https://example.test\n어드민: https://example.test/admin\n<script>alert(1)</script>', row_version: 1, updated_at: new Date().toISOString() } };
@@ -12,9 +12,12 @@ export async function runChecklistQa(render, tick, check) {
   const source = {
     checklist: async ({ projectId, bucket, cursor, limit = 10 }) => {
       if (failRead) throw Error('조회 실패 테스트');
-      let list = rows.filter(r => !r.archived_at && (!projectId || r.project_id === Number(projectId)) && checklistBucket(r) === bucket).sort((a, b) => a.id.localeCompare(b.id));
-      if (cursor) list = list.filter(r => r.id > cursor.id);
-      return { data: { projects: projects.map(p => ({ ...p, canWrite: !readonly })), items: structuredClone(list.slice(0, limit)), next_cursor: list.length > limit ? { date: today, id: list[limit - 1].id } : null } };
+      const scoped = rows.filter(r => !r.archived_at && (!projectId || r.project_id === Number(projectId)));
+      const compare = (a, b) => Number(Boolean(a.completed_at)) - Number(Boolean(b.completed_at)) || a.task_date.localeCompare(b.task_date) || a.id.localeCompare(b.id);
+      let list = scoped.filter(r => checklistBucket(r) === bucket).sort(compare);
+      if (cursor) list = list.filter(r => compare(r, { completed_at: cursor.completed, task_date: cursor.date, id: cursor.id }) > 0);
+      const last = list[limit - 1], pending = scoped.filter(r => !r.completed_at);
+      return { data: { today, summary: { pending: pending.length, overdue: pending.filter(r => r.task_date < today).length, today: pending.filter(r => r.task_date === today).length }, projects: projects.map(p => ({ ...p, canWrite: !readonly })), items: structuredClone(list.slice(0, limit)), next_cursor: list.length > limit ? { completed: Boolean(last.completed_at), date: last.task_date, id: last.id } : null } };
     },
     checklistBoard: async ({ projectId }) => ({ data: { item: structuredClone(boards[projectId] || null), canWrite: !readonly } }),
     saveChecklist: async request => {
@@ -27,7 +30,7 @@ export async function runChecklistQa(render, tick, check) {
       } else {
         const current = rows.find(r => r.id === request.id);
         if (current && current.row_version !== request.rowVersion) throw Object.assign(Error('다른 사람이 수정했습니다.'), { code: 'conflict' });
-        item = { ...current, id: request.id, project_id: request.projectId, title: request.body.title, task_date: request.body.date, row_version: (request.rowVersion || 0) + 1, completed_at: request.body.completed ? current?.completed_at || new Date().toISOString() : null, archived_at: request.operation === 'ARCHIVE' ? new Date().toISOString() : null };
+        item = { ...current, id: request.id, project_id: request.projectId, title: request.body.title ?? current?.title, task_date: request.body.date ?? current?.task_date, created_by_name: current?.created_by_name || 'NS 담당자', row_version: (request.rowVersion || 0) + 1, completed_at: request.body.completed ? current?.completed_at || new Date().toISOString() : null, completed_by_name: request.body.completed ? 'NS 담당자' : null, archived_at: request.operation === 'ARCHIVE' ? new Date().toISOString() : null };
         rows = [...rows.filter(r => r.id !== item.id), item];
       }
       const response = { data: { item: structuredClone(item) } }; replays.set(request.mutationId, response);
@@ -49,6 +52,8 @@ export async function runChecklistQa(render, tick, check) {
     await render(<div/>); await render(<ChecklistDashboard source={source} onOpenProject={(...args)=>navigations.push(args)}/>); await settle();
     findButton('아이디 관리대장').click(); check(navigations[0]?.[0]==='PRJ-A'&&navigations[0]?.[1]==='credentials','credential navigation uses existing app project ID');
     check(document.querySelectorAll('[data-checklist-id]').length === 10, 'first ten automatically loaded');
+    check(document.querySelector('[data-checklist-id]').dataset.checklistId === 'row-00' && document.querySelector('.checklist-deadline.is-overdue')?.textContent === '기한 지남', 'overdue deadline leads the list');
+    check(document.querySelector('.checklist-summary').textContent.includes('12') && document.querySelector('.checklist-task-meta').textContent.includes('포켓 담당자'), 'whole-list summary and creator visible');
     check(document.querySelector('.checklist-board-content a')?.getAttribute('href') === 'https://example.test/', 'board links automatically visible');
     check(!document.querySelector('.checklist-board-content script'), 'board markup escaped');
     document.querySelector('.checklist-more').click(); await settle();
@@ -62,6 +67,10 @@ export async function runChecklistQa(render, tick, check) {
     check(document.querySelector('.checklist-error'), 'uncertain save shown');
     findButton('같은 요청 다시 시도').click(); findButton('같은 요청 다시 시도')?.click(); await settle();
     check(writes.at(-1).mutationId === lastMutation && writes.filter(w => w.mutationId === lastMutation).length === 2, 'retry uses identical id and prevents double click');
+    const doneId = writes.at(-1).id;
+    check(findButton('완료 취소') && rows.find(r => r.id === doneId).completed_at, 'one-click completion exposes immediate undo');
+    findButton('완료 취소').click(); await settle();
+    check(!rows.find(r => r.id === doneId).completed_at && !findButton('완료 취소'), 'undo restores pending with canonical version');
     findButton('할 일 추가').click(); await tick();
     field('.checklist-dialog textarea', '신규 확인할 사항'); field('.checklist-dialog select', '2'); await tick();
     check(document.querySelector('[role=dialog]'), 'accessible add dialog');
@@ -77,6 +86,9 @@ export async function runChecklistQa(render, tick, check) {
     findButton('전체 프로젝트').click(); await tick(); check(document.querySelector('.checklist-board textarea'), 'dirty board blocks filter navigation');
     window.confirm = () => true; findButton('보드 저장').click(); await settle();
     check(boards[2].body.includes('B 보드 메모') && boards[1].body.includes('홈페이지'), 'project-specific board persisted');
+    findButton('보드 수정').click(); await tick(); field('.checklist-board textarea', '폐기할 초안'); await tick();
+    boards[2].body = '다른 계정의 최신 보드'; findButton('취소').click(); await settle();
+    check(document.querySelector('.checklist-board-content').textContent === boards[2].body, 'cancel refreshes latest board without stale editing guard');
     const toDelete = document.querySelector('[data-checklist-id]').dataset.checklistId;
     document.querySelector('.checklist-remove').click(); await settle();
     check(rows.find(r => r.id === toDelete).archived_at && !document.querySelector(`[data-checklist-id="${toDelete}"]`), 'delete archives only chosen row');

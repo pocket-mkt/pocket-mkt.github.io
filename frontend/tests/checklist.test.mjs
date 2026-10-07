@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { checklistBucket, checklistDraft, checklistRequest, checklistToday, boardSegments, checklistProjectRoute } from '../src/checklistModel.js';
+import { checklistBucket, checklistDraft, checklistRequest, checklistToday, boardSegments, checklistProjectRoute, checklistDeadline } from '../src/checklistModel.js';
 import { createChecklistApi } from '../src/supabase/checklistApi.js';
 import { isViewAllowed, ACCESS_PAGE_KEYS } from '../src/accessPermissions.js';
 import { parseViewLocation } from '../src/planNavigation.js';
@@ -20,6 +20,15 @@ test('checklist request copies canonical version and never sends client timestam
  assert.equal(request.rowVersion, 9); assert.equal(request.id, row.id);
  assert.deepEqual(request.body, { date: row.task_date, title: row.title, completed: true });
  assert.notEqual(checklistRequest(draft).id, row.id);
+});
+test('checklist deadlines use Korea day without auto-completion or changing saved dates', () => {
+ const today = checklistToday(new Date('2026-10-07T16:00:00Z'));
+ const overdue = { task_date: '2026-10-07', completed_at: null };
+ assert.equal(checklistDeadline(overdue, today).kind, 'overdue');
+ assert.equal(checklistDeadline({ task_date: today }, today).kind, 'today');
+ assert.equal(checklistDeadline({ task_date: '2026-10-09' }, today), null);
+ assert.equal(checklistDeadline({ ...overdue, completed_at: '2026-10-07T12:00:00Z' }, today), null);
+ assert.deepEqual(overdue, { task_date: '2026-10-07', completed_at: null });
 });
 test('board only links safe HTTP(S), never interprets markup or credential URLs', () => {
  const parts = boardSegments('<img src=x onerror=alert(1)> javascript:alert(1) https://user:pass@example.test https://example.test/admin');
