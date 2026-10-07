@@ -78,7 +78,7 @@ const statusText = {
   error: "저장되지 않음",
 };
 
-function SaveStatus({ editor }) {
+function SaveStatus({ editor, onReload }) {
   return (
     <div className={"kd-save " + editor.status} aria-live="polite">
       <span>{statusText[editor.status]}</span>
@@ -115,6 +115,10 @@ function SaveStatus({ editor }) {
           {editor.error.code !== "conflict" &&
             editor.error.code !== "forbidden" && (
               <button onClick={() => editor.flush()}>저장 재시도</button>
+            )}
+          {onReload &&
+            ["conflict", "forbidden"].includes(editor.error.code) && (
+              <button onClick={onReload}>충돌·권한 다시 확인</button>
             )}
         </>
       )}
@@ -379,7 +383,7 @@ function SettingsEditor({ initial, children, ...props }) {
               <Plus size={14} /> 운영 채널 추가
             </button>
           )}
-          <SaveStatus editor={e} />
+          <SaveStatus editor={e} onReload={props.onReload} />
         </div>
         <History
           source={props.source}
@@ -778,7 +782,7 @@ function DayEditor({
           )}
         </aside>
       </div>
-      <SaveStatus editor={e} />
+      <SaveStatus editor={e} onReload={props.onReload} />
       <div className="kd-record-meta">
         {initial.updated_at
           ? `${initial.updated_by || "운영팀"} · ${stamp(initial.updated_at)} 갱신`
@@ -788,7 +792,7 @@ function DayEditor({
       {e.error?.code === "conflict" && (
         <p className="kd-error">
           입력값은 화면에 남아 있습니다. ‘입력 전체 백업’으로 숫자와 브리핑을
-          보관한 뒤 상단 ‘최신 기록’을 눌러 비교하세요.
+          보관한 뒤 ‘충돌·권한 다시 확인’을 눌러 비교하세요.
         </p>
       )}
       <History
@@ -806,7 +810,6 @@ export default function KpiDailyView({
   project,
   source,
   canWrite,
-  onLegacy,
   onJumpTasks,
 }) {
   const today = todayKst(),
@@ -1007,6 +1010,17 @@ export default function KpiDailyView({
   };
   const openSheet = (stage) => openPanel(stage, "sheet");
   const openTrend = (stage) => openPanel(stage, "trend");
+  const reloadRecords = async () => {
+    if ([...guards.current.values()].some((g) => g.pending())) {
+      setNotice("저장 중입니다. 완료 후 다시 확인해 주세요.");
+      return;
+    }
+    if (await guard()) {
+      setSheet(null);
+      setTrendStage(null);
+      setRevision((r) => r + 1);
+    }
+  };
   const stageAction = (stage) => ({
     onClick: (e) => {
       if (!e.target.closest("button, input, label, details, [data-kpi-editor]"))
@@ -1058,22 +1072,6 @@ export default function KpiDailyView({
           >
             <ChevronRight size={16} />
           </button>
-          <button
-            onClick={async () => {
-              if (await guard()) setRevision((r) => r + 1);
-            }}
-          >
-            최신 기록
-          </button>
-          {onLegacy && (
-            <button
-              onClick={async () => {
-                if (await guard()) onLegacy(month);
-              }}
-            >
-              기존 월별 자료
-            </button>
-          )}
         </div>
       </header>
       {notice && (
@@ -1100,16 +1098,19 @@ export default function KpiDailyView({
               실적 포함 {totals.recorded}일 · 기간 합계 {totals.periodCount}건 ·
               지난 날짜 미입력 {totals.missing}일
             </span>
-            <button onClick={() => openSheet("GOALS")}>
-              <Settings2 size={14} /> 목표 설정 {goals.length}/5
-            </button>
+            <div className="kd-summary-actions">
+              <button onClick={() => openSheet("GOALS")}>
+                <Settings2 size={14} /> 목표 설정 {goals.length}/5
+              </button>
+              <button
+                className="kd-primary"
+                aria-label={writer ? "KPI 데이터 입력" : "KPI 입력 기록"}
+                onClick={() => openSheet(1)}
+              >
+                <Plus size={14} /> {writer ? "데이터 입력" : "입력 기록"}
+              </button>
+            </div>
           </div>
-          {state.data.legacy_exists && (
-            <p className="kd-legacy-note">
-              이달의 기존 월별 자료가 있습니다. 일별 합계에 더하지 않으며 ‘기존
-              월별 자료’에서 확인할 수 있습니다.
-            </p>
-          )}
           <SettingsEditor
             key={"settings:" + month + ":" + revision + ":" + editorEpoch}
             initial={
@@ -1121,6 +1122,7 @@ export default function KpiDailyView({
             canWrite={writer}
             register={register}
             onSaved={savedSettings}
+            onReload={reloadRecords}
           >
             {(settingsEditor, settingsDisabled) => (
               <>
@@ -1142,17 +1144,6 @@ export default function KpiDailyView({
                           광고·콘텐츠
                         </button>
                       </h3>
-                      <button
-                        className="ks-open-hint"
-                        aria-label={
-                          writer
-                            ? "1단계 광고·콘텐츠 데이터 입력"
-                            : "1단계 광고·콘텐츠 기록 보기"
-                        }
-                        onClick={() => openSheet(1)}
-                      >
-                        {writer ? "+ 데이터 입력" : "기록 보기"}
-                      </button>
                     </header>
                     <dl
                       className="kd-marketing-metrics"
@@ -1241,17 +1232,6 @@ export default function KpiDailyView({
                           유입
                         </button>
                       </h3>
-                      <button
-                        className="ks-open-hint"
-                        aria-label={
-                          writer
-                            ? "2단계 유입 데이터 입력"
-                            : "2단계 유입 기록 보기"
-                        }
-                        onClick={() => openSheet(2)}
-                      >
-                        {writer ? "+ 데이터 입력" : "기록 보기"}
-                      </button>
                     </header>
                     <div className="kd-inflow-name" data-kpi-editor="SETTINGS">
                       <label>
@@ -1281,7 +1261,10 @@ export default function KpiDailyView({
                         />
                       </label>
                       {writer && settingsEditor.status !== "saved" && (
-                        <SaveStatus editor={settingsEditor} />
+                        <SaveStatus
+                          editor={settingsEditor}
+                          onReload={reloadRecords}
+                        />
                       )}
                     </div>
                     <div className="kd-main-value">
@@ -1317,17 +1300,6 @@ export default function KpiDailyView({
                           전환
                         </button>
                       </h3>
-                      <button
-                        className="ks-open-hint"
-                        aria-label={
-                          writer
-                            ? "3단계 전환 데이터 입력"
-                            : "3단계 전환 기록 보기"
-                        }
-                        onClick={() => openSheet(3)}
-                      >
-                        {writer ? "+ 데이터 입력" : "기록 보기"}
-                      </button>
                     </header>
                     <p className="kd-metric-caption">
                       {settings.conversion_label}
@@ -1377,9 +1349,9 @@ export default function KpiDailyView({
                 </div>
                 <p className="kd-help">
                   카드 본문을 누르면 일별 추이가 열립니다. 실적 추가·수정은 카드
-                  우측 상단의 ‘데이터 입력’에서 합니다. 기간 합계는 한 번만
-                  누적하며, 채널별 유입·전환은 전체 수치에 더하지 않습니다.
-                  미확인 값은 0으로 처리하지 않습니다.
+                  위 공통 ‘데이터 입력’에서 단계를 선택해 진행합니다. 기간
+                  합계는 한 번만 누적하며, 채널별 유입·전환은 전체 수치에 더하지
+                  않습니다. 미확인 값은 0으로 처리하지 않습니다.
                 </p>
               </>
             )}
@@ -1497,6 +1469,7 @@ export default function KpiDailyView({
                 canWrite={writer}
                 register={register}
                 onSaved={savedDay}
+                onReload={reloadRecords}
                 onCopyRoster={copyRoster}
                 onJumpTasks={
                   onJumpTasks
@@ -1585,9 +1558,7 @@ export default function KpiDailyView({
                 month={month}
                 data={state.data}
                 settings={settings}
-                canWrite={writer}
                 onClose={closeTrend}
-                onEntry={() => openSheet(trendStage)}
               />
             </Suspense>
           )}
@@ -1609,6 +1580,8 @@ export default function KpiDailyView({
               canWrite={writer}
               onSaved={savedSheet}
               onClose={closeSheet}
+              onStageChange={setSheet}
+              onReload={reloadRecords}
               register={register}
               History={History}
             />

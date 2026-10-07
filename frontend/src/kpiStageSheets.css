@@ -12,16 +12,6 @@
   outline: 3px solid #7f9ef9;
   outline-offset: 3px;
 }
-.kd-stage button.ks-open-hint {
-  margin-left: auto;
-  font-size: 11px;
-  color: #647893;
-  font-weight: 500;
-  border: 1px solid #d8e3f4;
-  background: #f5f8fe;
-  color: #325785;
-  padding: 5px 7px;
-}
 .kd-stage header h3 {
   min-width: 0;
 }
@@ -35,9 +25,6 @@
   text-align: left;
 }
 .kd-stage header > span {
-  flex-shrink: 0;
-}
-.kd-stage button.ks-open-hint {
   flex-shrink: 0;
 }
 @media (min-width: 701px) and (max-width: 1100px) {
@@ -126,6 +113,45 @@
   overflow: auto;
   padding: 20px 24px;
   overscroll-behavior: contain;
+}
+.ks-stage-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 14px 24px;
+  border-bottom: 1px solid #e6edf5;
+}
+.ks-dialog .ks-stage-picker button {
+  min-width: 0;
+  padding: 10px 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  white-space: normal;
+  text-align: left;
+}
+.ks-stage-picker button span {
+  font-size: 11px;
+  color: #6b7f99;
+}
+.ks-stage-picker button b {
+  font-size: 13px;
+}
+.ks-dialog .ks-stage-picker button[aria-pressed="true"] {
+  border-color: #21395f;
+  background: #21395f;
+  color: white;
+}
+.ks-stage-picker button[aria-pressed="true"] span {
+  color: #d5e3f9;
+}
+@media (max-width: 700px) {
+  .ks-stage-picker {
+    padding: 12px 14px;
+    gap: 6px;
+  }
+  .ks-stage-picker button b {
+    font-size: 12px;
+  }
 }
 .ks-intro {
   font-size: 12px;
@@ -447,8 +473,5 @@
   .ks-goal-preview > div:first-child {
     flex-wrap: wrap;
     gap: 3px;
-  }
-  .ks-open-hint {
-    font-size: 10px;
   }
 }

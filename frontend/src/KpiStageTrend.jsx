@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useDialogSurface } from "./useDialogSurface.js";
 import { STAGES } from "./kpiStageModel.js";
 import {
@@ -17,9 +17,7 @@ export default function KpiStageTrend({
   month,
   data,
   settings,
-  canWrite,
   onClose,
-  onEntry,
 }) {
   const [metric, setMetric] = useState(STAGE_TREND_METRICS[stage][0]);
   const [windowDays, setWindowDays] = useState(0);
@@ -75,10 +73,6 @@ export default function KpiStageTrend({
             <h2 id="kt-title">{STAGES[stage - 1]} 일별 추이</h2>
           </div>
           <div className="kt-actions">
-            <button type="button" className="kt-entry" onClick={onEntry}>
-              <Plus size={14} />
-              {canWrite ? "데이터 입력" : "기록 보기"}
-            </button>
             <button
               type="button"
               data-dialog-close

@@ -114,6 +114,14 @@
 .kd-summary-heading b {
   font-size: 14px;
 }
+.kd-summary-actions {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
 .kd-partial {
   color: #94601b;
 }

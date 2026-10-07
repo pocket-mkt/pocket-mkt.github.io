@@ -82,6 +82,8 @@ export default function KpiStageSheets({
   canWrite,
   onSaved,
   onClose,
+  onStageChange,
+  onReload,
   register,
   History,
 }) {
@@ -117,6 +119,12 @@ export default function KpiStageSheets({
     onClose();
   }, [onClose]);
   useDialogSurface(true, surface, close);
+  useEffect(() => {
+    if (!isGoals && onStageChange)
+      surface.current
+        ?.querySelector('.ks-stage-picker [aria-pressed="true"]')
+        ?.focus();
+  }, [stage, isGoals, onStageChange]);
   useEffect(
     () =>
       register("SHEET", {
@@ -129,6 +137,15 @@ export default function KpiStageSheets({
   const entries = record?.body.entries || [],
     blocked = error?.code === "conflict" || error?.code === "forbidden",
     locked = busy || !!pending.current || blocked;
+  function changeStage(next) {
+    if (next === stage || busyRef.current || pending.current) return;
+    if (
+      dirty &&
+      !window.confirm(`저장하지 않은 입력을 버리고 ${next}단계로 이동할까요?`)
+    )
+      return;
+    onStageChange?.(next);
+  }
   function resetEntry() {
     const next = newStageEntry(stage, month, settings);
     setEntry(next);
@@ -279,7 +296,7 @@ export default function KpiStageSheets({
               {isGoals ? "프로젝트 목표" : "단계별 누적 기록"}
             </span>
             <h2 id="ks-title">
-              {isGoals ? "목표 설정" : `${stage}. ${STAGES[stage - 1]} 시트`}
+              {isGoals ? "목표 설정" : canWrite ? "데이터 입력" : "입력 기록"}
             </h2>
           </div>
           <button
@@ -292,6 +309,27 @@ export default function KpiStageSheets({
             <X size={19} />
           </button>
         </header>
+        {!isGoals && onStageChange && (
+          <div
+            className="ks-stage-picker"
+            role="group"
+            aria-label="입력 단계 선택"
+          >
+            {STAGES.map((name, i) => (
+              <button
+                key={name}
+                type="button"
+                aria-label={`${i + 1}단계 ${name} 선택`}
+                aria-pressed={stage === i + 1}
+                disabled={busy || !!pending.current}
+                onClick={() => changeStage(i + 1)}
+              >
+                <span>{i + 1}단계</span>
+                <b>{name}</b>
+              </button>
+            ))}
+          </div>
+        )}
         <div className="ks-body">
           <p className="ks-intro">
             {isGoals
@@ -651,9 +689,14 @@ export default function KpiStageSheets({
                   입력 백업
                 </button>
                 {blocked && (
-                  <small>
-                    백업 후 시트를 닫고 ‘최신 기록’에서 다시 확인하세요.
-                  </small>
+                  <>
+                    <small>입력을 백업한 뒤 충돌·권한을 다시 확인하세요.</small>
+                    {onReload && (
+                      <button type="button" onClick={onReload}>
+                        충돌·권한 다시 확인
+                      </button>
+                    )}
+                  </>
                 )}
               </>
             ) : (

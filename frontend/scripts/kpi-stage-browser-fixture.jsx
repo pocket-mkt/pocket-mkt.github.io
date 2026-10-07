@@ -134,11 +134,14 @@ export async function runKpiStageQa(render, tick, check) {
     await tick();
     await tick();
   };
-  const open = async (n) =>
-    click(document.querySelectorAll(".kd-stage .ks-open-hint")[n - 1]);
+  const open = async (n) => {
+    await click(el("KPI 데이터 입력") || el("KPI 입력 기록"));
+    await click(document.querySelectorAll(".ks-stage-picker button")[n - 1]);
+  };
   const openTrend = async (n) => {
     await click(document.querySelectorAll(".kd-stage")[n - 1]);
-    for (let i = 0; i < 50 && !document.querySelector('.kt-dialog'); i++) await tick();
+    for (let i = 0; i < 50 && !document.querySelector(".kt-dialog"); i++)
+      await tick();
   };
   const closeTrend = async () => click(el("추이 닫기"));
   const close = async () => click(el("시트 닫기"));
@@ -147,6 +150,36 @@ export async function runKpiStageQa(render, tick, check) {
   try {
     await mount();
     check(writes.length === 0, "stage mount saved defaults");
+    check(
+      !btn("최신 기록") && !btn("기존 월별 자료"),
+      "removed toolbar buttons remain",
+    );
+    check(
+      document.querySelectorAll('[aria-label="KPI 데이터 입력"]').length ===
+        1 && !document.querySelector(".kd-stage .ks-open-hint"),
+      "entry is not centralized",
+    );
+    check(
+      el("KPI 데이터 입력").closest(".kd-summary-actions"),
+      "common entry is not beside goals",
+    );
+    await open(1);
+    check(
+      document.querySelectorAll(".ks-stage-picker button").length === 3,
+      "stage selector missing",
+    );
+    await fill("실적 클릭", "12");
+    await click(el("2단계 유입 선택"));
+    check(el("실적 클릭")?.value === "12", "cancelled stage switch lost draft");
+    window.confirm = () => true;
+    await click(el("2단계 유입 선택"));
+    check(
+      el("실적 유입") && !el("실적 클릭"),
+      "approved stage switch incorrect",
+    );
+    check(writes.length === 0, "stage selection wrote data");
+    await close();
+    window.confirm = () => false;
     await openTrend(2);
     check(
       document.querySelector(".kt-dialog") &&
@@ -177,6 +210,12 @@ export async function runKpiStageQa(render, tick, check) {
     const submitButton = btn("기록 추가");
     submitButton.click();
     await tick();
+    check(
+      [...document.querySelectorAll(".ks-stage-picker button")].every(
+        (b) => b.disabled,
+      ),
+      "stage switch enabled during save",
+    );
     submitButton.click();
     check(writes.length === 1, "double submit duplicated");
     release();
@@ -204,14 +243,28 @@ export async function runKpiStageQa(render, tick, check) {
     await close();
     await openTrend(2);
     if (date !== end) {
-      check(document.querySelector(".kt-periods")?.textContent.includes("320"), "range totals absent from trend");
-      check(document.querySelector(".kt-empty"), "range totals invented daily graph");
-    } else check(document.querySelector('.kt-summary').textContent.includes('320'), 'single-day total absent from trend');
-    await click(document.querySelector(".kt-entry"));
+      check(
+        document.querySelector(".kt-periods")?.textContent.includes("320"),
+        "range totals absent from trend",
+      );
+      check(
+        document.querySelector(".kt-empty"),
+        "range totals invented daily graph",
+      );
+    } else
+      check(
+        document.querySelector(".kt-summary").textContent.includes("320"),
+        "single-day total absent from trend",
+      );
     check(
-      document.querySelector("#ks-form") &&
-        !document.querySelector(".kt-dialog"),
-      "trend to entry did not replace dialog",
+      !document.querySelector(".kt-entry"),
+      "trend still has duplicate data entry",
+    );
+    await closeTrend();
+    await open(2);
+    check(
+      document.querySelector(".ks-records").textContent.includes("320"),
+      "stage switching lost saved records",
     );
     await close();
     check(
@@ -259,6 +312,12 @@ export async function runKpiStageQa(render, tick, check) {
     const failed = writes.at(-1);
     check(el("실적 전환").value === "16", "failed draft lost");
     check(btn("저장 재시도"), "retry absent");
+    check(
+      [...document.querySelectorAll(".ks-stage-picker button")].every(
+        (b) => b.disabled,
+      ),
+      "failed pending request can be lost by stage switch",
+    );
     fail = false;
     await click(btn("저장 재시도"));
     check(
@@ -383,14 +442,22 @@ export async function runKpiStageQa(render, tick, check) {
       "conflict lost draft",
     );
     conflict = false;
+    window.confirm = () => false;
+    await click(btn("충돌·권한 다시 확인"));
+    check(el("실적 전환").value === "20", "cancel recovery lost stage draft");
+    window.confirm = () => true;
+    await click(btn("충돌·권한 다시 확인"));
+    check(!document.querySelector("#ks-form"), "stage recovery did not close dialog");
+    await open(3);
+    check(!btn("수정 저장"), "stage recovery retained conflicted edit");
     await close();
     await mount({ canWrite: false });
     check(el("2단계 유입 항목 이름").disabled, "readonly can edit label");
     await openTrend(2);
     check(!document.querySelector("#ks-form"), "readonly trend exposes editor");
     check(
-      document.querySelector(".kt-entry").textContent === "기록 보기",
-      "readonly entry label",
+      !document.querySelector(".kt-entry"),
+      "readonly trend shows duplicate entry",
     );
     await closeTrend();
     await open(2);
@@ -642,6 +709,8 @@ export async function runKpiStageQa(render, tick, check) {
     return {
       clickableStages: true,
       separateEntryAndTrend: true,
+      commonEntryStagePicker: true,
+      dirtyStageGuard: true,
       dailyTrendMetrics: true,
       trendNoWrites: true,
       periodTotalsSeparate: true,

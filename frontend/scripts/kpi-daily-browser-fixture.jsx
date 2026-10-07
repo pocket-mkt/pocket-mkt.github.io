@@ -299,7 +299,7 @@ export async function runKpiDailyQa(render, tick, check) {
     );
     conflict = false;
     window.confirm = () => true;
-    button("최신 기록").click();
+    button("충돌·권한 다시 확인").click();
     await tick();
     await tick();
     await tick();
