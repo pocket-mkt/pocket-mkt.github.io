@@ -595,9 +595,10 @@ let socket;
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 try {
   let ready=false;
-  const startupDeadline=Date.now()+30000;
+  // Hosted runners can take over 30 seconds to expose DevTools on a cold start.
+  const startupDeadline=Date.now()+60000;
   while(Date.now()<startupDeadline) { try { ready=(await fetch(`http://127.0.0.1:${debugPort}/json/version`,{signal:AbortSignal.timeout(1000)})).ok; } catch {} if(ready||chrome.exitCode!==null)break;await delay(100); }
-  if(!ready)throw Error('headless Chrome failed to start within 30s: '+chromeStartupError);
+  if(!ready)throw Error('headless Chrome failed to start within 60s: '+chromeStartupError);
   const target=await (await fetch(`http://127.0.0.1:${debugPort}/json/new?about:blank`,{method:'PUT'})).json();
   socket=new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((resolve,reject)=>{socket.addEventListener('open',resolve,{once:true});socket.addEventListener('error',reject,{once:true});});
