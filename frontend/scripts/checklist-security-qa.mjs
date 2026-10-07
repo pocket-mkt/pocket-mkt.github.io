@@ -14,6 +14,7 @@ export async function verifyChecklistSecurity(db, users, assert) {
     await as('ns');
     const projects = (await read()).projects;
     assert(projects.length === 1 && projects[0].id === 1 && projects[0].canWrite, 'NS scoped projects');
+    assert(typeof projects[0].navigation_id === 'string' && projects[0].navigation_id.length>0, 'canonical ID and app navigation ID both supplied');
     const ids = Array.from({ length: 13 }, () => crypto.randomUUID());
     for (const id of ids) await save(id);
     const first = await read(), next = await read(null, 'active', first.next_cursor);

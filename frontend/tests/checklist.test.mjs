@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { checklistBucket, checklistDraft, checklistRequest, checklistToday, boardSegments } from '../src/checklistModel.js';
+import { checklistBucket, checklistDraft, checklistRequest, checklistToday, boardSegments, checklistProjectRoute } from '../src/checklistModel.js';
 import { createChecklistApi } from '../src/supabase/checklistApi.js';
 import { isViewAllowed, ACCESS_PAGE_KEYS } from '../src/accessPermissions.js';
 import { parseViewLocation } from '../src/planNavigation.js';
@@ -13,6 +13,8 @@ test('checklist uses seven elapsed days and keeps recent completions', () => {
  assert.equal(checklistToday(new Date('2026-10-07T16:00:00Z')), '2026-10-08');
 });
 test('checklist request copies canonical version and never sends client timestamps', () => {
+ assert.equal(checklistProjectRoute({id:1,navigation_id:'PRJ-UND'}),'PRJ-UND');
+ assert.equal(checklistProjectRoute({id:4}),'4');
  const row = { id: crypto.randomUUID(), project_id: 2, task_date: '2026-10-08', title: 'follow up', completed_at: '2026-10-08T01:00:00Z', row_version: 9 };
  const draft = checklistDraft(row), request = checklistRequest(draft, row);
  assert.equal(request.rowVersion, 9); assert.equal(request.id, row.id);

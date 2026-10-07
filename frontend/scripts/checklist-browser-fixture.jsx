@@ -6,7 +6,7 @@ export async function runChecklistQa(render, tick, check) {
   const today = new Date().toISOString().slice(0, 10), old = new Date(Date.now() - 8 * 86400000).toISOString();
   let rows = Array.from({ length: 12 }, (_, i) => ({ id: `row-${String(i).padStart(2, '0')}`, project_id: i % 2 + 1, task_date: today, title: `회의 후속 요청 ${i + 1}`, completed_at: null, row_version: 1 }));
   rows.push({ id: 'old', project_id: 1, task_date: today, title: '일주일 지난 완료 항목', completed_at: old, row_version: 1 });
-  const projects = [{ id: 1, client_name: '테스트 A', name: 'A 운영 프로젝트', canWrite: true }, { id: 2, client_name: '테스트 B', name: 'B 운영 프로젝트', canWrite: true }];
+  const projects = [{ id: 1, navigation_id: 'PRJ-A', client_name: '테스트 A', name: 'A 운영 프로젝트', canWrite: true }, { id: 2, navigation_id: 'PRJ-B', client_name: '테스트 B', name: 'B 운영 프로젝트', canWrite: true }];
   const boards = { 1: { body: '홈페이지: https://example.test\n어드민: https://example.test/admin\n<script>alert(1)</script>', row_version: 1, updated_at: new Date().toISOString() } };
   const writes = [], replays = new Map(); let failAfterCommit = false, failRead = false, readonly = false, delaySave = null;
   const source = {
@@ -45,7 +45,9 @@ export async function runChecklistQa(render, tick, check) {
   const settle = async () => { await tick(); await tick(); };
   const originalConfirm = window.confirm; window.confirm = () => true;
   try {
-    await render(<div/>); await render(<ChecklistDashboard source={source}/>); await settle();
+    const navigations=[];
+    await render(<div/>); await render(<ChecklistDashboard source={source} onOpenProject={(...args)=>navigations.push(args)}/>); await settle();
+    findButton('아이디 관리대장').click(); check(navigations[0]?.[0]==='PRJ-A'&&navigations[0]?.[1]==='credentials','credential navigation uses existing app project ID');
     check(document.querySelectorAll('[data-checklist-id]').length === 10, 'first ten automatically loaded');
     check(document.querySelector('.checklist-board-content a')?.getAttribute('href') === 'https://example.test/', 'board links automatically visible');
     check(!document.querySelector('.checklist-board-content script'), 'board markup escaped');

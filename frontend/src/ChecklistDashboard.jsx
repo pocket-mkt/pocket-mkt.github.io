@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarDays, Check, ChevronDown, ClipboardCheck, ExternalLink, KeyRound, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useDialogSurface } from './useDialogSurface.js';
 import { startWorkspaceRefresh } from './workspaceRefresh.js';
-import { boardSegments, checklistDraft, checklistRequest, checklistToday } from './checklistModel.js';
+import { boardSegments, checklistDraft, checklistRequest, checklistProjectRoute } from './checklistModel.js';
 import './checklistDashboard.css';
 
 const isDenied = error => ['forbidden', 'unauthorized'].includes(error?.code);
@@ -95,7 +95,7 @@ function ProjectBoard({ project, source, onOpenProject, onEditingChange }) {
     writer.reset(); setEditing(false); setNotice(''); void load();
   };
   return <section className="checklist-board" ref={root} aria-label={`${projectLabel(project)} 자유보드`}>
-    <header><div><span className="checklist-project-pill">{projectLabel(project)}</span><h2>프로젝트 자유보드</h2><p>{project.name}</p></div><div className="checklist-board-actions">{onOpenProject && <button type="button" onClick={() => onOpenProject(String(project.id), 'credentials')}><KeyRound size={14}/>아이디 관리대장</button>}{state.canWrite && !editing && <button onClick={() => { controller.current?.abort(); setText(state.item?.body || ''); setNotice(''); setEditing(true); }}><Pencil size={14}/>보드 수정</button>}</div></header>
+<header><div><span className="checklist-project-pill">{projectLabel(project)}</span><h2>프로젝트 자유보드</h2><p>{project.name}</p></div><div className="checklist-board-actions">{onOpenProject && <button type="button" onClick={() => onOpenProject(checklistProjectRoute(project), 'credentials')}><KeyRound size={14}/>아이디 관리대장</button>}{state.canWrite && !editing && <button onClick={() => { controller.current?.abort(); setText(state.item?.body || ''); setNotice(''); setEditing(true); }}><Pencil size={14}/>보드 수정</button>}</div></header>
     <p className="checklist-board-help">계정 페이지·홈페이지·어드민 주소와 운영 메모를 자유롭게 기록하세요. 비밀번호는 아이디 관리대장에 보관하세요.</p>
     {state.loading ? <p role="status">보드를 불러오는 중…</p> : state.error ? <div className="checklist-error" role="alert">{state.error.message}<button onClick={load}>다시 시도</button></div> : editing ? <form onSubmit={e => { e.preventDefault(); if (!writer.frozen) void writer.save({ kind: 'BOARD', projectId: project.id, body: { text }, rowVersion: state.item?.row_version ?? null, mutationId: crypto.randomUUID() }); }}>
       <textarea aria-label="자유보드 내용" maxLength={10000} rows={8} value={text} readOnly={writer.frozen} onChange={e => { writer.reset(); setText(e.target.value); }} placeholder={'홈페이지: https://…\n어드민 주소: https://…\n운영 메모:'}/><SaveError writer={writer}/>
