@@ -387,20 +387,18 @@ export async function runKpiStageQa(render, tick, check) {
       "inline label not saved",
     );
     check(
-      el("유입 이름").value === "플레이스 방문",
-      "settings editor label desynced",
+      !document.querySelector(".kd-settings"),
+      "removed settings panel remains",
     );
-    // The card and expanded settings must use one serialized writer.
-    document.querySelector(".kd-settings").open = true;
-    await fill("유입 이름", "플레이스 방문·전화");
-    el("유입 이름").blur();
+    // The remaining card field keeps the serialized settings writer.
+    await fill("2단계 유입 항목 이름", "플레이스 방문·전화");
+    el("2단계 유입 항목 이름").blur();
     await tick();
     await tick();
     check(
-      el("2단계 유입 항목 이름").value === "플레이스 방문·전화",
-      "shared label writer desynced",
+      records.SETTINGS.body.inflow_label === "플레이스 방문·전화",
+      "card label writer desynced",
     );
-    document.querySelector(".kd-settings").open = false;
     fail = true;
     await fill("2단계 유입 항목 이름", "플레이스 방문");
     el("2단계 유입 항목 이름").blur();
@@ -447,7 +445,10 @@ export async function runKpiStageQa(render, tick, check) {
     check(el("실적 전환").value === "20", "cancel recovery lost stage draft");
     window.confirm = () => true;
     await click(btn("충돌·권한 다시 확인"));
-    check(!document.querySelector("#ks-form"), "stage recovery did not close dialog");
+    check(
+      !document.querySelector("#ks-form"),
+      "stage recovery did not close dialog",
+    );
     await open(3);
     check(!btn("수정 저장"), "stage recovery retained conflicted edit");
     await close();
@@ -715,7 +716,7 @@ export async function runKpiStageQa(render, tick, check) {
       trendNoWrites: true,
       periodTotalsSeparate: true,
       inlineInflowLabelSaved: true,
-      sharedSettingsWriter: true,
+      singleSettingsWriter: true,
       labelRetryPreservesDraft: true,
       previousRecordDeltas: true,
       marketingMetricsWithoutSpend: true,

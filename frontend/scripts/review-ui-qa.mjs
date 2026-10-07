@@ -657,9 +657,6 @@ try {
       console.log(JSON.stringify({viewport:width,dailyKpi:await evaluate('window.runKpiDailyQa()')}));
       const dailyShot=await send('Page.captureScreenshot',{format:'png'});
       await writeFile(`../artifacts/client-progress/kpi-daily-${width}.png`,Buffer.from(dailyShot.data,'base64'));
-      await evaluate('document.querySelector(".kd-entry").scrollIntoView({block:"start"})');
-      const dailyEntryShot=await send('Page.captureScreenshot',{format:'png'});
-      await writeFile(`../artifacts/client-progress/kpi-daily-entry-${width}.png`,Buffer.from(dailyEntryShot.data,'base64'));
       continue;
     }
     console.log(JSON.stringify({viewport:width,operatorParity:await evaluate('window.runOperatorParityQa()')}));

@@ -1,15 +1,14 @@
 import React from "react";
+import * as echarts from "echarts";
 import KpiDailyView from "../src/KpiDailyView.jsx";
-import {createHubDataSource} from '../src/api/dataSource.js';
+import { createHubDataSource } from "../src/api/dataSource.js";
 import {
   defaultSettings,
   emptyDay,
   newChannel,
-  channelDay,
   todayKst,
   defaultDay,
   shiftDay,
-  dailyCsv,
 } from "../src/kpiDailyModel.js";
 
 export async function runKpiDailyQa(render, tick, check) {
@@ -127,10 +126,19 @@ export async function runKpiDailyQa(render, tick, check) {
       data: { items: audits.slice(0, 10), next_cursor: null },
     }),
   };
-  const source=createHubDataSource({
-    config:{endpoint:'https://example.invalid/api',hasEndpoint:true,mode:'live',loginEnabled:true},
-    supabaseLive:adapter,
-    env:{VITE_POCKET_DATA_BACKEND:'supabase',VITE_SUPABASE_URL:'https://example.supabase.co',VITE_SUPABASE_PUBLISHABLE_KEY:'public-test-key'}
+  const source = createHubDataSource({
+    config: {
+      endpoint: "https://example.invalid/api",
+      hasEndpoint: true,
+      mode: "live",
+      loginEnabled: true,
+    },
+    supabaseLive: adapter,
+    env: {
+      VITE_POCKET_DATA_BACKEND: "supabase",
+      VITE_SUPABASE_URL: "https://example.supabase.co",
+      VITE_SUPABASE_PUBLISHABLE_KEY: "public-test-key",
+    },
   });
   const mount = async (props = {}) => {
     await render(<div />);
@@ -176,73 +184,96 @@ export async function runKpiDailyQa(render, tick, check) {
   const priorConfirm = window.confirm;
   window.confirm = () => false;
   try {
+    const legacyBefore = JSON.stringify(
+      [...records].filter(([k]) => k.startsWith("DAY:")),
+    );
     await mount();
     check(
-      document
-        .querySelector(".kd-entry-heading")
-        .textContent.includes(date.slice(5).replace("-", ".")),
-      "yesterday default incorrect",
+      !document.querySelector(
+        ".kd-settings, .kd-dates, .kd-entry, .kd-ledger, .kd-trend",
+      ),
+      "removed sections still mounted",
     );
+    for (const text of [
+      "측정 기준·운영 채널",
+      "날짜별 입력·브리핑",
+      "NS 데일리 브리핑",
+      "CSV 양식",
+      "파일 업로드",
+    ])
+      check(
+        !document.body.textContent.includes(text),
+        "removed UI still visible: " + text,
+      );
     check(writes.length === 0, "mount wrote default records");
-    await fill("전체 유입", "150");
     check(
-      writes.at(-1).body.visits === 150 && writes.at(-1).body.conversions === 4,
-      "overall write wrong",
+      document.querySelectorAll(".kd-stage").length === 3,
+      "funnel cards removed",
     );
     check(
       document
         .querySelector(".kd-stage.traffic strong")
-        .textContent.includes(beforeDate.startsWith(month) ? "250" : "150"),
-      "monthly summary stale",
+        .textContent.includes(beforeDate.startsWith(month) ? "220" : "120"),
+      "legacy daily totals missing",
     );
-    await fill("실행 내용", "<img src=x onerror=alert(1)> 브리핑");
+    input("2단계 유입 일별 추이 보기").click();
+    for (
+      let i = 0;
+      i < 10 && !document.querySelector(".kt-dialog .kd-chart");
+      i++
+    )
+      await tick();
+    await tick();
+    const chart = echarts.getInstanceByDom(
+      document.querySelector(".kt-dialog .kd-chart"),
+    );
     check(
-      !document.querySelector(".kd-briefing img"),
-      "briefing HTML executed",
+      chart.getOption().series[0].data.some((p) => p.value === 120),
+      "legacy daily trend missing",
     );
-    // Consecutive edits while a request is in flight retain focus and persist the final draft.
+    document.querySelector(".kt-dialog button[aria-label]").click();
+    await tick();
+    const label = "2단계 유입 항목 이름";
+    await fill(label, "플레이스 유입");
+    check(
+      records.get("SETTINGS:" + month + "-01").body.inflow_label ===
+        "플레이스 유입",
+      "label write failed",
+    );
+    check(
+      records.get("SETTINGS:" + month + "-01").body.channels.length === 2,
+      "hidden roster removed by label write",
+    );
+    // The remaining inline name editor retains serialized writes and navigation protection.
     let release;
     hold = new Promise((r) => (release = r));
-    await fill("전체 유입", "160");
-    const second = await fill("전체 최종 전환", "7", false);
-    check(!second.disabled, "save blocked next input");
-    second.blur();
-    await tick();
+    await fill(label, "전화 유입");
+    await fill(label, "방문 유입");
+    check(
+      !window.dispatchEvent(
+        new Event("pocket:before-navigate", { cancelable: true }),
+      ),
+      "in-flight navigation allowed",
+    );
     release();
     hold = null;
     await tick();
     await tick();
     await tick();
     check(
-      records.get("DAY:" + date).body.visits === 160 &&
-        records.get("DAY:" + date).body.conversions === 7,
-      "queued edit lost",
-    );
-    const pasteTarget = input("네이버 검색광고 집행비"),
-      transfer = new DataTransfer();
-    transfer.setData("text", "40000\t6000\t160");
-    pasteTarget.dispatchEvent(
-      new ClipboardEvent("paste", {
-        bubbles: true,
-        cancelable: true,
-        clipboardData: transfer,
-      }),
-    );
-    await tick();
-    await tick();
-    check(
-      records.get("DAY:" + date).body.channels[0].clicks === 160,
-      "multi-cell paste failed",
+      records.get("SETTINGS:" + month + "-01").body.inflow_label ===
+        "방문 유입",
+      "queued label edit lost",
     );
     failWrite = true;
-    await fill("전체 최종 전환", "8");
+    await fill(label, "예약 유입");
     check(document.querySelector(".kd-save.error"), "failed save hidden");
     const failed = writes.at(-1);
     check(
       !window.dispatchEvent(
         new Event("pocket:before-navigate", { cancelable: true }),
       ),
-      "unsaved navigation not blocked",
+      "dirty navigation allowed",
     );
     failWrite = false;
     button("저장 재시도").click();
@@ -250,51 +281,13 @@ export async function runKpiDailyQa(render, tick, check) {
     await tick();
     check(
       writes.at(-1).mutationId === failed.mutationId,
-      "retry mutation changed",
-    );
-    check(records.get("DAY:" + date).body.conversions === 8, "retry failed");
-    const dt = new DataTransfer(),
-      importBody = {
-        ...records.get("DAY:" + date).body,
-        visits: 222,
-        conversions: 9,
-      };
-    dt.items.add(
-      new File([dailyCsv(importBody)], "daily.csv", { type: "text/csv" }),
-    );
-    const file = input("일별 KPI CSV 업로드"),
-      beforeWrites = writes.length;
-    file.files = dt.files;
-    file.dispatchEvent(new Event("change", { bubbles: true }));
-    await tick();
-    await tick();
-    check(
-      document.querySelector(".kd-import-review") &&
-        writes.length === beforeWrites,
-      "upload skipped preview",
-    );
-    button("이 날짜에 적용").click();
-    await tick();
-    await tick();
-    check(records.get("DAY:" + date).body.visits === 222, "CSV apply failed");
-    document.querySelector(".kd-history summary").click();
-    await tick();
-    await tick(); // settings history
-    const dayHistory = document.querySelector(".kd-entry .kd-history summary");
-    dayHistory.click();
-    await tick();
-    await tick();
-    check(
-      document
-        .querySelector(".kd-entry .kd-history")
-        .textContent.includes("전체 유입"),
-      "history missing changes",
+      "label retry mutation changed",
     );
     conflict = true;
-    await fill("전체 최종 전환", "10");
+    await fill(label, "충돌한 유입명");
     check(
-      input("전체 최종 전환").value === "10" &&
-        document.querySelector(".kd-error"),
+      input(label).value === "충돌한 유입명" &&
+        document.querySelector("[role=alert]"),
       "conflict draft lost",
     );
     conflict = false;
@@ -303,17 +296,31 @@ export async function runKpiDailyQa(render, tick, check) {
     await tick();
     await tick();
     await tick();
-    check(input("전체 최종 전환").value === "9", "canonical reload failed");
+    check(input(label).value === "예약 유입", "canonical reload failed");
     window.confirm = () => false;
-    // Project remount and read-only boundaries.
+    check(
+      JSON.stringify([...records].filter(([k]) => k.startsWith("DAY:"))) ===
+        legacyBefore,
+      "legacy data changed on UI removal",
+    );
+    check(
+      writes.every((w) => w.kind === "SETTINGS"),
+      "removed editor caused writes",
+    );
     await mount({ project: { id: 2, name: "메디신피아" } });
-    check(input("전체 유입").value === "", "cross-project draft leak");
+    check(input(label).value === "유입", "cross-project draft leak");
+    check(
+      document
+        .querySelector(".kd-stage.traffic strong")
+        .textContent.includes("—"),
+      "cross-project values leak",
+    );
     await mount({ canWrite: false });
     check(
-      input("전체 유입").disabled &&
-        !button("파일 업로드") &&
-        !button("채널 추가"),
-      "read-only actions exposed",
+      input(label).disabled &&
+        !input("KPI 데이터 입력") &&
+        input("KPI 입력 기록"),
+      "readonly actions wrong",
     );
     failRead = true;
     await mount();
@@ -325,19 +332,20 @@ export async function runKpiDailyQa(render, tick, check) {
     button("다시 시도").click();
     await tick();
     await tick();
-    check(input("전체 유입"), "read retry failed");
+    check(input(label), "read retry failed");
     await mount();
     check(
       document.documentElement.scrollWidth <= innerWidth + 2,
-      "daily page horizontal overflow",
+      "KPI page horizontal overflow",
     );
     document.activeElement?.blur();
     window.scrollTo(0, 0);
     return {
-      dailyEdits: true,
+      minimalDashboard: true,
+      legacyDailyPreserved: true,
+      legacyTrend: true,
+      inlineLabelSave: true,
       autosaveQueue: true,
-      atomicPaste: true,
-      csvPreview: true,
       immutableRetry: true,
       conflictDraft: true,
       readOnly: true,
