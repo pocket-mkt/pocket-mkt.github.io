@@ -1,0 +1,150 @@
+.ko-trend {
+  min-width: 0;
+  background: #fff;
+  border: 1px solid #dce5f1;
+  border-radius: 9px;
+  padding: 20px;
+}
+.ko-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ko-heading p,
+.ko-heading > span,
+.ko-legend small,
+.ko-note {
+  color: #667a94;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.ko-heading p {
+  margin-top: 4px;
+}
+.ko-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 4px;
+}
+.ko-legend button {
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.ko-legend button[aria-pressed="true"] {
+  background: #f1f5fc;
+  border-color: #c0cfe7;
+  font-weight: 600;
+}
+.ko-legend button[aria-pressed="false"] {
+  color: #8994a5;
+}
+.ko-legend button[aria-pressed="false"] i {
+  opacity: 0.3;
+}
+.ko-legend i,
+.ko-values i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.ko-legend small {
+  margin-left: auto;
+}
+.ko-plot {
+  position: relative;
+}
+.ko-chart {
+  height: 340px;
+  width: 100%;
+  min-width: 0;
+}
+.ko-empty {
+  position: absolute;
+  top: 45%;
+  left: 12%;
+  right: 12%;
+  text-align: center;
+  color: #667a94;
+  font-size: 13px;
+  background: #fffffff0;
+  padding: 12px;
+  pointer-events: none;
+}
+.ko-detail {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px 24px;
+  padding: 14px 0;
+  border-top: 1px solid #edf1f7;
+}
+.ko-date {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+.kd-workspace .ko-date input[type="range"] {
+  width: 140px;
+  border: 0;
+  padding: 0;
+  accent-color: #264777;
+}
+.ko-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  font-size: 12px;
+}
+.ko-values > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.ko-values b {
+  margin-left: 3px;
+  white-space: nowrap;
+}
+.ko-note {
+  border-top: 1px solid #edf1f7;
+  padding-top: 12px;
+}
+@media (max-width: 700px) {
+  .ko-trend {
+    padding: 14px;
+  }
+  .ko-heading {
+    align-items: flex-start;
+  }
+  .ko-heading > span {
+    white-space: nowrap;
+  }
+  .ko-chart {
+    height: 270px;
+  }
+  .ko-legend {
+    gap: 6px;
+  }
+  .ko-legend small {
+    margin-left: 0;
+    width: 100%;
+  }
+  .ko-date {
+    width: 100%;
+  }
+  .kd-workspace .ko-date input[type="range"] {
+    flex: 1;
+  }
+  .ko-values {
+    gap: 8px 14px;
+  }
+}

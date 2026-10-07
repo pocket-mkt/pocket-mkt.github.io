@@ -22,6 +22,7 @@ import { sheetComparisons } from "./kpiComparisons.js";
 import { effectiveGoals, sheetStats } from "./kpiStageModel.js";
 import "./kpiDaily.css";
 const StageTrend = lazy(() => import("./KpiStageTrend.jsx"));
+const OverviewTrend = lazy(() => import("./KpiOverviewTrend.jsx"));
 const fmt = (v) =>
   v == null
     ? "—"
@@ -710,6 +711,16 @@ export default function KpiDailyView({ project, source, canWrite }) {
               </>
             )}
           </CardSettings>
+          <Suspense
+            fallback={<p role="status">전체 성과 차트를 준비하는 중…</p>}
+          >
+            <OverviewTrend
+              key={project.id + ":" + month}
+              data={state.data}
+              month={month}
+              settings={settings}
+            />
+          </Suspense>
           {trendStage != null && (
             <Suspense
               fallback={<p role="status">일별 추이 차트를 준비하는 중…</p>}

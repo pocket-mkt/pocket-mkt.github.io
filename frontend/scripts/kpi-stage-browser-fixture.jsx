@@ -546,6 +546,64 @@ export async function runKpiStageQa(render, tick, check) {
       "cost growth incorrect",
     );
     const writesBeforeTrend = writes.length;
+    for (let i = 0; i < 10 && !document.querySelector(".ko-chart"); i++)
+      await tick();
+    await tick();
+    const overview = () =>
+      echarts.getInstanceByDom(document.querySelector(".ko-chart"));
+    check(
+      document.querySelectorAll(".ko-trend").length === 1,
+      "overview chart duplicated",
+    );
+    check(
+      overview().getOption().series.length === 3,
+      "overview default stages missing",
+    );
+    check(
+      overview()
+        .getOption()
+        .series.find((s) => s.id === "visits")
+        .data.includes(20),
+      "overview inflow values wrong",
+    );
+    check(
+      overview()
+        .getOption()
+        .series.every((s) => s.connectNulls === false),
+      "overview fills missing gaps",
+    );
+    await click(
+      document.querySelector('.ko-legend [data-metric="impressions"]'),
+    );
+    await click(document.querySelector('.ko-legend [data-metric="clicks"]'));
+    check(
+      !overview()
+        .getOption()
+        .series.some((s) => s.id === "impressions"),
+      "legend did not hide line",
+    );
+    check(
+      overview()
+        .getOption()
+        .series.find((s) => s.id === "clicks")
+        .data.includes(4),
+      "legend did not show clicks",
+    );
+    await fill("통합 추이 확인 날짜", String(Number(previous.slice(-2)) - 1));
+    check(
+      document.querySelector(".ko-date b").textContent ===
+        previous.replaceAll("-", "."),
+      "keyboard date selection failed",
+    );
+    check(
+      !document.querySelector('[role="dialog"]') &&
+        writes.length === writesBeforeTrend,
+      "overview interaction opens editor or writes",
+    );
+    await click(
+      document.querySelector('.ko-legend [data-metric="impressions"]'),
+    );
+    await click(document.querySelector('.ko-legend [data-metric="clicks"]'));
     await openTrend(1);
     const chart = () =>
       echarts.getInstanceByDom(document.querySelector(".kt-dialog .kd-chart"));
@@ -660,6 +718,7 @@ export async function runKpiStageQa(render, tick, check) {
       delta("visits").textContent.includes("200% 상승"),
       "edited latest value did not recalculate",
     );
+    check(overview().getOption().series.find(s=>s.id==="visits").data.includes(30), "overview did not refresh after save");
     await open(1);
     check(
       document.documentElement.scrollWidth <= innerWidth + 2,
@@ -704,6 +763,15 @@ export async function runKpiStageQa(render, tick, check) {
         "marketing summary overflow",
       );
     };
+    window.stageQaShowOverview = async () => {
+      document.querySelector(".ko-trend").scrollIntoView({ block: "center" });
+      await tick();
+      const box = document.querySelector(".ko-trend").getBoundingClientRect();
+      check(
+        box.left >= 0 && box.right <= innerWidth,
+        "overview horizontal overflow",
+      );
+    };
     window.stageQaShowTrend = async () => {
       await openTrend(1);
     };
@@ -713,6 +781,7 @@ export async function runKpiStageQa(render, tick, check) {
       commonEntryStagePicker: true,
       dirtyStageGuard: true,
       dailyTrendMetrics: true,
+      unifiedChart: true,
       trendNoWrites: true,
       periodTotalsSeparate: true,
       inlineInflowLabelSaved: true,
