@@ -10,6 +10,7 @@ export async function verifyChecklistSecurity(db, users, assert) {
     assert(failure?.code === code, `checklist expected ${code}, got ${failure?.code}: ${failure?.message}`);
   };
   try {
+    const taskSnapshot = (await db.query("select md5(coalesce(jsonb_agg(to_jsonb(t) order by t.id)::text,'')) hash from public.tasks t")).rows[0].hash;
     await db.exec(`update public.projects set archived_at=null,status_code='ACTIVE' where id in (1,2);update public.profiles set archived_at=null,status_code='ACTIVE' where id in ('${users.ns}','${users.client}');update public.project_memberships set permission_code=case when user_id='${users.ns}' then 'EDIT' else 'READ_ONLY' end,allowed_pages=array['tasks'],status_code='ACTIVE',archived_at=null where project_id=1;update public.project_memberships set archived_at=now() where user_id='${users.ns}' and project_id<>1;`);
     await as('ns');
     const projects = (await read()).projects;
@@ -68,6 +69,23 @@ export async function verifyChecklistSecurity(db, users, assert) {
     const afterDeadline = await read(1);
     assert(afterDeadline.items[0].id === late.id && afterDeadline.summary.overdue === beforeDeadline.summary.overdue + 1 && afterDeadline.summary.pending === beforeDeadline.summary.pending + 1, 'oldest pending deadline first and authorized full-list summary');
     assert(afterDeadline.today === (await db.query("select (now() at time zone 'Asia/Seoul')::date::text today")).rows[0].today, 'server Korea-day deadline basis');
+    // Explicit direction is request metadata, never canonical campaign task ownership.
+    const handoffId = crypto.randomUUID(), handoffMutation = crypto.randomUUID();
+    const handoffBody = { date: '2000-01-01', title: 'QA directional request', completed: false, direction: 'POCKET_TO_NS' };
+    const handoff = (await save(handoffId, null, 1, handoffBody, handoffMutation)).item;
+    assert(handoff.request_direction === 'POCKET_TO_NS' && handoff.created_by === users.ns, 'direction never impersonates the authenticated author');
+    assert((await save(handoffId, null, 1, handoffBody, handoffMutation)).replayed, 'direction retries deduplicate');
+    await deny(() => save(handoffId, null, 1, { ...handoffBody, direction: 'NS_TO_POCKET' }, handoffMutation), '22023');
+    for (const direction of [null, '', 'NS', 1, true, ['POCKET_TO_NS']]) await deny(() => save(crypto.randomUUID(), null, 1, { ...handoffBody, direction }), '22023');
+    let handed = (await save(handoffId, 1, 1, { ...handoffBody, direction: 'NS_TO_POCKET', completed: true })).item;
+    assert(handed.request_direction === 'NS_TO_POCKET' && handed.row_version === 2, 'direction is editable on same request');
+    const compatibility = (await save(handoffId, 2, 1, { date: handoffBody.date, title: 'legacy client edit', completed: true })).item;
+    assert(compatibility.request_direction === 'NS_TO_POCKET' && compatibility.completed_at === handed.completed_at && compatibility.completed_by === handed.completed_by, 'old client preserves direction and completion attribution');
+    assert((await read(1)).items.every(i => !i.row_kind && !String(i.id).startsWith('task:')), 'current checklist endpoint excludes task-table records');
+    await db.exec('reset role');
+    const audit = (await db.query('select before_value,response from private.checklist_audit where mutation_id=$1', [handoffMutation])).rows[0];
+    assert(audit.before_value === null && audit.response.item.request_direction === 'POCKET_TO_NS', 'direction is included in canonical audit snapshot');
+    assert((await db.query("select md5(coalesce(jsonb_agg(to_jsonb(t) order by t.id)::text,'')) hash from public.tasks t")).rows[0].hash === taskSnapshot, 'request changes never alter original campaign tasks');
     await db.exec(`reset role;update public.project_memberships set permission_code='READ_ONLY' where project_id=1 and user_id='${users.ns}'`);
     await as('ns'); assert((await read()).projects[0].canWrite === false, 'readonly projection');
     await deny(() => save(crypto.randomUUID()));
@@ -78,5 +96,5 @@ export async function verifyChecklistSecurity(db, users, assert) {
     await db.exec("reset role;set role anon;select set_config('request.jwt.claim.sub','',false)");
     await deny(() => read());
     console.log(JSON.stringify({ checklist: 'pagination, seven-day cutoff, reopen, project move, retry, conflicts, board, archive, NS/readonly/client/anon/disabled isolation passed' }));
-  } finally { await db.exec('reset role;rollback'); }
+  } finally { await db.exec('rollback;reset role'); }
 }

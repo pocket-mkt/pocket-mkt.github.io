@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { checklistBucket, checklistDraft, checklistRequest, checklistToday, boardSegments, checklistProjectRoute, checklistDeadline, checklistIsDone, checklistCompletionRequest, saveChecklistEntry } from '../src/checklistModel.js';
+import { checklistBucket, checklistDraft, checklistRequest, checklistToday, boardSegments, checklistProjectRoute, checklistDeadline, checklistIsDone, checklistCompletionRequest, saveChecklistEntry, CHECKLIST_DIRECTIONS, checklistDirection } from '../src/checklistModel.js';
 import { createChecklistApi } from '../src/supabase/checklistApi.js';
 import { isViewAllowed, ACCESS_PAGE_KEYS } from '../src/accessPermissions.js';
 import { parseViewLocation } from '../src/planNavigation.js';
@@ -46,26 +46,31 @@ test('checklist RPC adapter preserves pagination and mutation envelope', async (
  const calls = [], client = { rpc(name, args) { calls.push({ name, args }); return Promise.resolve({ data: { items: [] } }); } };
  const api = createChecklistApi(client), cursor = { date: '2026-10-08', id: crypto.randomUUID() };
  await api.list({ projectId: 2, bucket: 'completed', cursor });
- assert.equal(calls[0].name, 'read_checklist_feed');
+ assert.equal(calls[0].name, 'read_workspace_checklist');
  assert.deepEqual(calls[0].args, { p_project_id: 2, p_bucket: 'completed', p_cursor: cursor, p_limit: 10 });
  const input = checklistRequest(checklistDraft(null, 2)); input.body.title = 'hello';
  await api.save(input); await api.save(input);
  assert.deepEqual(calls[1], calls[2]);
  await api.board({ projectId: 2 }); assert.equal(calls[3].name, 'read_checklist_board');
 });
-test('registered task checks mutate only canonical status with version and identical retry ID', async () => {
- const task = { id: 'task:77', source_id: '77', row_kind: 'TASK', project_id: 2, task_date: null, title: 'registered', row_version: 8, status_code: 'ON_HOLD', is_complete: false };
- assert.equal(checklistDeadline(task, '2026-10-08'), null);
- assert.equal(checklistIsDone({ is_complete: true, completed_at: null }), true);
- const input = checklistCompletionRequest(task, true), calls = [];
- const source = { saveChecklist() { throw Error('must not copy task'); }, mutate: async x => { calls.push(x); return { data: { record: { id: 77, project_id: 2, title: task.title, due_date: null, row_version: 9, status_code: 'DONE', completed_at: '2026-10-08T00:00:00Z' } } }; } };
- const result = await saveChecklistEntry(source, input); await saveChecklistEntry(source, input);
- assert.deepEqual(calls[0], calls[1]); assert.equal(calls[0].mutation.expectedRowVersion, 8);
- assert.deepEqual(calls[0].mutation.fields, { status_code: 'DONE' });
- assert.equal(result.data.item.id, 'task:77'); assert.equal(result.data.item.is_complete, true);
- const undo = checklistCompletionRequest(result.data.item, false, task.status_code);
- assert.equal(undo.rowVersion, 9); assert.deepEqual(undo.body, { status_code: 'ON_HOLD' });
- assert.deepEqual(checklistCompletionRequest(result.data.item, false).body, { status_code: 'IN_PROGRESS' });
+test('direction tags follow the receiving team, with no invented legacy owner', () => {
+ assert.equal(checklistDirection('POCKET_TO_NS').tone, 'ns');
+ assert.equal(checklistDirection('NS_TO_POCKET').tone, 'pocket');
+ assert.equal(CHECKLIST_DIRECTIONS.length, 2);
+ assert.equal(checklistDirection(null).tone, 'unassigned');
+ assert.equal(checklistDraft(null, 2).direction, '');
+ const item = { id: crypto.randomUUID(), project_id: 2, task_date: '2026-10-08', title: 'request', row_version: 4, request_direction: 'NS_TO_POCKET' };
+ assert.equal(checklistRequest(checklistDraft(item), item).body.direction, 'NS_TO_POCKET');
+ assert.equal(checklistCompletionRequest(item, true).body.direction, 'NS_TO_POCKET');
+});
+test('checklist writes never call canonical task mutation or copy task rows', async () => {
+ const input = checklistRequest({ ...checklistDraft(null, 2), title: 'request', direction: 'POCKET_TO_NS' });
+ const calls = [], source = { saveChecklist: async x => { calls.push(x); return { data: { item: x } }; }, mutate: () => { throw Error('must not mutate original tasks'); } };
+ await saveChecklistEntry(source, input); await saveChecklistEntry(source, input);
+ assert.deepEqual(calls[0], calls[1]);
+ assert.deepEqual(input.body, { date: input.body.date, title: 'request', completed: false, direction: 'POCKET_TO_NS' });
+ assert.throws(() => checklistCompletionRequest({ row_kind: 'TASK', id: 'task:7', title: 'original task' }, true));
+ await assert.rejects(saveChecklistEntry(source, { kind: 'TASK' }));
 });
 test('checklist conflict/denial errors are safe and actionable', async () => {
  for (const [code, mapped] of [['40001', 'conflict'], ['42501', 'forbidden']]) {
