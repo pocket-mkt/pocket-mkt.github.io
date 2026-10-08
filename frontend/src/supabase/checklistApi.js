@@ -12,7 +12,7 @@ export function createChecklistApi(client) {
     return { ok: true, generatedAt: new Date().toISOString(), data };
   }
   return {
-    list: ({ projectId = null, bucket = 'active', cursor = null, limit = 10, signal } = {}) => call('read_workspace_checklist', { p_project_id: projectId || null, p_bucket: bucket, p_cursor: cursor, p_limit: limit }, signal),
+    list: ({ projectId = null, bucket = 'active', cursor = null, limit = 10, signal } = {}) => call('read_checklist_feed', { p_project_id: projectId || null, p_bucket: bucket, p_cursor: cursor, p_limit: limit }, signal),
     board: ({ projectId, signal }) => call('read_checklist_board', { p_project_id: projectId }, signal),
     save: ({ kind = 'ITEM', projectId, id = null, body, rowVersion = null, mutationId, operation = 'SAVE' }) => call('save_workspace_checklist', { p_kind: kind, p_project_id: projectId, p_id: id, p_body: body, p_expected_version: rowVersion, p_mutation_id: mutationId, p_operation: operation }),
   };

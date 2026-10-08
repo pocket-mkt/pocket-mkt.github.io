@@ -29,7 +29,7 @@ test("업무 화면은 중복 운영 보드 없이 일정표·간트·업무 로
 });
 
 test("일정표와 간트는 같은 원장 행을 두 가지 표시 방식으로 전환한다", () => {
-  assert.match(appSource, /const \[displayMode, setDisplayMode\] = useState\(taskPage\.project\?\.scheduleFocus \? "gantt" : initialSection === "activity" \? "activity" : "table"\)/);
+  assert.match(appSource, /const \[displayMode, setDisplayMode\] = useState\(taskPage\.project\?\.scheduleFocus && taskPage\.project\.scheduleFocus\.mode !== 'table' \? "gantt" : initialSection === "activity" \? "activity" : "table"\)/);
   assert.match(appSource, /aria-selected=\{activeView === "table"\}/);
   assert.match(appSource, /aria-selected=\{activeView === "gantt"\}/);
   assert.match(appSource, /task-schedule-matrix is-detailed reference-task-table/);

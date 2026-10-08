@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarDays, Check, ChevronDown, ClipboardCheck, ExternalLink, KeyRound, Pencil, Plus, Trash2, Undo2, X } from 'lucide-react';
 import { useDialogSurface } from './useDialogSurface.js';
 import { startWorkspaceRefresh } from './workspaceRefresh.js';
-import { boardSegments, checklistDraft, checklistRequest, checklistProjectRoute, checklistDeadline } from './checklistModel.js';
+import { boardSegments, checklistDraft, checklistRequest, checklistProjectRoute, checklistDeadline, checklistIsDone, checklistCompletionRequest, saveChecklistEntry } from './checklistModel.js';
 import './checklistDashboard.css';
 
 const isDenied = error => ['forbidden', 'unauthorized'].includes(error?.code);
@@ -31,9 +31,10 @@ function useChecklistWriter(source, onSaved) {
     if (!request.current) return;
     lock.current = true; setBusy(true); setError(null);
     try {
-      const result = await source.saveChecklist(request.current);
+      const completedRequest = request.current;
+      const result = await saveChecklistEntry(source, completedRequest);
       request.current = null;
-      if (alive.current) { setError(null); saved.current?.(result.data); }
+      if (alive.current) { setError(null); saved.current?.(result.data, completedRequest); }
     } catch (failure) { if (alive.current) setError(failure); }
     finally { lock.current = false; if (alive.current) setBusy(false); }
   }
@@ -105,7 +106,7 @@ function ProjectBoard({ project, source, onOpenProject, onEditingChange }) {
   </section>;
 }
 
-export default function ChecklistDashboard({ source, onOpenProject }) {
+export default function ChecklistDashboard({ source, onOpenProject, onTaskSaved }) {
   const [projectId, setProjectId] = useState(''), [bucket, setBucket] = useState('active'), [boardId, setBoardId] = useState('');
   const [state, setState] = useState({ loading: true, items: [], projects: [], next_cursor: null, error: null });
   const [editor, setEditor] = useState(null), [notice, setNotice] = useState(''), [undo, setUndo] = useState(null);
@@ -121,10 +122,11 @@ export default function ChecklistDashboard({ source, onOpenProject }) {
       setBoardId(id => result.data.projects.some(p => String(p.id) === id) ? id : String(result.data.projects[0]?.id || ''));
     } catch (error) { if (!abort.signal.aborted) setState(s => ({ ...s, loading: false, error, ...(isDenied(error) ? { items: [], projects: [], summary: null, next_cursor: null } : {}) })); }
   }, [source, projectId, bucket]);
-  const writer = useChecklistWriter(source, data => {
+  const writer = useChecklistWriter(source, (data, request) => {
     const item = data.item;
-    setUndo(item?.completed_at && !item.archived_at ? item : null);
-    setNotice(item?.archived_at ? '삭제 완료' : item?.completed_at ? '완료 체크됨' : '저장 완료');
+    if (item?.row_kind === 'TASK') onTaskSaved?.(checklistProjectRoute(state.projects.find(p => String(p.id) === String(item.project_id)) || { id: item.project_id }));
+    setUndo(item && checklistIsDone(item) && !item.archived_at ? { ...item, undo_status: request.snapshot?.status_code } : null);
+    setNotice(item?.archived_at ? '삭제 완료' : item && checklistIsDone(item) ? '완료 체크됨' : '저장 완료');
     void load({ refresh: true });
   });
   latest.current = { state, editor, writer };
@@ -143,21 +145,22 @@ export default function ChecklistDashboard({ source, onOpenProject }) {
   const closeEditor = useCallback(() => { setEditor(null); void load({ refresh: true }); }, [load]);
   const saveEditor = () => { setEditor(null); setUndo(null); setNotice('저장 완료'); void load({ refresh: true }); };
   return <div className="checklist-dashboard" ref={view}>
-    <header className="checklist-heading"><div><h1><ClipboardCheck size={23}/>체크리스트</h1><p>회의에서 정한 할 일, 완료까지 함께 확인합니다.</p></div>{Boolean(writableProjects.length) && <button className="checklist-primary" disabled={locked} onClick={() => setEditor({ item: null })}><Plus size={16}/>할 일 추가</button>}</header>
+    <header className="checklist-heading"><div><h1><ClipboardCheck size={23}/>체크리스트</h1><p>업무표의 등록 업무와 직접 추가한 할 일을 함께 확인합니다.</p></div>{Boolean(writableProjects.length) && <button className="checklist-primary" disabled={locked} onClick={() => setEditor({ item: null })}><Plus size={16}/>할 일 추가</button>}</header>
     <nav className="checklist-projects" aria-label="체크리스트 프로젝트"><button aria-pressed={!projectId} onClick={() => changeProject('')} disabled={locked}>전체 프로젝트</button>{state.projects.map(p => <button key={p.id} aria-pressed={String(p.id) === projectId} title={p.name} onClick={() => changeProject(String(p.id))} disabled={locked}>{projectLabel(p)}</button>)}</nav>
     <section className="checklist-panel" aria-label="할 일 목록">
-      <div className="checklist-toolbar"><div className="checklist-buckets"><button aria-pressed={bucket === 'active'} disabled={locked} onClick={() => { setBucket('active'); setUndo(null); setNotice(''); }}>할 일</button><button aria-pressed={bucket === 'completed'} disabled={locked} onClick={() => { setBucket('completed'); setUndo(null); setNotice(''); }}>완료</button></div><p>{bucket === 'active' ? '미완료 먼저 · 마감일 순 · 완료 후 7일간 유지' : '완료한 지 7일 지난 항목입니다. 체크를 해제하면 할 일로 돌아갑니다.'}</p><span role="status">{notice}</span>{undo && state.projects.some(p => p.id === undo.project_id && p.canWrite) && <button className="checklist-undo" disabled={locked} title={undo.title} onClick={() => void writer.save(checklistRequest({ ...checklistDraft(undo), completed: false }, undo))}><Undo2 size={13}/>완료 취소</button>}</div>
+      <div className="checklist-toolbar"><div className="checklist-buckets"><button aria-pressed={bucket === 'active'} disabled={locked} onClick={() => { setBucket('active'); setUndo(null); setNotice(''); }}>할 일</button><button aria-pressed={bucket === 'completed'} disabled={locked} onClick={() => { setBucket('completed'); setUndo(null); setNotice(''); }}>완료</button></div><p>{bucket === 'active' ? '미완료 먼저 · 마감일 순 · 완료 후 7일간 유지' : '완료한 지 7일 지난 항목입니다. 체크를 해제하면 할 일로 돌아갑니다.'}</p><span role="status">{notice}</span>{undo && state.projects.some(p => String(p.id) === String(undo.project_id) && p.canWrite) && <button className="checklist-undo" disabled={locked} title={undo.title} onClick={() => void writer.save(checklistCompletionRequest(undo, false, undo.undo_status))}><Undo2 size={13}/>완료 취소</button>}</div>
       {state.summary && <div className="checklist-summary" aria-label="선택 프로젝트 전체 현황"><span>미완료 <strong>{state.summary.pending}</strong></span><span className={state.summary.overdue ? 'is-overdue' : ''}>기한 지남 <strong>{state.summary.overdue}</strong></span><span>오늘 마감 <strong>{state.summary.today}</strong></span></div>}
       {state.error && <div className="checklist-error" role="alert">{state.error.message}<button onClick={() => load()}>다시 시도</button></div>}
       {writer.error && <><SaveError writer={writer}/><button className="checklist-dismiss" onClick={() => { if (!uncertain(writer.error) || window.confirm('저장이 반영되었을 수도 있습니다. 요청을 닫고 최신 목록을 확인하시겠습니까?')) { writer.reset(); void load({ refresh: true }); } }}>최신 목록 확인</button></>}
       <div className="checklist-table-scroll"><table><colgroup><col className="checklist-date-col"/><col/><col className="checklist-project-col"/><col className="checklist-check-col"/></colgroup><thead><tr><th>마감일</th><th>할 일</th><th>프로젝트명</th><th>완료 체크</th></tr></thead><tbody>{state.items.map(item => {
         const p = state.projects.find(p => String(p.id) === String(item.project_id));
         const deadline = checklistDeadline(item, state.today);
-        return <tr key={item.id} className={item.completed_at ? 'is-complete' : deadline ? `is-${deadline.kind}` : ''} data-checklist-id={item.id}>
-          <td><span className="checklist-date"><CalendarDays size={13}/>{item.task_date.replaceAll('-', '.')}</span>{deadline && <small className={`checklist-deadline is-${deadline.kind}`}>{deadline.label}</small>}</td>
-          <td><div className="checklist-task-cell">{p?.canWrite ? <button className="checklist-task-title" disabled={locked} onClick={() => setEditor({ item })}>{item.title}<Pencil size={12}/></button> : <span className="checklist-task-title">{item.title}</span>}{p?.canWrite && <button className="checklist-remove" aria-label={`${item.title} 삭제`} disabled={locked} onClick={() => { if (window.confirm(`“${item.title}” 할 일을 삭제하시겠습니까?`)) void writer.save({ ...checklistRequest(checklistDraft(item), item), operation: 'ARCHIVE', body: {} }); }}><Trash2 size={13}/></button>}</div>{(item.created_by_name || item.completed_at) && <div className="checklist-task-meta">{item.created_by_name && <span>등록 {item.created_by_name}</span>}{item.completed_at && <span>완료 체크 {item.completed_by_name || '계정 기록 없음'} · {timestamp(item.completed_at)}</span>}</div>}</td>
+        const task = item.row_kind === 'TASK', done = checklistIsDone(item);
+        return <tr key={item.id} className={done ? 'is-complete' : deadline ? `is-${deadline.kind}` : ''} data-checklist-id={item.id}>
+          <td><span className="checklist-date"><CalendarDays size={13}/>{item.task_date ? item.task_date.replaceAll('-', '.') : '마감일 미정'}</span>{deadline && <small className={`checklist-deadline is-${deadline.kind}`}>{deadline.label}</small>}</td>
+          <td><div className="checklist-task-cell">{task ? (onOpenProject && p ? <button className="checklist-task-title" disabled={locked} title="원본 업무표 열기" onClick={() => onOpenProject(checklistProjectRoute(p), 'schedule', item.execution_month)}>{item.title}<ExternalLink size={12}/></button> : <span className="checklist-task-title">{item.title}</span>) : p?.canWrite ? <button className="checklist-task-title" disabled={locked} onClick={() => setEditor({ item })}>{item.title}<Pencil size={12}/></button> : <span className="checklist-task-title">{item.title}</span>}{!task && p?.canWrite && <button className="checklist-remove" aria-label={`${item.title} 삭제`} disabled={locked} onClick={() => { if (window.confirm(`“${item.title}” 할 일을 삭제하시겠습니까?`)) void writer.save({ ...checklistRequest(checklistDraft(item), item), operation: 'ARCHIVE', body: {} }); }}><Trash2 size={13}/></button>}</div><div className="checklist-task-meta"><span className={`checklist-origin${task ? ' is-task' : ''}`}>{task ? '업무표' : '직접 추가'}</span>{task && <span>{({ NOT_STARTED: '시작 전', IN_PROGRESS: '진행중', DELAYED: '지연', ON_HOLD: '보류', DONE: '완료' })[item.status_code] || '진행중'}{item.execution_month ? ` · ${item.execution_month.slice(0,7)}` : ''}</span>}{item.created_by_name && <span>등록 {item.created_by_name}</span>}{done && <span>완료 체크 {item.completed_by_name || '계정 기록 없음'} · {item.completed_at ? timestamp(item.completed_at) : '시각 기록 없음'}</span>}</div></td>
           <td><button className="checklist-project-pill" disabled={locked} onClick={() => changeProject(String(item.project_id))}>{projectLabel(p)}</button></td>
-          <td className="checklist-check-cell"><input type="checkbox" aria-label={`${item.title} 완료 체크`} title={item.completed_at ? `완료 ${timestamp(item.completed_at)} · 클릭하면 다시 할 일로` : '완료 체크'} checked={Boolean(item.completed_at)} disabled={!p?.canWrite || locked} onChange={event => void writer.save(checklistRequest({ ...checklistDraft(item), completed: event.target.checked }, item))}/></td>
+          <td className="checklist-check-cell"><input type="checkbox" aria-label={`${item.title} 완료 체크`} title={done ? '체크를 해제하면 다시 할 일로' : task ? '원본 업무를 완료로 변경' : '완료 체크'} checked={done} disabled={!p?.canWrite || locked} onChange={event => void writer.save(checklistCompletionRequest(item, event.target.checked))}/></td>
         </tr>;
       })}</tbody></table></div>
       {state.loading && <p className="checklist-empty" role="status">체크리스트를 불러오는 중…</p>}

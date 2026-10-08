@@ -29,6 +29,7 @@
 .checklist-summary{display:flex;flex-wrap:wrap;gap:10px 24px;padding:11px 18px;border-bottom:1px solid #e7edf5;color:#74829a;font-size:12px}
 .checklist-summary strong{color:#334665;margin-left:5px;font-variant-numeric:tabular-nums}.checklist-summary .is-overdue,.checklist-summary .is-overdue strong{color:#b64646}
 .checklist-dashboard .checklist-undo{font-size:11px;padding:5px 8px}
+.checklist-origin{font-size:10px;border-radius:3px;background:#f2f4f7;padding:0 5px;color:#75839a}.checklist-origin.is-task{background:#edf3fd;color:#45628c}
 .checklist-task-cell{display:flex;align-items:center;gap:8px}
 .checklist-dashboard .checklist-task-title{display:inline-flex;align-items:center;justify-content:flex-start;text-align:left;padding:0;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere;border:0;background:transparent;font-weight:550;font-size:13px;flex:1;min-width:0}
 .checklist-task-title svg{flex-shrink:0;color:#a2aec0;opacity:0}.checklist-task-title:hover svg,.checklist-task-title:focus-visible svg{opacity:1}

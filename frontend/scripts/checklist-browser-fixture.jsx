@@ -2,7 +2,7 @@ import React from 'react';
 import ChecklistDashboard from '../src/ChecklistDashboard.jsx';
 import { checklistBucket, checklistToday } from '../src/checklistModel.js';
 
-export async function runChecklistQa(render, tick, check) {
+async function runManualChecklistQa(render, tick, check) {
   const today = checklistToday(), old = new Date(Date.now() - 8 * 86400000).toISOString();
   let rows = Array.from({ length: 12 }, (_, i) => ({ id: `row-${String(i).padStart(2, '0')}`, project_id: i % 2 + 1, task_date: i === 0 ? '2000-01-01' : today, title: `회의 후속 요청 ${i + 1}`, completed_at: null, created_by_name: '포켓 담당자', row_version: 1 }));
   rows.push({ id: 'old', project_id: 1, task_date: today, title: '일주일 지난 완료 항목', completed_at: old, row_version: 1 });
@@ -108,4 +108,56 @@ export async function runChecklistQa(render, tick, check) {
     check(document.documentElement.scrollWidth <= innerWidth + 1, 'no page-level horizontal overflow');
     return 'ten/more, completion/reopen, project move, safe boards, create/edit/archive, retry/conflict, dirty guard, readonly, failure recovery passed';
   } finally { window.confirm = originalConfirm; }
+}
+
+export async function runChecklistQa(render, tick, check) {
+  const manualResult = await runManualChecklistQa(render, tick, check);
+  const today=checklistToday(), projects=[{id:1,navigation_id:'PRJ-A',client_name:'테스트 프로젝트',name:'운영 프로젝트',canWrite:true}];
+  let rows=[
+    {id:'task:321',source_id:'321',row_kind:'TASK',project_id:1,title:'업무표에 등록된 콘텐츠 업로드',task_date:'2026-09-25',row_version:2,is_complete:false,status_code:'ON_HOLD',execution_month:'2026-09-01',created_by_name:'NS 담당자'},
+    {id:'task:322',source_id:'322',row_kind:'TASK',project_id:1,title:'일정 미정인 광고 소재 검토',task_date:null,row_version:1,is_complete:false,status_code:'NOT_STARTED',execution_month:'2026-10-01'},
+    {id:'manual',row_kind:'ITEM',project_id:1,title:'회의 중 직접 추가한 확인사항',task_date:today,row_version:1,completed_at:null},
+  ];
+  const writes=[],notified=[],opened=[],replays=new Map(); let readonly=false,failAfterCommit=false,reads=0;
+  const source={
+    checklist:async()=>{reads++;return {data:{today,projects:projects.map(p=>({...p,canWrite:!readonly})),items:structuredClone([...rows].sort((a,b)=>Number(Boolean(a.completed_at))-Number(Boolean(b.completed_at))||(a.task_date||'9999').localeCompare(b.task_date||'9999'))),next_cursor:null}};},
+    checklistBoard:async()=>({data:{item:null,canWrite:!readonly}}),
+    saveChecklist:async()=>{throw Error('task must not be copied into manual checklist');},
+    mutate:async request=>{
+      writes.push(structuredClone(request));
+      if(replays.has(request.mutationId))return replays.get(request.mutationId);
+      const row=rows.find(r=>r.source_id===request.mutation.id);
+      if(row.row_version!==request.mutation.expectedRowVersion)throw Object.assign(Error('다른 사람이 수정했습니다.'),{code:'conflict'});
+      row.status_code=request.mutation.fields.status_code;row.is_complete=row.status_code==='DONE';row.completed_at=row.is_complete?new Date().toISOString():null;row.completed_by_name=row.is_complete?'NS 담당자':null;row.row_version++;
+      const response={data:{record:{...row,id:Number(row.source_id),due_date:row.task_date}}};replays.set(request.mutationId,structuredClone(response));
+      if(failAfterCommit){failAfterCommit=false;throw Error('응답을 확인하지 못했습니다.');}
+      return response;
+    },
+  };
+  const settle=async()=>{await tick();await tick();};
+  const taskRow=()=>document.querySelector('[data-checklist-id="task:321"]');
+  await render(<div/>);await render(<ChecklistDashboard source={source} onOpenProject={(...args)=>opened.push(args)} onTaskSaved={id=>notified.push(id)}/>);await settle();
+  check(reads===1&&document.querySelectorAll('[data-checklist-id]').length===3,'registered and manual tasks load automatically in same table');
+  check(taskRow().textContent.includes('업무표')&&!taskRow().querySelector('.checklist-remove'),'registered source label with no duplicate editor/delete');
+  check(document.querySelector('[data-checklist-id="task:322"]').textContent.includes('마감일 미정'),'undated task visible');
+  taskRow().querySelector('.checklist-task-title').click();await tick();
+  check(opened.at(-1)?.join('|')==='PRJ-A|schedule|2026-09-01'&&!document.querySelector('[role=dialog]'),'original task opens own project and execution month');
+  taskRow().querySelector('input').click();await settle();
+  check(writes.length===1&&JSON.stringify(writes[0].mutation.fields)==='{"status_code":"DONE"}'&&notified.at(-1)==='PRJ-A','canonical status-only task mutation invalidates right project');
+  check(taskRow().querySelector('input').checked&&taskRow().textContent.includes('완료 체크 NS 담당자'),'server completion and checker visible');
+  document.querySelector('.checklist-undo').click();await settle();
+  check(rows[0].status_code==='ON_HOLD'&&!taskRow().querySelector('input').checked,'immediate undo restores prior hold status');
+  failAfterCommit=true;taskRow().querySelector('input').click();await settle();
+  const retryId=writes.at(-1).mutationId;
+  [...document.querySelectorAll('button')].find(b=>b.textContent==='같은 요청 다시 시도').click();await settle();
+  check(writes.at(-1).mutationId===retryId&&rows[0].row_version===5,'uncertain task retry never repeats completion mutation');
+  document.querySelector('.checklist-undo').click();await settle();
+  rows[0].row_version++;taskRow().querySelector('input').click();await settle();
+  check(document.querySelector('[role=alert]')&&!taskRow().querySelector('input').checked,'stale canonical task remains unchanged');
+  [...document.querySelectorAll('button')].find(b=>b.textContent==='최신 목록 확인').click();await settle();
+  readonly=true;await render(<div/>);await render(<ChecklistDashboard source={source}/>);await settle();
+  check([...document.querySelectorAll('.checklist-check-cell input')].every(el=>el.disabled),'registered tasks respect readonly');
+  readonly=false;await render(<div/>);await render(<ChecklistDashboard source={source} onOpenProject={()=>{}}/>);await settle();
+  check(document.documentElement.scrollWidth<=innerWidth+1,'mixed checklist no viewport overflow');
+  return `${manualResult}; original tasks, status/undo/retry/conflict, source labels, undated, project/month navigation and cache invalidation passed`;
 }
