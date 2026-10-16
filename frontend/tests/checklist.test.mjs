@@ -56,7 +56,8 @@ test('checklist RPC adapter preserves pagination and mutation envelope', async (
 test('direction tags follow the receiving team, with no invented legacy owner', () => {
  assert.equal(checklistDirection('POCKET_TO_NS').tone, 'ns');
  assert.equal(checklistDirection('NS_TO_POCKET').tone, 'pocket');
- assert.equal(CHECKLIST_DIRECTIONS.length, 2);
+ assert.equal(checklistDirection('POCKET_TO_POCKET').tone, 'pocket');
+ assert.equal(CHECKLIST_DIRECTIONS.length, 3);
  assert.equal(checklistDirection(null).tone, 'unassigned');
  assert.equal(checklistDraft(null, 2).direction, '');
  const item = { id: crypto.randomUUID(), project_id: 2, task_date: '2026-10-08', title: 'request', row_version: 4, request_direction: 'NS_TO_POCKET' };

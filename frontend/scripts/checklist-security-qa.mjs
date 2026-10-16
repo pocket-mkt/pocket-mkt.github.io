@@ -71,9 +71,9 @@ export async function verifyChecklistSecurity(db, users, assert) {
     assert(afterDeadline.today === (await db.query("select (now() at time zone 'Asia/Seoul')::date::text today")).rows[0].today, 'server Korea-day deadline basis');
     // Explicit direction is request metadata, never canonical campaign task ownership.
     const handoffId = crypto.randomUUID(), handoffMutation = crypto.randomUUID();
-    const handoffBody = { date: '2000-01-01', title: 'QA directional request', completed: false, direction: 'POCKET_TO_NS' };
+    const handoffBody = { date: '2000-01-01', title: 'QA directional request', completed: false, direction: 'POCKET_TO_POCKET' };
     const handoff = (await save(handoffId, null, 1, handoffBody, handoffMutation)).item;
-    assert(handoff.request_direction === 'POCKET_TO_NS' && handoff.created_by === users.ns, 'direction never impersonates the authenticated author');
+    assert(handoff.request_direction === 'POCKET_TO_POCKET' && handoff.created_by === users.ns, 'direction never impersonates the authenticated author');
     assert((await save(handoffId, null, 1, handoffBody, handoffMutation)).replayed, 'direction retries deduplicate');
     await deny(() => save(handoffId, null, 1, { ...handoffBody, direction: 'NS_TO_POCKET' }, handoffMutation), '22023');
     for (const direction of [null, '', 'NS', 1, true, ['POCKET_TO_NS']]) await deny(() => save(crypto.randomUUID(), null, 1, { ...handoffBody, direction }), '22023');
@@ -84,7 +84,7 @@ export async function verifyChecklistSecurity(db, users, assert) {
     assert((await read(1)).items.every(i => !i.row_kind && !String(i.id).startsWith('task:')), 'current checklist endpoint excludes task-table records');
     await db.exec('reset role');
     const audit = (await db.query('select before_value,response from private.checklist_audit where mutation_id=$1', [handoffMutation])).rows[0];
-    assert(audit.before_value === null && audit.response.item.request_direction === 'POCKET_TO_NS', 'direction is included in canonical audit snapshot');
+    assert(audit.before_value === null && audit.response.item.request_direction === 'POCKET_TO_POCKET', 'direction is included in canonical audit snapshot');
     assert((await db.query("select md5(coalesce(jsonb_agg(to_jsonb(t) order by t.id)::text,'')) hash from public.tasks t")).rows[0].hash === taskSnapshot, 'request changes never alter original campaign tasks');
     await db.exec(`reset role;update public.project_memberships set permission_code='READ_ONLY' where project_id=1 and user_id='${users.ns}'`);
     await as('ns'); assert((await read()).projects[0].canWrite === false, 'readonly projection');

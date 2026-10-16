@@ -5,6 +5,7 @@ export function checklistProjectRoute(project) { return String(project.navigatio
 export const CHECKLIST_DIRECTIONS = Object.freeze([
   { value: 'POCKET_TO_NS', label: '포켓 → NS', receiver: 'NS 업무', tone: 'ns' },
   { value: 'NS_TO_POCKET', label: 'NS → 포켓', receiver: '포켓 업무', tone: 'pocket' },
+  { value: 'POCKET_TO_POCKET', label: '포켓 → 포켓', receiver: '포켓 업무', tone: 'pocket' },
 ]);
 export function checklistDirection(value) { return CHECKLIST_DIRECTIONS.find(d => d.value === value) || { label: '방향 미지정', receiver: '수정에서 선택', tone: 'unassigned' }; }
 export function checklistIsDone(item) { return Boolean(item.completed_at); }
